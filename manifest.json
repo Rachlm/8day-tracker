@@ -2,7 +2,7 @@
   "name": "8Day Tracker",
   "short_name": "8Day",
   "description": "8-day cycle strength tracker",
-  "start_url": "./index.html",
+  "start_url": "/8day-tracker/index.html",
   "display": "standalone",
   "background_color": "#0f0f0f",
   "theme_color": "#0a0a0a",
