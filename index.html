@@ -53,6 +53,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
 
 /* METRICS */
 .mgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+.mgrid.four{grid-template-columns:repeat(4,1fr)}
 .mc{background:var(--bg2);border-radius:12px;padding:14px 12px;border:1px solid var(--border);text-align:center}
 .mv{font-size:22px;font-weight:700;font-family:'DM Mono',monospace}
 .ml{font-size:10px;color:var(--text3);margin-top:3px;font-weight:500;text-transform:uppercase;letter-spacing:.05em}
@@ -272,9 +273,21 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
 /* TIME EXERCISE BADGE */
 .tbadge-ex{font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;background:var(--purple)22;color:var(--purple);border:1px solid var(--purple)44;letter-spacing:.04em;margin-left:5px;vertical-align:middle}
 
-/* ── KPI CHART ── */
+/* KPI PILL */
 .kpi-pill{padding:5px 11px;border-radius:20px;background:var(--bg3);border:1px solid var(--border);font-size:12px;font-weight:600;cursor:pointer;color:var(--text2);white-space:nowrap;transition:all .15s}
 .kpi-pill.active{background:var(--green);border-color:var(--green);color:#000}
+
+/* PR TOAST */
+.pr-toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:var(--bg2);border:1.5px solid var(--amber);border-radius:50px;padding:12px 20px;display:none;align-items:center;gap:10px;font-size:14px;font-weight:700;z-index:500;box-shadow:0 8px 32px rgba(0,0,0,.5);color:var(--amber);white-space:nowrap;max-width:90vw}
+.pr-toast.show{display:flex}
+
+/* CYCLE SUMMARY CARD */
+.cycle-sum-card{background:var(--bg2);border:1.5px solid var(--green);border-radius:16px;padding:16px;margin-bottom:14px;position:relative}
+.cycle-sum-dismiss{position:absolute;top:12px;right:12px;background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer;padding:2px 6px;border-radius:6px;line-height:1}
+.cycle-sum-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+.cycle-sum-cell{background:var(--bg3);border-radius:10px;padding:10px 8px;text-align:center}
+.cycle-sum-val{font-size:18px;font-weight:700;font-family:'DM Mono',monospace}
+.cycle-sum-lbl{font-size:10px;color:var(--text3);margin-top:3px;text-transform:uppercase;letter-spacing:.05em}
 </style>
 </head>
 <body>
@@ -443,6 +456,19 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
   </div>
 </div>
 
+<!-- BODYWEIGHT LOG MODAL -->
+<div class="mbg" id="bw-modal">
+  <div class="mbox">
+    <h2>Log Bodyweight</h2>
+    <label>Weight (kg)</label>
+    <input type="number" id="bw-input" placeholder="e.g. 82.5" step="0.1" min="30" max="300" inputmode="decimal">
+    <div class="mbtns">
+      <button class="mbtn" onclick="closeBwLog()">Cancel</button>
+      <button class="mbtn primary" onclick="saveBwLog()">Save</button>
+    </div>
+  </div>
+</div>
+
 <!-- SYNC MODAL -->
 <div class="mbg" id="sync-modal">
   <div class="mbox">
@@ -466,6 +492,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
   <button class="rskip" onclick="skipRest()">Skip</button>
 </div>
 
+<!-- PR TOAST -->
+<div class="pr-toast" id="pr-toast">
+  <span>🏆</span><span id="pr-toast-msg">New PR!</span>
+</div>
+
 <!-- ── VIEWS ── -->
 
 <!-- TODAY -->
@@ -479,12 +510,14 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
   </div>
   <div class="vi">
     <div id="today-badge"></div>
-    <div class="mgrid">
+    <div class="mgrid" id="overview-mgrid">
       <div class="mc"><div class="mv" id="m-total">—</div><div class="ml">Sessions</div></div>
       <div class="mc"><div class="mv" id="m-cycle">—</div><div class="ml">Cycle</div></div>
       <div class="mc"><div class="mv" id="m-week">—</div><div class="ml">This wk</div></div>
+      <div class="mc" id="m-target-cell" style="display:none"><div class="mv" id="m-target" style="font-size:16px">—</div><div class="ml">To goal</div></div>
     </div>
     <div id="today-plan"></div>
+    <div id="cycle-summary-banner"></div>
     <div id="recent-sessions"></div>
     <div id="kpi-section" style="margin-top:4px">
       <div id="fatigue-alert" class="warn" style="display:none;margin-bottom:8px">⚠️ <strong>High fatigue detected.</strong> Last 3 sessions rated Difficult or harder — consider a deload.</div>
@@ -565,6 +598,17 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
     <div class="card">
       <div class="ch"><div class="ct">Personal Records</div></div>
       <div id="pr-list"></div>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <div class="ch" style="justify-content:space-between">
+        <div class="ct">Bodyweight</div>
+        <button onclick="openBwLog()" style="font-size:12px;font-weight:700;color:var(--green);background:none;border:none;cursor:pointer;font-family:inherit;padding:2px 0">+ Log</button>
+      </div>
+      <div style="padding:4px 16px 14px">
+        <div id="bw-latest" style="font-size:13px;color:var(--text2);margin-bottom:8px"></div>
+        <div style="position:relative;height:100px"><canvas id="bw-cvs"></canvas></div>
+        <div id="bw-empty" style="display:none;text-align:center;padding:16px 0;font-size:13px;color:var(--text3)">No weight logs yet</div>
+      </div>
     </div>
     <div class="card" style="margin-top:12px">
       <div class="ch"><div class="ct">Settings</div></div>
@@ -743,6 +787,8 @@ let DAY_OVERRIDES = JSON.parse(localStorage.getItem('tr-day-ov-v1') || '{}');
 let PROFILE = JSON.parse(localStorage.getItem('tr-profile-v1') || 'null') || {name:'Rachid',age:33,height:183,weight:'',goal:'Hypertrophy',target:'2026-07-24'};
 let activeWorkout = null;
 let wkInterval = null, restInterval = null, restSecs = 0;
+let BW_LOG = JSON.parse(localStorage.getItem('tr-bw-v1') || '[]');
+let PENDING_CYCLE_SUMMARY = JSON.parse(localStorage.getItem('tr-cycle-sum-v1') || 'null');
 let currentProgressEx = null, progressChart = null, volumeChart = null;
 let kpiChart = null, kpiDay = 'D2', kpiMetric = 'volume';
 let calViewDate = new Date();
@@ -878,6 +924,7 @@ function startListeners() {
     if(snap.exists&&snap.data().cycle){CUSTOM_CYCLE=snap.data().cycle;localStorage.setItem('tr-cycle-v1',JSON.stringify(CUSTOM_CYCLE));}
     if(snap.exists&&snap.data().dayOverrides){DAY_OVERRIDES=snap.data().dayOverrides;localStorage.setItem('tr-day-ov-v1',JSON.stringify(DAY_OVERRIDES));}
     if(snap.exists&&snap.data().profile){PROFILE=snap.data().profile;localStorage.setItem('tr-profile-v1',JSON.stringify(PROFILE));}
+    if(snap.exists&&snap.data().bwLog){BW_LOG=snap.data().bwLog;localStorage.setItem('tr-bw-v1',JSON.stringify(BW_LOG));}
   },()=>{});
 }
 
@@ -1179,13 +1226,18 @@ function saveFeedback() {
   const comment=document.getElementById('fb-comment').value.trim();
   pendingSession.feedback={difficulty:selectedDifficulty,comment};
   saveSession(pendingSession);
+  checkCycleComplete(pendingSession);
   pendingSession=null;
   document.getElementById('feedback-modal').classList.remove('open');
   switchView('today');
 }
 
 function skipFeedback() {
-  if(pendingSession){saveSession(pendingSession);pendingSession=null;}
+  if(pendingSession){
+    checkCycleComplete(pendingSession);
+    saveSession(pendingSession);
+    pendingSession=null;
+  }
   document.getElementById('feedback-modal').classList.remove('open');
   switchView('today');
 }
@@ -1221,6 +1273,36 @@ function renderToday() {
   document.getElementById('m-cycle').textContent=c2ok?'C2 ✓':c1ok?'C1 ✓':'Prep';
   const ws=new Date();ws.setDate(ws.getDate()-((ws.getDay()+6)%7));
   document.getElementById('m-week').textContent=sessions.filter(s=>s.date>=ws.toISOString().split('T')[0]).length;
+
+  if(PROFILE.target){
+    const tgt=new Date(PROFILE.target+'T00:00:00');
+    const daysLeft=Math.max(0,Math.round((tgt-new Date(todayStr()+'T00:00:00'))/86400000));
+    const weeksLeft=Math.ceil(daysLeft/7);
+    document.getElementById('m-target').textContent=weeksLeft>0?weeksLeft+'w':daysLeft+'d';
+    document.getElementById('m-target-cell').style.display='';
+    document.getElementById('overview-mgrid').classList.add('four');
+  } else {
+    document.getElementById('m-target-cell').style.display='none';
+    document.getElementById('overview-mgrid').classList.remove('four');
+  }
+
+  const sumBanner=document.getElementById('cycle-summary-banner');
+  if(PENDING_CYCLE_SUMMARY){
+    const ps=PENDING_CYCLE_SUMMARY;
+    const prHtml=ps.prs.length?`<div style="margin-top:8px;font-size:12px;color:var(--amber)">🏆 PRs: ${ps.prs.join(', ')}</div>`:'';
+    sumBanner.innerHTML=`<div class="cycle-sum-card">
+      <button class="cycle-sum-dismiss" onclick="dismissCycleSummary()">×</button>
+      <div style="font-size:13px;font-weight:700;color:var(--green)">✓ ${ps.label} complete</div>
+      <div class="cycle-sum-grid">
+        <div class="cycle-sum-cell"><div class="cycle-sum-val">${ps.sessions}</div><div class="cycle-sum-lbl">Sessions</div></div>
+        <div class="cycle-sum-cell"><div class="cycle-sum-val">${Math.round(ps.totalVol/1000)}k</div><div class="cycle-sum-lbl">kg vol</div></div>
+        <div class="cycle-sum-cell"><div class="cycle-sum-val" style="color:${ps.avgDiff>=4?'var(--red)':ps.avgDiff>=3?'var(--amber)':'var(--green)'}">${ps.avgDiff.toFixed(1)}</div><div class="cycle-sum-lbl">Avg fatigue</div></div>
+      </div>
+      ${prHtml}
+    </div>`;
+  } else {
+    sumBanner.innerHTML='';
+  }
 
   const col=TYPE_COLOR[info.dayType]||'#333';
   const badgeEl=document.getElementById('today-badge');
@@ -1259,8 +1341,9 @@ function renderToday() {
       ${fb.difficulty?`<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:${diffColor[fb.difficulty]||'#666'}18;color:${diffColor[fb.difficulty]||'#666'};border:1px solid ${diffColor[fb.difficulty]||'#666'}33">${fb.difficulty}</span>`:''}
       ${fb.comment?`<span style="font-size:12px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px">${fb.comment}</span>`:''}
     </div>`:'';
+    const durMin=s.duration?Math.round(s.duration/60):null;
     return `<div class="si" onclick="showDetail('${s.id}')">
-      <div class="si-top"><div class="si-lbl">${s.label}</div><div class="si-date">${s.date}</div></div>
+      <div class="si-top"><div class="si-lbl">${s.label}</div><div class="si-date">${s.date}${durMin?` · ${durMin}min`:''}</div></div>
       <div class="si-type" style="color:${c}">${s.dayType}${s.notes?' · ⚠️':''}</div>
       <div class="si-chips">${ex.map(n=>`<span class="chip">${n}</span>`).join('')}${s.exercises.length>3?`<span class="chip">+${s.exercises.length-3}</span>`:''}</div>
       ${fbHtml}
@@ -1517,7 +1600,27 @@ function toggleSet(ei,si) {
   const tb=isTimeBased(ex.name);
   const row=document.getElementById(`sr-${ei}-${si}`);
   if(row)row.outerHTML=setRowHTML(ei,si,set,ps?.sets[si]||null,tb);
-  if(set.done)startRest(90);
+  if(set.done){
+    startRest(90);
+    const hist=getExHistory(ex.name);
+    const bw=isBW(ex.name);
+    if(hist.length){
+      const prevBest=Math.max(...hist.map(h=>bw?h.r:h.w));
+      const cur=bw?(set.r||0):(set.w||0);
+      if(cur>prevBest) showPrToast(ex.name, cur, bw);
+    }
+  }
+}
+
+let _prToastTimer=null;
+function showPrToast(name, val, bw) {
+  const t=document.getElementById('pr-toast');
+  const m=document.getElementById('pr-toast-msg');
+  if(!t||!m)return;
+  m.textContent=`New PR: ${name.split(' (')[0]} — ${val}${bw?'r':'kg'}`;
+  t.classList.add('show');
+  clearTimeout(_prToastTimer);
+  _prToastTimer=setTimeout(()=>t.classList.remove('show'),3500);
 }
 
 function addSet(ei) {
@@ -1594,7 +1697,7 @@ function finishWorkout() {
   clearInterval(wkInterval);skipRest();
   const exercises=activeWorkout.exercises.map(ex=>({...ex,sets:ex.sets.filter(s=>s.done&&(s.r||s.w))})).filter(ex=>ex.sets.length>0);
   if(!exercises.length){if(!confirm('No completed sets. Discard?'))return;closeWk();return;}
-  pendingSession={id:'u'+Date.now(),date:activeWorkout.date,label:activeWorkout.label,cycle:activeWorkout.cycle,dayType:activeWorkout.dayType,notes:'',exercises,volume:calcVolume({exercises})};
+  pendingSession={id:'u'+Date.now(),date:activeWorkout.date,label:activeWorkout.label,cycle:activeWorkout.cycle,dayType:activeWorkout.dayType,notes:'',exercises,volume:calcVolume({exercises}),duration:Math.floor((Date.now()-activeWorkout.startedAt)/1000)};
   closeWk();
   openFeedback();
 }
@@ -1665,13 +1768,18 @@ function showCalDay(ds) {
     const totalSets=sess.exercises.reduce((a,e)=>a+e.sets.length,0);
     const fb=sess.feedback;
     const diffColor={'Very Easy':'#22c55e','Easy':'#22c55e','Moderate':'#f59e0b','Difficult':'#f97316','Very Difficult':'#ef4444'};
+    const durMin=sess.duration?Math.round(sess.duration/60):null;
     const calFbHtml=fb?`<div style="display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap">
       ${fb.difficulty?`<span style="font-size:11px;font-weight:600;padding:2px 9px;border-radius:20px;background:${diffColor[fb.difficulty]||'#666'}18;color:${diffColor[fb.difficulty]||'#666'};border:1px solid ${diffColor[fb.difficulty]||'#666'}33">${fb.difficulty}</span>`:''}
       ${fb.comment?`<span style="font-size:12px;color:var(--text2);line-height:1.45;flex:1">${fb.comment}</span>`:''}
     </div>`:'';
     panel.innerHTML=`<div class="cal-detail">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <div><div style="font-size:16px;font-weight:700">${sess.label}</div><div style="font-size:12px;color:${col};margin-top:3px">${sess.dayType}</div></div>
+        <div>
+          <div style="font-size:16px;font-weight:700">${sess.label}</div>
+          <div style="font-size:12px;color:${col};margin-top:3px">${sess.dayType}</div>
+          ${durMin?`<div style="font-size:11px;color:var(--text3);margin-top:2px">⏱ ${durMin} min</div>`:''}
+        </div>
         <button onclick="showDetail('${sess.id}')" style="background:none;border:1px solid var(--border);border-radius:8px;padding:6px 12px;color:var(--text2);font-family:inherit;font-size:12px;cursor:pointer">View →</button>
       </div>
       ${sess.notes?`<div class="warn">${sess.notes}</div>`:''}
@@ -1991,15 +2099,24 @@ function showDetail(id) {
   document.getElementById('detail-title').textContent=s.label;
   const totalSets=s.exercises.reduce((a,e)=>a+e.sets.length,0);
   const totalVol=s.exercises.reduce((a,e)=>a+e.sets.reduce((b,st)=>b+(st.r||0)*(st.w||0),0),0);
+  const durMin=s.duration?Math.round(s.duration/60):null;
+  const diffColor={'Very Easy':'var(--green)','Easy':'var(--green)','Moderate':'var(--amber)','Difficult':'var(--orange)','Very Difficult':'var(--red)'};
+  const fb=s.feedback;
+  const fbHtml=fb?`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px">
+    ${fb.difficulty?`<span style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;background:${diffColor[fb.difficulty]||'#666'}18;color:${diffColor[fb.difficulty]||'#666'};border:1px solid ${diffColor[fb.difficulty]||'#666'}33">${fb.difficulty}</span>`:''}
+    ${fb.comment?`<span style="font-size:13px;color:var(--text2)">${fb.comment}</span>`:''}
+  </div>`:'';
   let html=`<div style="margin-bottom:20px">
     <div style="font-size:22px;font-weight:700;margin-bottom:4px">${s.label}</div>
     <div style="font-size:13px;color:${col};margin-bottom:4px">${s.dayType}</div>
     <div style="font-size:12px;color:var(--text3);margin-bottom:12px">${s.date}</div>
-    <div style="display:flex;gap:16px">
+    <div style="display:flex;gap:16px;flex-wrap:wrap">
       <span style="font-size:12px;color:var(--text3)"><strong style="color:var(--text2)">${s.exercises.length}</strong> exercises</span>
       <span style="font-size:12px;color:var(--text3)"><strong style="color:var(--text2)">${totalSets}</strong> sets</span>
       ${totalVol>0?`<span style="font-size:12px;color:var(--text3)"><strong style="color:var(--text2)">${(totalVol/1000).toFixed(1)}k</strong> kg vol</span>`:''}
+      ${durMin?`<span style="font-size:12px;color:var(--text3)"><strong style="color:var(--text2)">${durMin}</strong> min</span>`:''}
     </div>
+    ${fbHtml}
     ${s.notes?`<div class="warn" style="margin-top:12px">${s.notes}</div>`:''}
   </div>`;
   s.exercises.forEach(ex=>{
@@ -2047,6 +2164,101 @@ function renderProgressFor(name) {
   });
 }
 
+// ── BODYWEIGHT ─────────────────────────────────────────────────────────────
+let bwChart=null;
+
+function openBwLog() {
+  const last=BW_LOG[BW_LOG.length-1];
+  document.getElementById('bw-input').value=last?last.w:'';
+  document.getElementById('bw-modal').classList.add('open');
+  setTimeout(()=>document.getElementById('bw-input').focus(),100);
+}
+function closeBwLog(){document.getElementById('bw-modal').classList.remove('open');}
+
+async function saveBwLog() {
+  const w=parseFloat(document.getElementById('bw-input').value);
+  if(!w||w<30||w>300)return;
+  BW_LOG.push({date:todayStr(),w});
+  BW_LOG.sort((a,b)=>a.date.localeCompare(b.date));
+  localStorage.setItem('tr-bw-v1',JSON.stringify(BW_LOG));
+  if(fbReady&&db){const tid=trainerId();try{await db.doc(`trainers/${tid}/meta`).set({bwLog:BW_LOG},{merge:true});}catch(e){}}
+  closeBwLog();
+  renderBwChart();
+}
+
+function renderBwChart() {
+  const empty=document.getElementById('bw-empty');
+  const cvs=document.getElementById('bw-cvs');
+  const latEl=document.getElementById('bw-latest');
+  if(!cvs)return;
+  if(!BW_LOG.length){
+    if(empty)empty.style.display='';
+    cvs.style.display='none';
+    if(latEl)latEl.textContent='';
+    return;
+  }
+  if(empty)empty.style.display='none';
+  cvs.style.display='';
+  const last=BW_LOG[BW_LOG.length-1];
+  const first=BW_LOG[0];
+  const diff=+(last.w-first.w).toFixed(1);
+  if(latEl)latEl.textContent=`${last.w} kg  ·  ${diff>0?'+':''}${diff} kg since start`;
+  if(bwChart){bwChart.destroy();bwChart=null;}
+  bwChart=new Chart(cvs,{
+    type:'line',
+    data:{
+      labels:BW_LOG.map(e=>e.date.slice(5)),
+      datasets:[{data:BW_LOG.map(e=>e.w),borderColor:'#3b82f6',backgroundColor:'#3b82f615',borderWidth:2,pointRadius:3,pointBackgroundColor:'#3b82f6',fill:true,tension:0.3}]
+    },
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y+' kg'}}},scales:{y:{ticks:{color:'#505050',font:{size:9,family:'DM Mono'},callback:v=>v+'kg'},grid:{color:'#2a2a2a'},border:{display:false}},x:{ticks:{color:'#505050',font:{size:9}},grid:{display:false},border:{display:false}}}}
+  });
+}
+
+// ── CYCLE COMPLETION ───────────────────────────────────────────────────────
+function checkCycleComplete(sess) {
+  const info=getCycleInfo(sess.date);
+  if(!info||info.isPre)return;
+  const cycleLen=activeCycle().filter(d=>d.dayType!=='REST').length;
+  const cycleSessions=all().filter(s=>s.cycle===info.cycleLabel&&s.dayType!=='REST');
+  if(cycleSessions.length<cycleLen)return;
+  const diffMap={'Very Easy':1,'Easy':2,'Moderate':3,'Difficult':4,'Very Difficult':5};
+  const withDiff=cycleSessions.filter(s=>s.feedback?.difficulty);
+  const avgDiff=withDiff.length?withDiff.reduce((a,s)=>a+(diffMap[s.feedback.difficulty]||3),0)/withDiff.length:3;
+  const totalVol=cycleSessions.reduce((a,s)=>a+calcVolume(s),0);
+  const prs=[];
+  const allEx=new Set(cycleSessions.flatMap(s=>s.exercises.map(e=>e.name)));
+  allEx.forEach(name=>{
+    const hist=getExHistory(name);
+    if(hist.length<2)return;
+    const bw=isBW(name);
+    const cycleMax=Math.max(...cycleSessions.flatMap(s=>s.exercises.filter(e=>e.name===name).flatMap(e=>e.sets.map(st=>bw?st.r:st.w))));
+    const prevMax=Math.max(...hist.slice(0,-cycleSessions.filter(s=>s.exercises.find(e=>e.name===name)).length).map(h=>bw?h.r:h.w));
+    if(cycleMax>prevMax)prs.push(name.split(' (')[0]);
+  });
+  PENDING_CYCLE_SUMMARY={label:info.cycleLabel,sessions:cycleSessions.length,totalVol,avgDiff,prs:prs.slice(0,4)};
+  localStorage.setItem('tr-cycle-sum-v1',JSON.stringify(PENDING_CYCLE_SUMMARY));
+}
+
+function dismissCycleSummary() {
+  PENDING_CYCLE_SUMMARY=null;
+  localStorage.removeItem('tr-cycle-sum-v1');
+  document.getElementById('cycle-summary-banner').innerHTML='';
+}
+
+// ── DELOAD SUGGESTION ──────────────────────────────────────────────────────
+function getDeloadBanner() {
+  const sessions=all().filter(s=>s.dayType!=='REST');
+  if(sessions.length<6)return null;
+  const diffMap={'Very Easy':1,'Easy':2,'Moderate':3,'Difficult':4,'Very Difficult':5};
+  const recent=sessions.slice(-6).filter(s=>s.feedback?.difficulty);
+  if(recent.length<4)return null;
+  const avg=recent.reduce((a,s)=>a+(diffMap[s.feedback.difficulty]||3),0)/recent.length;
+  const last3=sessions.slice(-3).filter(s=>s.feedback?.difficulty);
+  const last3High=last3.length===3&&last3.every(s=>(diffMap[s.feedback.difficulty]||0)>=4);
+  if(avg>=3.8||last3High)return'Avg fatigue is high over recent sessions. Consider a deload week: reduce weights by 40–50% and cut sets to 2 per exercise.';
+  return null;
+}
+
 // ── PROFILE ─────────────────────────────────────────────────────────────────
 function renderProfile() {
   // ── Dynamic header ──
@@ -2091,6 +2303,18 @@ function renderProfile() {
     </div>`;
   }).join('');
   document.getElementById('profile-sync-short').textContent=trainerId().slice(0,12)+'…';
+  renderBwChart();
+  const deload=getDeloadBanner();
+  const existing=document.getElementById('deload-banner');
+  if(existing)existing.remove();
+  if(deload){
+    const el=document.createElement('div');
+    el.id='deload-banner';
+    el.className='warn';
+    el.style.margin='0 0 12px';
+    el.innerHTML=`⚠️ <strong>Deload suggested.</strong> ${deload}`;
+    document.querySelector('#view-profile .vi').prepend(el);
+  }
 }
 
 async function saveProfileData() {
