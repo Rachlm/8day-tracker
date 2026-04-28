@@ -788,6 +788,15 @@ let PROFILE = JSON.parse(localStorage.getItem('tr-profile-v1') || 'null') || {na
 let activeWorkout = null;
 let wkInterval = null, restInterval = null, restSecs = 0;
 let BW_LOG = JSON.parse(localStorage.getItem('tr-bw-v1') || '[]');
+if(!BW_LOG.length){
+  BW_LOG=[
+    {date:'2026-03-28',w:81},
+    {date:'2026-04-11',w:82.3},
+    {date:'2026-04-18',w:82.7},
+    {date:'2026-04-25',w:83.2}
+  ];
+  localStorage.setItem('tr-bw-v1',JSON.stringify(BW_LOG));
+}
 let PENDING_CYCLE_SUMMARY = JSON.parse(localStorage.getItem('tr-cycle-sum-v1') || 'null');
 let currentProgressEx = null, progressChart = null, volumeChart = null;
 let kpiChart = null, kpiDay = 'D2', kpiMetric = 'volume';
@@ -809,7 +818,8 @@ function isTimeBased(name) {
 
 // ── CYCLE ──────────────────────────────────────────────────────────────────
 function getCycleInfo(dateStr) {
-  const diff = Math.round((new Date(dateStr+'T00:00:00') - new Date('2026-04-03T00:00:00')) / 86400000);
+  const anchor = dateStr >= '2026-04-27' ? '2026-04-04' : '2026-04-03';
+  const diff = Math.round((new Date(dateStr+'T00:00:00') - new Date(anchor+'T00:00:00')) / 86400000);
   if (diff < 0) return { isPre:true, label:'Prep', dayType:null, dayName:'', cycleLabel:'Prep' };
   const idx = ((diff % 8) + 8) % 8;
   const cycleNum = Math.floor(diff / 8) + 1;
@@ -1490,6 +1500,30 @@ function renderKpiChart() {
 // Keep old name as alias so nothing else breaks
 function renderVolumeChart() { renderKpiChart(); }
 
+function persistWorkout() {
+  if(activeWorkout) localStorage.setItem('tr-active-wk-v1', JSON.stringify(activeWorkout));
+  else localStorage.removeItem('tr-active-wk-v1');
+}
+
+function restoreWorkout() {
+  const raw = localStorage.getItem('tr-active-wk-v1');
+  if(!raw) return;
+  try {
+    activeWorkout = JSON.parse(raw);
+    document.getElementById('wk-title').textContent = activeWorkout.dayType;
+    document.getElementById('wk-sub').textContent = activeWorkout.label || activeWorkout.date;
+    renderWkEx();
+    document.getElementById('workout-view').classList.add('open');
+    clearInterval(wkInterval);
+    const elapsed = Math.floor((Date.now() - activeWorkout.startedAt) / 1000);
+    document.getElementById('wk-timer').textContent = `${Math.floor(elapsed/60)}:${String(elapsed%60).padStart(2,'0')}`;
+    wkInterval = setInterval(() => {
+      const e = Math.floor((Date.now() - activeWorkout.startedAt) / 1000);
+      document.getElementById('wk-timer').textContent = `${Math.floor(e/60)}:${String(e%60).padStart(2,'0')}`;
+    }, 1000);
+  } catch(e) { localStorage.removeItem('tr-active-wk-v1'); }
+}
+
 // ── WORKOUT ────────────────────────────────────────────────────────────────
 function startWorkout(forDate, forDayType) {
   const date=forDate||todayStr();
@@ -1510,6 +1544,7 @@ function startWorkout(forDate, forDayType) {
   wkInterval=setInterval(()=>{
     const e=Math.floor((Date.now()-activeWorkout.startedAt)/1000);
     document.getElementById('wk-timer').textContent=`${Math.floor(e/60)}:${String(e%60).padStart(2,'0')}`;
+    if(e%30===0) persistWorkout();
   },1000);
 }
 
@@ -1524,12 +1559,33 @@ function buildSets(nm, date) {
   });
 }
 
+function getBestSet(exName, beforeDate) {
+  let best=null, bestVol=0, bestLabel='';
+  all().filter(s=>s.date<beforeDate).forEach(s=>{
+    const ex=s.exercises.find(e=>e.name===exName);
+    if(!ex)return;
+    const tb=isTimeBased(exName);
+    ex.sets.forEach(st=>{
+      const vol=tb?(st.r||0):(st.r||0)*(st.w||0);
+      if(vol>bestVol){bestVol=vol;best=st;bestLabel=s.label;}
+    });
+  });
+  if(!best)return null;
+  const tb=isTimeBased(exName);
+  const display=tb?`${best.r}s`:`${(bestVol/1000>=1?(bestVol/1000).toFixed(1)+'k':bestVol)} kg (${best.r}×${best.w}kg)`;
+  return {vol:bestVol,label:bestLabel,display};
+}
+
 function renderWkEx() {
   if(!activeWorkout)return;
   const total=activeWorkout.exercises.length;
   document.getElementById('workout-inner').innerHTML=activeWorkout.exercises.map((ex,ei)=>{
     const ps=getPrevSets(ex.name,activeWorkout.date);
     const tb=isTimeBased(ex.name);
+    const best=getBestSet(ex.name,activeWorkout.date);
+    const bestHtml=best
+      ?`<div style="font-size:10px;color:var(--amber);margin-top:2px;font-family:'DM Mono',monospace">★ Best: ${best.label} — ${best.display}</div>`
+      :`<div style="font-size:10px;color:var(--text3);margin-top:2px">No best yet</div>`;
     const hdr=tb
       ?`<div class="sth"><span>#</span><span>Previous</span><span colspan="2">Secs</span><span></span><span></span></div>`
       :`<div class="sth"><span>#</span><span>Previous</span><span>Reps</span><span>kg</span><span></span></div>`;
@@ -1541,7 +1597,11 @@ function renderWkEx() {
             <button onclick="moveExWk(${ei},'up')" style="width:24px;height:20px;border:none;background:none;cursor:pointer;color:var(--text3);font-size:13px;line-height:1;padding:0;border-radius:4px;${canUp?'':'opacity:.2;pointer-events:none'}">▲</button>
             <button onclick="moveExWk(${ei},'down')" style="width:24px;height:20px;border:none;background:none;cursor:pointer;color:var(--text3);font-size:13px;line-height:1;padding:0;border-radius:4px;${canDown?'':'opacity:.2;pointer-events:none'}">▼</button>
           </div>
-          <div><div class="exbn">${ex.name}${tb?'<span class="tbadge-ex">TIME</span>':''}</div><div class="exbs">${ps?`(${ps.label})`:'No history'}</div></div>
+          <div>
+            <div class="exbn">${ex.name}${tb?'<span class="tbadge-ex">TIME</span>':''}</div>
+            <div class="exbs">${ps?`(${ps.label})`:'No history'}</div>
+            ${bestHtml}
+          </div>
         </div>
         <button class="addset" onclick="addSet(${ei})">+ Set</button>
       </div>
@@ -1560,6 +1620,7 @@ function moveExWk(ei, dir) {
   if(ni<0||ni>=exs.length)return;
   [exs[ei],exs[ni]]=[exs[ni],exs[ei]];
   renderWkEx();
+  persistWorkout();
 }
 
 function setRowHTML(ei,si,set,prevSet,tb=false) {
@@ -1601,23 +1662,22 @@ function toggleSet(ei,si) {
   const row=document.getElementById(`sr-${ei}-${si}`);
   if(row)row.outerHTML=setRowHTML(ei,si,set,ps?.sets[si]||null,tb);
   if(set.done){
+    persistWorkout();
     startRest(90);
-    const hist=getExHistory(ex.name);
-    const bw=isBW(ex.name);
-    if(hist.length){
-      const prevBest=Math.max(...hist.map(h=>bw?h.r:h.w));
-      const cur=bw?(set.r||0):(set.w||0);
-      if(cur>prevBest) showPrToast(ex.name, cur, bw);
-    }
+    const tb=isTimeBased(ex.name);
+    const prevBest=getBestSet(ex.name,activeWorkout.date);
+    const curVol=tb?(set.r||0):(set.r||0)*(set.w||0);
+    if(curVol>0&&(!prevBest||curVol>prevBest.vol)) showPrToast(ex.name,set,tb);
   }
 }
 
 let _prToastTimer=null;
-function showPrToast(name, val, bw) {
+function showPrToast(name, set, tb) {
   const t=document.getElementById('pr-toast');
   const m=document.getElementById('pr-toast-msg');
   if(!t||!m)return;
-  m.textContent=`New PR: ${name.split(' (')[0]} — ${val}${bw?'r':'kg'}`;
+  const display=tb?`${set.r}s`:`${set.r}×${set.w}kg`;
+  m.textContent=`New PR: ${name.split(' (')[0]} — ${display}`;
   t.classList.add('show');
   clearTimeout(_prToastTimer);
   _prToastTimer=setTimeout(()=>t.classList.remove('show'),3500);
@@ -1635,6 +1695,7 @@ function addSet(ei) {
     :`<div class="sth"><span>#</span><span>Previous</span><span>Reps</span><span>kg</span><span></span></div>`;
   const blk=document.getElementById(`exb-${ei}`);
   if(blk)blk.querySelector('.stbl').innerHTML=hdr+ex.sets.map((s,si)=>setRowHTML(ei,si,s,ps?.sets[si]||null,tb)).join('');
+  persistWorkout();
 }
 
 function startRest(secs) {
@@ -1689,6 +1750,7 @@ function addExWk(name, isCustom=false) {
   if(!activeWorkout.exercises.find(e=>e.name===name)){
     activeWorkout.exercises.push({name,sets:buildSets(name,activeWorkout.date)});
     renderWkEx();
+    persistWorkout();
   }
 }
 
@@ -1702,7 +1764,7 @@ function finishWorkout() {
   openFeedback();
 }
 
-function closeWk(){document.getElementById('workout-view').classList.remove('open');activeWorkout=null;clearInterval(wkInterval);}
+function closeWk(){document.getElementById('workout-view').classList.remove('open');activeWorkout=null;clearInterval(wkInterval);persistWorkout();}
 
 // ── CALENDAR ──────────────────────────────────────────────────────────────
 function prevMonth(){calViewDate.setMonth(calViewDate.getMonth()-1);renderCalendar();}
@@ -2377,6 +2439,7 @@ function doExport(){
 
 // ── INIT ───────────────────────────────────────────────────────────────────
 renderToday();
+restoreWorkout();
 initFirebase();
 </script>
 
