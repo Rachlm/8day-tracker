@@ -2409,7 +2409,7 @@ function renderProfile() {
     ${rows.map(({nm,best,bw,label})=>`
     <div class="prow" onclick="renderProgressFor('${nm.replace(/'/g,"\\'")}');switchView('progress')">
       <div><div style="font-size:14px;font-weight:500">${nm}</div><div style="font-size:11px;color:var(--text3);margin-top:2px">${label}</div></div>
-      <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:600;color:var(--green)">${best}${bw?'r':'kg'}</div>
+      <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:600;color:var(--green)">${best}${bw?'r':isTimeBased(nm)?'s':'kg'}</div>
     </div>`).join('')}`).join('');
   document.getElementById('profile-sync-short').textContent=trainerId().slice(0,12)+'…';
   renderBwChart();
