@@ -2230,25 +2230,26 @@ function filterProgressPills(q) {
 function renderProgressFor(name) {
   currentProgressEx=name;
   document.querySelectorAll('.expill').forEach(p=>p.classList.toggle('active',p.textContent.trim()===name));
-  const hist=getExHistory(name), bw=isBW(name), content=document.getElementById('progress-content');
+  const hist=getExHistory(name), bw=isBW(name), tb=isTimeBased(name), content=document.getElementById('progress-content');
+  const unit=tb?'s':bw?'r':'kg';
   if(!hist.length){content.innerHTML=`<div class="empty"><div class="empty-icon">📊</div><div class="empty-title">No data yet</div><div class="empty-sub">Log a session with ${name}</div></div>`;return;}
-  const vals=bw?hist.map(h=>h.r):hist.map(h=>h.w);
+  const vals=(bw||tb)?hist.map(h=>h.r):hist.map(h=>h.w);
   const best=Math.max(...vals), latest=vals[vals.length-1], prev2=vals.length>1?vals[vals.length-2]:null;
   const change=prev2!==null?+(latest-prev2).toFixed(1):null;
   content.innerHTML=`
     <div class="prbox">
-      <div><div class="prv">${best}${bw?'r':'kg'}</div><div class="prl">Personal Best</div><div class="prd">${hist.find(h=>(bw?h.r:h.w)===best)?.label||''}</div></div>
-      <div><div class="prv" style="color:${change>0?'var(--green)':change<0?'var(--red)':'var(--text)'}">${change!==null?(change>0?'+':'')+change:' —'}${bw?'r':'kg'}</div><div class="prl">Last change</div><div class="prd">${change>0?'↑ Up':change<0?'↓ Down':'Flat'}</div></div>
+      <div><div class="prv">${best}${unit}</div><div class="prl">Personal Best</div><div class="prd">${hist.find(h=>(bw||tb?h.r:h.w)===best)?.label||''}</div></div>
+      <div><div class="prv" style="color:${change>0?'var(--green)':change<0?'var(--red)':'var(--text)'}">${change!==null?(change>0?'+':'')+change:' —'}${unit}</div><div class="prl">Last change</div><div class="prd">${change>0?'↑ Up':change<0?'↓ Down':'Flat'}</div></div>
     </div>
-    <div class="cchart"><div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:10px">${name} — ${bw?'Max reps':'Top set kg'}</div><div style="position:relative;height:175px"><canvas id="pcvs"></canvas></div></div>
+    <div class="cchart"><div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:10px">${name} — ${tb?'Duration (s)':bw?'Max reps':'Top set kg'}</div><div style="position:relative;height:175px"><canvas id="pcvs"></canvas></div></div>
     <div class="sec-lbl">All Sessions</div>
-    ${[...hist].reverse().map(h=>`<div class="hist-row"><div style="font-size:14px;font-weight:600">${h.label}</div><div style="font-family:'DM Mono',monospace;font-size:14px;color:var(--green)">${bw?h.r+'r':h.w+'kg × '+h.r}</div></div>`).join('')}`;
+    ${[...hist].reverse().map(h=>`<div class="hist-row"><div style="font-size:14px;font-weight:600">${h.label}</div><div style="font-family:'DM Mono',monospace;font-size:14px;color:var(--green)">${tb?h.r+'s':bw?h.r+'r':h.w+'kg × '+h.r}</div></div>`).join('')}`;
   if(progressChart){progressChart.destroy();progressChart=null;}
   const cvs=document.getElementById('pcvs');if(!cvs)return;
   progressChart=new Chart(cvs,{
     type:'line',
     data:{labels:hist.map(h=>h.label),datasets:[{data:vals,borderColor:'#22c55e',backgroundColor:'#22c55e15',borderWidth:2.5,pointRadius:5,pointBackgroundColor:'#22c55e',pointBorderColor:'#0f0f0f',pointBorderWidth:2,fill:true,tension:0.3}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y+(bw?' reps':' kg')}}},scales:{y:{ticks:{color:'#505050',font:{size:10,family:'DM Mono'},callback:v=>v+(bw?'r':'kg')},grid:{color:'#2a2a2a'},border:{display:false}},x:{ticks:{color:'#505050',font:{size:9},maxRotation:40},grid:{display:false},border:{display:false}}}}
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y+(tb?' s':bw?' reps':' kg')}}},scales:{y:{ticks:{color:'#505050',font:{size:10,family:'DM Mono'},callback:v=>v+unit},grid:{color:'#2a2a2a'},border:{display:false}},x:{ticks:{color:'#505050',font:{size:9},maxRotation:40},grid:{display:false},border:{display:false}}}}
   });
 }
 
