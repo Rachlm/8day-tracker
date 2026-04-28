@@ -460,6 +460,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
 <div class="mbg" id="bw-modal">
   <div class="mbox">
     <h2>Log Bodyweight</h2>
+    <label>Date</label>
+    <input type="date" id="bw-date-input">
     <label>Weight (kg)</label>
     <input type="number" id="bw-input" placeholder="e.g. 82.5" step="0.1" min="30" max="300" inputmode="decimal">
     <div class="mbtns">
@@ -2239,6 +2241,7 @@ let bwChart=null;
 
 function openBwLog() {
   const last=BW_LOG[BW_LOG.length-1];
+  document.getElementById('bw-date-input').value=todayStr();
   document.getElementById('bw-input').value=last?last.w:'';
   document.getElementById('bw-modal').classList.add('open');
   setTimeout(()=>document.getElementById('bw-input').focus(),100);
@@ -2247,8 +2250,10 @@ function closeBwLog(){document.getElementById('bw-modal').classList.remove('open
 
 async function saveBwLog() {
   const w=parseFloat(document.getElementById('bw-input').value);
+  const date=document.getElementById('bw-date-input').value||todayStr();
   if(!w||w<30||w>300)return;
-  BW_LOG.push({date:todayStr(),w});
+  BW_LOG=BW_LOG.filter(e=>e.date!==date);
+  BW_LOG.push({date,w});
   BW_LOG.sort((a,b)=>a.date.localeCompare(b.date));
   localStorage.setItem('tr-bw-v1',JSON.stringify(BW_LOG));
   if(fbReady&&db){const tid=trainerId();try{await db.doc(`trainers/${tid}/meta`).set({bwLog:BW_LOG},{merge:true});}catch(e){}}
