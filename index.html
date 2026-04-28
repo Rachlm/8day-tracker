@@ -570,6 +570,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
 <div class="view" id="view-progress">
   <div class="ph" style="margin-bottom:4px"><div class="pt">Progress</div><div class="ps">Track lifts over time</div></div>
   <div class="vi">
+    <div style="position:relative;margin-bottom:10px">
+      <input id="progress-search" type="search" placeholder="Search exercise…" oninput="filterProgressPills(this.value)" style="width:100%;box-sizing:border-box;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:9px 12px 9px 34px;font-size:13px;color:var(--text);font-family:inherit;outline:none">
+      <span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none">🔍</span>
+    </div>
     <div class="ex-pills" id="progress-pills"></div>
     <div id="progress-content"></div>
   </div>
@@ -2204,16 +2208,28 @@ function closeDetail(){document.getElementById('detail-sheet').classList.remove(
 // ── PROGRESS ───────────────────────────────────────────────────────────────
 function renderProgress() {
   const names=allExNames();
-  const KEY=['Incline Press (DB)','Back Squat (BB)','Hack Squat (Machine)','Bench Press (DB)','Overhead Press (BB)','Incline Press (BB)','Bent Over Row (BB)','Lat Pulldown (Machine)'];
-  const ordered=[...new Set([...KEY.filter(k=>names.includes(k)),...names])];
-  document.getElementById('progress-pills').innerHTML=ordered.map(n=>`<div class="expill ${currentProgressEx===n?'active':''}" onclick="renderProgressFor('${n.replace(/'/g,"\\'")}')"> ${n.split(' (')[0]}</div>`).join('');
+  const ordered=[...new Set([...names])].sort((a,b)=>{
+    const ha=getExHistory(a),hb=getExHistory(b);
+    const ba=ha.length?Math.max(...ha.map(x=>isBW(a)?x.r:x.w)):0;
+    const bb=hb.length?Math.max(...hb.map(x=>isBW(b)?x.r:x.w)):0;
+    return bb-ba;
+  });
+  window._progressOrdered=ordered;
+  document.getElementById('progress-pills').innerHTML=ordered.map(n=>`<div class="expill ${currentProgressEx===n?'active':''}" onclick="renderProgressFor('${n.replace(/'/g,"\\'")}')"> ${n}</div>`).join('');
   if(!currentProgressEx&&ordered.length)renderProgressFor(ordered[0]);
   else if(currentProgressEx)renderProgressFor(currentProgressEx);
 }
 
+function filterProgressPills(q) {
+  const ordered=window._progressOrdered||[];
+  const filtered=q.trim()?ordered.filter(n=>n.toLowerCase().includes(q.toLowerCase())):ordered;
+  document.getElementById('progress-pills').innerHTML=filtered.map(n=>`<div class="expill ${currentProgressEx===n?'active':''}" onclick="renderProgressFor('${n.replace(/'/g,"\\'")}')"> ${n}</div>`).join('');
+  if(filtered.length&&!filtered.includes(currentProgressEx))renderProgressFor(filtered[0]);
+}
+
 function renderProgressFor(name) {
   currentProgressEx=name;
-  document.querySelectorAll('.expill').forEach(p=>p.classList.toggle('active',p.textContent.trim()===name.split(' (')[0]));
+  document.querySelectorAll('.expill').forEach(p=>p.classList.toggle('active',p.textContent.trim()===name));
   const hist=getExHistory(name), bw=isBW(name), content=document.getElementById('progress-content');
   if(!hist.length){content.innerHTML=`<div class="empty"><div class="empty-icon">📊</div><div class="empty-title">No data yet</div><div class="empty-sub">Log a session with ${name}</div></div>`;return;}
   const vals=bw?hist.map(h=>h.r):hist.map(h=>h.w);
@@ -2368,15 +2384,33 @@ function renderProfile() {
   document.getElementById('prof-activity').textContent=actParts.join(' · ');
 
   // ── Existing: PR list ──
-  const KEY=['Back Squat (BB)','Incline Press (DB)','Hack Squat (Machine)','Bench Press (DB)','Overhead Press (BB)','Incline Press (BB)'];
-  document.getElementById('pr-list').innerHTML=KEY.map(nm=>{
-    const h=getExHistory(nm);if(!h.length)return'';
-    const bw=isBW(nm),best=Math.max(...h.map(x=>bw?x.r:x.w)),bl=h.find(x=>(bw?x.r:x.w)===best);
-    return `<div class="prow" onclick="renderProgressFor('${nm.replace(/'/g,"\\'")}');switchView('progress')">
-      <div><div style="font-size:14px;font-weight:500">${nm.split(' (')[0]}</div><div style="font-size:11px;color:var(--text3);margin-top:2px">${bl?.label||''}</div></div>
+  const MUSCLE_GROUPS = {
+    'Chest':      ['Bench Press (BB)','Bench Press (DB)','Incline Press (BB)','Incline Press (DB)','Chest Fly (DB)','Chest Fly (Cable)','Chest Press (Machine)','Decline Press (BB)','Decline Press (DB)'],
+    'Legs':       ['Back Squat (BB)','Front Squat (BB)','Hack Squat (Machine)','Leg Press (Machine)','RDL (BB)','RDL (DB)','Leg Curl (Machine)','Leg Extension (Machine)','Bulgarian Split Squat (DB)','Bulgarian Split Squat (BB)','Lunge (DB)','Lunge (BB)','Calf Raise (Machine)'],
+    'Back':       ['Bent Over Row (BB)','Bent Over Row (DB)','Lat Pulldown (Machine)','Cable Row (Cable)','Seated Row (Machine)','Pull Up (Bodyweight)','Chin Up (Bodyweight)','Single Arm Row (DB)','T-Bar Row (BB)','Face Pull (Cable)'],
+    'Shoulders':  ['Overhead Press (BB)','Overhead Press (DB)','Lateral Raise (DB)','Lateral Raise (Cable)','Front Raise (DB)','Arnold Press (DB)','Upright Row (BB)','Upright Row (DB)'],
+    'Arms':       ['Bicep Curl (BB)','Bicep Curl (DB)','Hammer Curl (DB)','Preacher Curl (Machine)','Tricep Pushdown (Cable)','Skull Crusher (BB)','Overhead Tricep (Cable)','Dip (Bodyweight)','Close Grip Bench (BB)'],
+    'Core':       ['Plank (Bodyweight)','Cable Crunch (Cable)','Ab Wheel (Bodyweight)','Hanging Leg Raise (Bodyweight)','Dead Hang (Bodyweight)','L-Sit (Bodyweight)'],
+  };
+  const logged = new Set(allExNames());
+  let prRows = [];
+  Object.entries(MUSCLE_GROUPS).forEach(([group, exList]) => {
+    const hits = exList.filter(nm => logged.has(nm)).map(nm => {
+      const h=getExHistory(nm);if(!h.length)return null;
+      const bw=isBW(nm),best=Math.max(...h.map(x=>bw?x.r:x.w)),bl=h.find(x=>(bw?x.r:x.w)===best);
+      return {nm,best,bw,label:bl?.label||'',group};
+    }).filter(Boolean).sort((a,b)=>b.best-a.best).slice(0,2);
+    prRows.push(...hits);
+  });
+  const grouped = {};
+  prRows.forEach(r => { if(!grouped[r.group]) grouped[r.group]=[]; grouped[r.group].push(r); });
+  document.getElementById('pr-list').innerHTML=Object.entries(grouped).map(([group, rows])=>`
+    <div style="padding:8px 16px 2px;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em">${group}</div>
+    ${rows.map(({nm,best,bw,label})=>`
+    <div class="prow" onclick="renderProgressFor('${nm.replace(/'/g,"\\'")}');switchView('progress')">
+      <div><div style="font-size:14px;font-weight:500">${nm}</div><div style="font-size:11px;color:var(--text3);margin-top:2px">${label}</div></div>
       <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:600;color:var(--green)">${best}${bw?'r':'kg'}</div>
-    </div>`;
-  }).join('');
+    </div>`).join('')}`).join('');
   document.getElementById('profile-sync-short').textContent=trainerId().slice(0,12)+'…';
   renderBwChart();
   const deload=getDeloadBanner();
