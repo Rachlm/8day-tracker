@@ -788,14 +788,22 @@ let PROFILE = JSON.parse(localStorage.getItem('tr-profile-v1') || 'null') || {na
 let activeWorkout = null;
 let wkInterval = null, restInterval = null, restSecs = 0;
 let BW_LOG = JSON.parse(localStorage.getItem('tr-bw-v1') || '[]');
-if(!BW_LOG.length){
-  BW_LOG=[
+if(BW_LOG.length === 0) {
+  BW_LOG = [
     {date:'2026-03-28',w:81},
     {date:'2026-04-11',w:82.3},
     {date:'2026-04-18',w:82.7},
     {date:'2026-04-25',w:83.2}
   ];
-  localStorage.setItem('tr-bw-v1',JSON.stringify(BW_LOG));
+  localStorage.setItem('tr-bw-v1', JSON.stringify(BW_LOG));
+  // Save to Firebase once ready — deferred so db is initialized first
+  window.addEventListener('bwSeedNeeded', async ()=>{
+    if(fbReady&&db){
+      const tid=trainerId();
+      try{await db.doc(`trainers/${tid}/meta`).set({bwLog:BW_LOG},{merge:true});}catch(e){}
+    }
+  });
+  setTimeout(()=>window.dispatchEvent(new Event('bwSeedNeeded')), 4000);
 }
 let PENDING_CYCLE_SUMMARY = JSON.parse(localStorage.getItem('tr-cycle-sum-v1') || 'null');
 let currentProgressEx = null, progressChart = null, volumeChart = null;
@@ -934,7 +942,7 @@ function startListeners() {
     if(snap.exists&&snap.data().cycle){CUSTOM_CYCLE=snap.data().cycle;localStorage.setItem('tr-cycle-v1',JSON.stringify(CUSTOM_CYCLE));}
     if(snap.exists&&snap.data().dayOverrides){DAY_OVERRIDES=snap.data().dayOverrides;localStorage.setItem('tr-day-ov-v1',JSON.stringify(DAY_OVERRIDES));}
     if(snap.exists&&snap.data().profile){PROFILE=snap.data().profile;localStorage.setItem('tr-profile-v1',JSON.stringify(PROFILE));}
-    if(snap.exists&&snap.data().bwLog){BW_LOG=snap.data().bwLog;localStorage.setItem('tr-bw-v1',JSON.stringify(BW_LOG));}
+    if(snap.exists&&snap.data().bwLog){BW_LOG=snap.data().bwLog;localStorage.setItem('tr-bw-v1',JSON.stringify(BW_LOG));renderBwChart();}
   },()=>{});
 }
 
