@@ -1292,9 +1292,11 @@ function renderToday() {
   const today=todayStr(), info=getCycleInfo(today), sessions=all();
   document.getElementById('today-date').textContent=new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
   document.getElementById('m-total').textContent=sessions.length;
-  const c2ok=sessions.filter(s=>s.cycle==='C2').length>=5;
-  const c1ok=sessions.filter(s=>s.cycle==='C1').length>=5;
-  document.getElementById('m-cycle').textContent=c2ok?'C2 ✓':c1ok?'C1 ✓':'Prep';
+  const cycleGroups={};
+  sessions.forEach(s=>{ if(s.cycle&&s.cycle!=='Custom'){cycleGroups[s.cycle]=(cycleGroups[s.cycle]||0)+1; }});
+  const completedCycles=Object.keys(cycleGroups).filter(c=>cycleGroups[c]>=5).sort();
+  const latestDone=completedCycles[completedCycles.length-1];
+  document.getElementById('m-cycle').textContent=latestDone?latestDone+' ✓':'Prep';
   const ws=new Date();ws.setDate(ws.getDate()-((ws.getDay()+6)%7));
   document.getElementById('m-week').textContent=sessions.filter(s=>s.date>=ws.toISOString().split('T')[0]).length;
 
