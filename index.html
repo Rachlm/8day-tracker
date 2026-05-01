@@ -883,9 +883,11 @@ function getExHistory(exName) {
   return all().map(s => {
     const ex = s.exercises.find(e => e.name === exName);
     if (!ex) return null;
-    const ws = ex.sets.map(s => s.w).filter(w => w > 0);
-    const rs = ex.sets.map(s => s.r).filter(r => r > 0);
-    return { label:s.label, date:s.date, w:ws.length?Math.max(...ws):0, r:rs.length?Math.max(...rs):0 };
+    const topSet = ex.sets.filter(s => s.w > 0).reduce((best, s) => (s.w > (best?.w || 0) ? s : best), null);
+    const bwSets = ex.sets.filter(s => (!s.w || s.w === 0) && s.r > 0);
+    const w = topSet?.w || 0;
+    const r = topSet ? (topSet.r || 0) : (bwSets.length ? Math.max(...bwSets.map(s => s.r)) : 0);
+    return { label:s.label, date:s.date, w, r };
   }).filter(Boolean);
 }
 
