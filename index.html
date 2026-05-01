@@ -1376,13 +1376,32 @@ function renderToday() {
     const exList=getPlanEx(info.dayType).flatMap(g=>g.ex);
     planEl.innerHTML=`<div class="plan-card" style="border-color:${col}44">
       <div style="font-size:11px;font-weight:700;color:${col};text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">${info.dayType}</div>
-      <div style="font-size:13px;color:var(--text2);line-height:1.8">${exList.map(e=>`<div><span style="color:${col};margin-right:6px">·</span>${e}</div>`).join('')}</div>
+      <div style="font-size:13px;color:var(--text2)">${exList.map(e=>{
+        const prev=getPrevPerf(e,today);
+        const bw=isBW(e),tb=isTimeBased(e);
+        const prevTxt=prev?(tb?prev.r+'s':bw?prev.r+'r':prev.w+'kg × '+prev.r):null;
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0"><span><span style="color:${col};margin-right:6px">·</span>${e}</span>${prevTxt?`<span style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;flex-shrink:0;margin-left:8px">${prevTxt}</span>`:''}</div>`;
+      }).join('')}</div>
     </div>
     ${logged
       ?`<div style="text-align:center;padding:12px;font-size:13px;color:var(--green);font-weight:600">✓ Session logged today</div>`
       :`<button class="start-btn" onclick="startWorkout()">Start ${info.dayType}</button>`}`;
   } else {
-    planEl.innerHTML=`<button class="start-btn" style="background:var(--bg2);color:var(--text2);border:1px solid var(--border)" onclick="startWorkout()">+ Log Custom Session</button>`;
+    let nextInfo=null;
+    for(let i=1;i<=8;i++){
+      const d=new Date(today+'T00:00:00');d.setDate(d.getDate()+i);
+      const ds=d.toISOString().split('T')[0];
+      const ni=getCycleInfo(ds);
+      if(ni.dayType&&ni.dayType!=='REST'){nextInfo=ni;break;}
+    }
+    const nextExList=nextInfo?getPlanEx(nextInfo.dayType).flatMap(g=>g.ex):[];
+    const nextCol=nextInfo?(TYPE_COLOR[nextInfo.dayType]||'#666'):'#666';
+    planEl.innerHTML=`
+      ${nextInfo?`<div class="plan-card" style="border-color:var(--border)">
+        <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">Next Up · ${nextInfo.dayType}</div>
+        <div style="font-size:13px;color:var(--text2)">${nextExList.slice(0,5).map(e=>`<div style="padding:2px 0"><span style="color:${nextCol};margin-right:6px">·</span>${e}</div>`).join('')}${nextExList.length>5?`<div style="font-size:11px;color:var(--text3);margin-top:4px">+${nextExList.length-5} more</div>`:''}</div>
+      </div>`:''}
+      <button class="start-btn" style="background:var(--bg2);color:var(--text2);border:1px solid var(--border)" onclick="startWorkout()">+ Log Custom Session</button>`;
   }
 
   const recent=[...sessions].reverse().slice(0,4);
@@ -1398,8 +1417,9 @@ function renderToday() {
       ${fb.comment?`<span style="font-size:12px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px">${fb.comment}</span>`:''}
     </div>`:'';
     const durMin=s.duration?Math.round(s.duration/60):null;
+    const hasPR=sessionHasPR(s);
     return `<div class="si" onclick="showDetail('${s.id}')">
-      <div class="si-top"><div class="si-lbl">${s.label}</div><div class="si-date">${s.date}${durMin?` · ${durMin}min`:''}</div></div>
+      <div class="si-top"><div class="si-lbl">${s.label}${hasPR?' 🏆':''}</div><div class="si-date">${s.date}${durMin?` · ${durMin}min`:''}</div></div>
       <div class="si-type" style="color:${c}">${s.dayType}${s.notes?' · ⚠️':''}</div>
       <div class="si-chips">${ex.map(n=>`<span class="chip">${n}</span>`).join('')}${s.exercises.length>3?`<span class="chip">+${s.exercises.length-3}</span>`:''}</div>
       ${fbHtml}
@@ -2414,6 +2434,8 @@ function renderProfile() {
     actParts.push('Last: '+lastSess.dayType+(dAgo===0?' · today':dAgo===1?' · yesterday':' · '+dAgo+'d ago'));
   }
   actParts.push('This week: '+weekCount+' session'+(weekCount!==1?'s':''));
+  const streak=calcStreak();
+  if(streak>1)actParts.push('Streak: '+streak+'d 🔥');
   document.getElementById('prof-activity').textContent=actParts.join(' · ');
 
   // ── PR list (user-customised order) ──
@@ -2512,6 +2534,48 @@ initFirebase();
 <script>
 if('serviceWorker' in navigator){
   window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+}
+
+// ── STREAK ──────────────────────────────────────────────────────────────────
+function calcStreak() {
+  const dates = new Set(all().filter(s => s.dayType !== 'REST').map(s => s.date));
+  if (!dates.size) return 0;
+  const today = todayStr();
+  // Start from today if trained, otherwise yesterday
+  let check = dates.has(today) ? today : (() => {
+    const d = new Date(today+'T00:00:00'); d.setDate(d.getDate()-1);
+    return d.toISOString().split('T')[0];
+  })();
+  let streak = 0;
+  while (dates.has(check)) {
+    streak++;
+    const d = new Date(check+'T00:00:00'); d.setDate(d.getDate()-1);
+    check = d.toISOString().split('T')[0];
+  }
+  return streak;
+}
+
+// ── SESSION PR CHECK ────────────────────────────────────────────────────────
+function sessionHasPR(sess) {
+  const allSess = all();
+  return sess.exercises.some(ex => {
+    const bw = isBW(ex.name), tb = isTimeBased(ex.name);
+    const prev = allSess.filter(s => s.date < sess.date);
+    if (!prev.length) return false;
+    const prevBest = prev.reduce((best, s) => {
+      const e = s.exercises.find(e => e.name === ex.name);
+      if (!e || !e.sets.length) return best;
+      const val = (bw || tb)
+        ? Math.max(...e.sets.map(st => st.r || 0))
+        : Math.max(0, ...e.sets.filter(st => st.w > 0).map(st => st.w || 0));
+      return Math.max(best, val);
+    }, 0);
+    if (prevBest === 0) return false;
+    const sessVal = (bw || tb)
+      ? Math.max(...ex.sets.map(st => st.r || 0))
+      : Math.max(0, ...ex.sets.filter(st => st.w > 0).map(st => st.w || 0));
+    return sessVal > prevBest;
+  });
 }
 
 // ── PR PREFS ────────────────────────────────────────────────────────────────
