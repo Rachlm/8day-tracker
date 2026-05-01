@@ -551,22 +551,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
     <div id="today-plan"></div>
     <div id="cycle-summary-banner"></div>
     <div id="recent-sessions"></div>
-    <div id="kpi-section" style="margin-top:4px">
-      <div id="fatigue-alert" class="warn" style="display:none;margin-bottom:8px">⚠️ <strong>High fatigue detected.</strong> Last 3 sessions rated Difficult or harder — consider a deload.</div>
-      <div class="card">
-        <div class="ch" style="flex-direction:column;align-items:flex-start;gap:10px">
-          <div class="ct">Progress by Cycle</div>
-          <!-- Day selector -->
-          <div style="display:flex;gap:6px;flex-wrap:wrap" id="kpi-day-pills"></div>
-          <!-- KPI selector -->
-          <div style="display:flex;gap:6px" id="kpi-metric-pills"></div>
-        </div>
-        <div style="padding:4px 16px 16px">
-          <div id="kpi-no-data" style="display:none;text-align:center;padding:28px 0;font-size:13px;color:var(--text3)">No data available</div>
-          <div style="position:relative;height:160px"><canvas id="kpi-cvs"></canvas></div>
-        </div>
-      </div>
-    </div>
   </div>
 </div>
 
@@ -606,6 +590,20 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
     </div>
     <div class="ex-pills" id="progress-pills"></div>
     <div id="progress-content"></div>
+    <div id="kpi-section" style="margin-top:16px">
+      <div id="fatigue-alert" class="warn" style="display:none;margin-bottom:8px">⚠️ <strong>High fatigue detected.</strong> Last 3 sessions rated Difficult or harder — consider a deload.</div>
+      <div class="card">
+        <div class="ch" style="flex-direction:column;align-items:flex-start;gap:10px">
+          <div class="ct">Progress by Cycle</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap" id="kpi-day-pills"></div>
+          <div style="display:flex;gap:6px" id="kpi-metric-pills"></div>
+        </div>
+        <div style="padding:4px 16px 16px">
+          <div id="kpi-no-data" style="display:none;text-align:center;padding:28px 0;font-size:13px;color:var(--text3)">No data available</div>
+          <div style="position:relative;height:160px"><canvas id="kpi-cvs"></canvas></div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1407,7 +1405,6 @@ function renderToday() {
       ${fbHtml}
     </div>`;
   }).join('');
-  renderVolumeChart();
 }
 
 // ── KPI CHART ─────────────────────────────────────────────────────────────
@@ -2252,6 +2249,7 @@ function renderProgress() {
   document.getElementById('progress-pills').innerHTML=ordered.map(n=>`<div class="expill ${currentProgressEx===n?'active':''}" onclick="renderProgressFor('${n.replace(/'/g,"\\'")}')"> ${n}</div>`).join('');
   if(!currentProgressEx&&ordered.length)renderProgressFor(ordered[0]);
   else if(currentProgressEx)renderProgressFor(currentProgressEx);
+  renderKpiChart();
 }
 
 function filterProgressPills(q) {
