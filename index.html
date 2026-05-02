@@ -81,6 +81,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
 /* WORKOUT OVERLAY */
 .woverlay{position:fixed;inset:0;background:var(--bg);z-index:200;overflow-y:auto;-webkit-overflow-scrolling:touch;display:none}
 .woverlay.open{display:block}
+/* WORKOUT FLOATING PILL */
+.wk-pill{position:fixed;bottom:calc(var(--nav-h) + var(--sb) + 14px);right:16px;z-index:150;background:var(--green);color:#000;border-radius:50px;padding:9px 18px;font-family:'DM Mono',monospace;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 4px 20px #22c55e55;display:none;align-items:center;gap:8px;border:none}
+.wk-pill.active{display:flex}
 .wtop{position:sticky;top:0;background:var(--bg);border-bottom:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;z-index:10}
 .wtitle{font-size:17px;font-weight:700}
 .wtimer{font-family:'DM Mono',monospace;font-size:17px;color:var(--green);font-weight:500}
@@ -392,11 +395,18 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
   </div>
 </div>
 
+<!-- WORKOUT FLOATING PILL -->
+<button class="wk-pill" id="wk-pill" onclick="resumeWk()">
+  <span style="width:7px;height:7px;border-radius:50%;background:#000;flex-shrink:0"></span>
+  <span id="wk-pill-timer">0:00</span>
+</button>
+
 <!-- WORKOUT OVERLAY -->
 <div class="woverlay" id="workout-view">
   <div class="wtop">
     <div><div class="wtitle" id="wk-title">Workout</div><div style="font-size:12px;color:var(--text3);margin-top:2px" id="wk-sub"></div></div>
     <div style="display:flex;align-items:center;gap:10px">
+      <button onclick="minimizeWk()" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:26px;line-height:1;padding:0 2px;font-family:inherit">−</button>
       <div class="wtimer" id="wk-timer">0:00</div>
       <button class="wfinish" onclick="finishWorkout()">Finish</button>
     </div>
@@ -1578,19 +1588,26 @@ function restoreWorkout() {
     document.getElementById('wk-title').textContent = activeWorkout.dayType;
     document.getElementById('wk-sub').textContent = activeWorkout.label || activeWorkout.date;
     renderWkEx();
-    document.getElementById('workout-view').classList.add('open');
+    if(activeWorkout.minimized){showPill();}
+    else{document.getElementById('workout-view').classList.add('open');}
     clearInterval(wkInterval);
     const elapsed = Math.floor((Date.now() - activeWorkout.startedAt) / 1000);
-    document.getElementById('wk-timer').textContent = `${Math.floor(elapsed/60)}:${String(elapsed%60).padStart(2,'0')}`;
+    const initT = `${Math.floor(elapsed/60)}:${String(elapsed%60).padStart(2,'0')}`;
+    document.getElementById('wk-timer').textContent = initT;
+    const p=document.getElementById('wk-pill-timer');if(p)p.textContent=initT;
     wkInterval = setInterval(() => {
       const e = Math.floor((Date.now() - activeWorkout.startedAt) / 1000);
-      document.getElementById('wk-timer').textContent = `${Math.floor(e/60)}:${String(e%60).padStart(2,'0')}`;
+      const t=`${Math.floor(e/60)}:${String(e%60).padStart(2,'0')}`;
+      document.getElementById('wk-timer').textContent = t;
+      const p=document.getElementById('wk-pill-timer');if(p)p.textContent=t;
     }, 1000);
   } catch(e) { localStorage.removeItem('tr-active-wk-v1'); }
 }
 
 // ── WORKOUT ────────────────────────────────────────────────────────────────
 function startWorkout(forDate, forDayType) {
+  // If workout already active, just resume it
+  if(activeWorkout){resumeWk();return;}
   const date=forDate||todayStr();
   const info=getCycleInfo(date);
   const dayType=forDayType||(info.dayType&&info.dayType!=='REST'?info.dayType:'PUSH (Hypertrophy)');
@@ -1601,14 +1618,18 @@ function startWorkout(forDate, forDayType) {
     startedAt:Date.now(),
     exercises:defaultEx.map(name=>({name,sets:buildSets(name,date)}))
   };
+  persistWorkout(); // save immediately so reload always recovers
   document.getElementById('wk-title').textContent=dayType;
   document.getElementById('wk-sub').textContent=info.label||date;
   renderWkEx();
   document.getElementById('workout-view').classList.add('open');
+  hidePill();
   clearInterval(wkInterval);
   wkInterval=setInterval(()=>{
     const e=Math.floor((Date.now()-activeWorkout.startedAt)/1000);
-    document.getElementById('wk-timer').textContent=`${Math.floor(e/60)}:${String(e%60).padStart(2,'0')}`;
+    const t=`${Math.floor(e/60)}:${String(e%60).padStart(2,'0')}`;
+    document.getElementById('wk-timer').textContent=t;
+    const p=document.getElementById('wk-pill-timer');if(p)p.textContent=t;
     if(e%30===0) persistWorkout();
   },1000);
 }
@@ -1829,7 +1850,11 @@ function finishWorkout() {
   openFeedback();
 }
 
-function closeWk(){document.getElementById('workout-view').classList.remove('open');activeWorkout=null;clearInterval(wkInterval);persistWorkout();}
+function closeWk(){document.getElementById('workout-view').classList.remove('open');hidePill();activeWorkout=null;clearInterval(wkInterval);persistWorkout();}
+function minimizeWk(){if(activeWorkout)activeWorkout.minimized=true;persistWorkout();document.getElementById('workout-view').classList.remove('open');showPill();}
+function resumeWk(){if(activeWorkout)activeWorkout.minimized=false;persistWorkout();document.getElementById('workout-view').classList.add('open');hidePill();}
+function showPill(){document.getElementById('wk-pill').classList.add('active');}
+function hidePill(){document.getElementById('wk-pill').classList.remove('active');}
 
 // ── CALENDAR ──────────────────────────────────────────────────────────────
 function prevMonth(){calViewDate.setMonth(calViewDate.getMonth()-1);renderCalendar();}
@@ -2246,9 +2271,21 @@ function showDetail(id) {
     ${fbHtml}
     ${s.notes?`<div class="warn" style="margin-top:12px">${s.notes}</div>`:''}
   </div>`;
+  const allSess=all();
   s.exercises.forEach(ex=>{
     const bw=ex.sets.every(st=>!st.w||st.w===0);
-    html+=`<div class="dex"><div class="dex-name">${ex.name}${ex.note?' ⚠️':''}</div>
+    const tb=isTimeBased(ex.name);
+    const prev=allSess.filter(s2=>s2.date<s.date);
+    const prevBest=prev.reduce((best,s2)=>{
+      const e=s2.exercises.find(e=>e.name===ex.name);
+      if(!e||!e.sets.length)return best;
+      const val=(bw||tb)?Math.max(...e.sets.map(st=>st.r||0)):Math.max(0,...e.sets.filter(st=>st.w>0).map(st=>st.w||0));
+      return Math.max(best,val);
+    },0);
+    const sessVal=(bw||tb)?Math.max(...ex.sets.map(st=>st.r||0)):Math.max(0,...ex.sets.filter(st=>st.w>0).map(st=>st.w||0));
+    const isPR=prevBest>0&&sessVal>prevBest;
+    const prBadge=isPR?` <span style="font-size:11px;color:var(--amber);font-weight:700">🏆 ${tb?sessVal+'s':bw?sessVal+'r':sessVal+'kg'}</span>`:'';
+    html+=`<div class="dex"><div class="dex-name">${ex.name}${ex.note?' ⚠️':''}${prBadge}</div>
       <div class="dsets">${ex.sets.map((st,i)=>`<div class="dset">${i+1}: ${st.r}${bw?'r':'×'+st.w+'kg'}</div>`).join('')}</div></div>`;
   });
   document.getElementById('detail-inner').innerHTML=html;
