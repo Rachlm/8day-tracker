@@ -17,8 +17,10 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
 :root{
   --bg:#0f0f0f;--bg2:#1a1a1a;--bg3:#242424;--bg4:#2e2e2e;
-  --border:#2a2a2a;--text:#f0f0f0;--text2:#a0a0a0;--text3:#505050;
+  --border:#2a2a2a;--text:#f0f0f0;--text2:#a0a0a0;--text3:#606060;
   --green:#22c55e;--blue:#3b82f6;--orange:#f97316;--red:#ef4444;--purple:#a855f7;--amber:#f59e0b;
+  /* Neutral primary — used for primary actions. Green is reserved for "done/synced". */
+  --accent:#f0f0f0;--accent-ink:#0a0a0a;
   --nav-h:64px;--sb:env(safe-area-inset-bottom);
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -34,10 +36,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
 .nav{position:fixed;bottom:0;left:0;right:0;height:calc(var(--nav-h) + var(--sb));padding-bottom:var(--sb);background:var(--bg2);border-top:1px solid var(--border);display:flex;z-index:100}
 .nb{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:none;border:none;color:var(--text3);cursor:pointer;font-family:inherit;font-size:10px;font-weight:500;padding:0;transition:color .15s}
 .nb svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-.nb.active{color:var(--green)}
+.nb.active{color:var(--text)}
+.nb.active svg{stroke-width:2.2}
 .nb.go{color:var(--text)}
-.nb.go .gc{width:50px;height:50px;background:var(--green);border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:2px;margin-top:-16px;box-shadow:0 0 0 4px var(--bg2),0 4px 20px #22c55e44}
-.nb.go svg{stroke:#000;width:22px;height:22px}
+.nb.go .gc{width:54px;height:54px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:2px;margin-top:-18px;box-shadow:0 0 0 4px var(--bg2)}
+.nb.go svg{stroke:var(--accent-ink);width:22px;height:22px;stroke-width:2.4}
 .nb.go span{font-size:10px;color:var(--text3)}
 
 /* HEADER */
@@ -65,7 +68,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
 
 /* PLAN CARD */
 .plan-card{background:var(--bg2);border-radius:14px;border:1px solid var(--border);padding:16px;margin-bottom:12px}
-.start-btn{width:100%;padding:16px;background:var(--green);color:#000;font-family:inherit;font-size:16px;font-weight:700;border:none;border-radius:14px;cursor:pointer;margin-bottom:12px;transition:opacity .15s}
+.start-btn{width:100%;padding:16px;background:var(--accent);color:var(--accent-ink);font-family:inherit;font-size:16px;font-weight:700;border:none;border-radius:14px;cursor:pointer;margin-bottom:12px;transition:opacity .15s;letter-spacing:.01em}
 .start-btn:hover{opacity:.9}
 
 /* SESSION ITEM */
@@ -82,12 +85,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
 .woverlay{position:fixed;inset:0;background:var(--bg);z-index:200;overflow-y:auto;-webkit-overflow-scrolling:touch;display:none}
 .woverlay.open{display:block}
 /* WORKOUT FLOATING PILL */
-.wk-pill{position:fixed;bottom:calc(var(--nav-h) + var(--sb) + 14px);right:16px;z-index:150;background:var(--green);color:#000;border-radius:50px;padding:9px 18px;font-family:'DM Mono',monospace;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 4px 20px #22c55e55;display:none;align-items:center;gap:8px;border:none}
+.wk-pill{position:fixed;bottom:calc(var(--nav-h) + var(--sb) + 14px);right:16px;z-index:150;background:var(--accent);color:var(--accent-ink);border-radius:50px;padding:9px 18px;font-family:'DM Mono',monospace;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,.4);display:none;align-items:center;gap:8px;border:none}
 .wk-pill.active{display:flex}
 .wtop{position:sticky;top:0;background:var(--bg);border-bottom:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;z-index:10}
 .wtitle{font-size:17px;font-weight:700}
-.wtimer{font-family:'DM Mono',monospace;font-size:17px;color:var(--green);font-weight:500}
-.wfinish{padding:8px 18px;background:var(--green);color:#000;border:none;border-radius:10px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer}
+.wtimer{font-family:'DM Mono',monospace;font-size:17px;color:var(--text);font-weight:500}
+.wfinish{padding:8px 18px;background:var(--accent);color:var(--accent-ink);border:none;border-radius:10px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer}
 .winner{padding:12px 16px 120px;max-width:500px;margin:0 auto}
 
 /* EX BLOCK */
@@ -95,7 +98,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
 .exbh{display:flex;align-items:center;justify-content:space-between;padding:13px 16px 10px;background:var(--bg2);border-radius:14px 14px 0 0;border:1px solid var(--border);border-bottom:none}
 .exbn{font-size:16px;font-weight:700}
 .exbs{font-size:11px;color:var(--text3);margin-top:2px}
-.addset{font-size:12px;color:var(--blue);font-weight:600;background:none;border:none;cursor:pointer;font-family:inherit;padding:4px}
+.addset{font-size:12px;color:var(--text);font-weight:600;background:none;border:none;cursor:pointer;font-family:inherit;padding:4px}
 .stbl{background:var(--bg2);border:1px solid var(--border);border-top:none;border-radius:0 0 14px 14px;overflow:hidden}
 .sth{display:grid;grid-template-columns:30px 1fr 76px 76px 40px;padding:6px 12px;gap:6px;border-bottom:1px solid var(--border)}
 .sth span{font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.05em;text-align:center}
@@ -112,8 +115,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
 .sinput:focus{border-color:var(--blue);background:var(--bg4)}
 .srow.done .sinput{border-color:#22c55e44;opacity:.7}
 .cbtn{width:34px;height:34px;border-radius:50%;border:2px solid var(--border);background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text3);transition:all .15s;flex-shrink:0}
-.cbtn:hover{border-color:var(--green);color:var(--green)}
+.cbtn:hover{border-color:var(--text2);color:var(--text2)}
 .cbtn.done{background:var(--green);border-color:var(--green);color:#000}
+.cbtn.done:hover{border-color:var(--green);color:#000}
 .cbtn svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
 .addexbar{margin-top:10px;padding:14px 16px;background:var(--bg2);border-radius:14px;border:2px dashed var(--border);text-align:center;cursor:pointer;color:var(--text3);font-size:14px;font-weight:500}
 .addexbar:active{opacity:.7}
@@ -201,7 +205,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
 .ex-pills{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:16px;scrollbar-width:none}
 .ex-pills::-webkit-scrollbar{display:none}
 .expill{flex-shrink:0;padding:8px 14px;border-radius:20px;background:var(--bg2);border:1px solid var(--border);font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;color:var(--text2)}
-.expill.active{background:var(--green);border-color:var(--green);color:#000;font-weight:700}
+.expill.active{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:700}
 .prbox{background:var(--bg2);border-radius:14px;border:1px solid var(--border);padding:16px;margin-bottom:12px;display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .prv{font-size:26px;font-weight:700;font-family:'DM Mono',monospace}
 .prl{font-size:11px;color:var(--text3);margin-top:2px;text-transform:uppercase;letter-spacing:.05em}
@@ -252,7 +256,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
 .hint{font-size:11px;color:var(--text3);margin-bottom:16px}
 .mbtns{display:flex;gap:8px}
 .mbtn{flex:1;padding:12px;border-radius:10px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer}
-.mbtn.primary{background:var(--green);color:#000;border-color:var(--green)}
+.mbtn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 
 /* WARN */
 .warn{background:#f9731614;border:1px solid #f9731640;border-radius:12px;padding:12px 14px;font-size:13px;color:var(--orange);margin-bottom:14px;line-height:1.5}
@@ -271,7 +275,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
 .eoverlay{position:fixed;inset:0;background:var(--bg);z-index:280;overflow-y:auto;-webkit-overflow-scrolling:touch;display:none}
 .eoverlay.open{display:block}
 .etop{position:sticky;top:0;background:var(--bg);border-bottom:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;z-index:10}
-.esave{padding:8px 18px;background:var(--green);color:#000;border:none;border-radius:10px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer}
+.esave{padding:8px 18px;background:var(--accent);color:var(--accent-ink);border:none;border-radius:10px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer}
 .einner{padding:12px 16px 120px;max-width:500px;margin:0 auto}
 /* PREV SETS BLOCK in workout logger */
 .prev-sets-block{background:var(--bg2);border-left:1px solid var(--border);border-right:1px solid var(--border);border-bottom:1px solid var(--border);padding:8px 14px}
@@ -298,7 +302,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
 
 /* KPI PILL */
 .kpi-pill{padding:5px 11px;border-radius:20px;background:var(--bg3);border:1px solid var(--border);font-size:12px;font-weight:600;cursor:pointer;color:var(--text2);white-space:nowrap;transition:all .15s}
-.kpi-pill.active{background:var(--green);border-color:var(--green);color:#000}
+.kpi-pill.active{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 
 /* PR TOAST */
 .pr-toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:var(--bg2);border:1.5px solid var(--amber);border-radius:50px;padding:12px 20px;display:none;align-items:center;gap:10px;font-size:14px;font-weight:700;z-index:500;box-shadow:0 8px 32px rgba(0,0,0,.5);color:var(--amber);white-space:nowrap;max-width:90vw}
@@ -311,6 +315,109 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
 .cycle-sum-cell{background:var(--bg3);border-radius:10px;padding:10px 8px;text-align:center}
 .cycle-sum-val{font-size:18px;font-weight:700;font-family:'DM Mono',monospace}
 .cycle-sum-lbl{font-size:10px;color:var(--text3);margin-top:3px;text-transform:uppercase;letter-spacing:.05em}
+/* ── TODAY — REDESIGN ── */
+.t-ribbon-wrap{position:sticky;top:0;z-index:50;background:var(--bg);padding:12px 12px 10px;border-bottom:1px solid var(--border)}
+.t-ribbon{display:flex;gap:4px;max-width:500px;margin:0 auto}
+.t-cell{flex:1;min-width:0;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:7px 4px 6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;position:relative;transition:transform .12s,opacity .12s;min-height:48px}
+.t-cell:active{transform:scale(.96)}
+.t-cell-num{font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.04em;font-family:'DM Mono',monospace;text-transform:uppercase;line-height:1}
+.t-cell-tag{font-size:8px;font-weight:700;letter-spacing:.04em;line-height:1;text-align:center;color:var(--text2);text-transform:uppercase}
+.t-cell.rest .t-cell-tag{color:var(--text3)}
+.t-cell.today{background:var(--text);border-color:var(--text)}
+.t-cell.today .t-cell-num{color:var(--accent-ink);font-weight:700}
+.t-cell.today .t-cell-tag{color:var(--accent-ink);opacity:.75}
+.t-cell.done::after{content:"";position:absolute;top:3px;right:3px;width:5px;height:5px;border-radius:50%;background:var(--green)}
+.t-cell.scrollable{flex:0 0 36px}
+.t-ribbon.scrollable{overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.t-ribbon.scrollable::-webkit-scrollbar{display:none}
+
+.t-meta{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;padding:0 2px}
+.t-meta-date{font-size:13px;color:var(--text2);font-weight:500}
+.t-meta-date b{color:var(--text);font-weight:600;margin-right:4px}
+
+/* Hero session card */
+.t-hero{background:var(--bg2);border-radius:18px;border:1px solid var(--border);overflow:hidden;margin-bottom:14px;position:relative}
+.t-hero-stripe{height:4px;width:100%}
+.t-hero-body{padding:18px 18px 16px}
+.t-hero-eyebrow{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.t-hero-eyebrow-meta{color:var(--text3);font-family:'DM Mono',monospace;font-weight:500;letter-spacing:.05em}
+.t-hero-day{font-size:30px;font-weight:700;letter-spacing:-.6px;line-height:1.05;margin-bottom:3px}
+.t-hero-sub{font-size:14px;color:var(--text2);margin-bottom:18px;font-weight:500}
+.t-ex-list{display:flex;flex-direction:column;gap:1px;background:var(--border);border-radius:10px;overflow:hidden;margin-bottom:16px}
+.t-ex-row{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--bg2);gap:10px;min-height:38px}
+.t-ex-name{font-size:14px;font-weight:500;color:var(--text);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.t-ex-target{font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;font-weight:500;flex-shrink:0;letter-spacing:.02em}
+.t-ex-target.up{color:var(--green)}
+.t-hero-cta{width:100%;padding:15px;background:var(--accent);color:var(--accent-ink);font-family:inherit;font-size:15px;font-weight:700;border:none;border-radius:12px;cursor:pointer;letter-spacing:.01em;transition:opacity .15s}
+.t-hero-cta:hover{opacity:.92}
+.t-hero-cta.secondary{background:var(--bg3);color:var(--text);border:1px solid var(--border)}
+.t-hero-done{display:flex;align-items:center;justify-content:center;gap:8px;padding:14px;font-size:13px;color:var(--green);font-weight:600;background:#22c55e10;border-radius:12px}
+.t-hero-done svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.5}
+
+/* Demoted KPI strip */
+.t-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:18px}
+.t-kpis.four{grid-template-columns:repeat(4,1fr)}
+.t-kpi{background:transparent;border:1px solid var(--border);border-radius:10px;padding:10px 8px;text-align:center}
+.t-kpi-v{font-size:16px;font-weight:600;color:var(--text);font-family:'DM Sans',sans-serif;letter-spacing:-.01em;line-height:1.1}
+.t-kpi-l{font-size:9px;color:var(--text3);margin-top:4px;font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+
+/* Sync pill in meta */
+.t-sync{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--text3);font-weight:500;cursor:pointer}
+
+/* Rest day variant */
+.t-hero.rest .t-hero-day{font-size:24px;color:var(--text2)}
+.t-hero.rest .t-hero-stripe{background:var(--border)}
+/* ── WORKOUT LOGGER — FOCUS MODE ── */
+.wk-modebar{display:flex;align-items:center;justify-content:space-between;padding:8px 4px 12px;max-width:500px;margin:0 auto}
+.wk-mode-toggle{display:inline-flex;background:var(--bg2);border:1px solid var(--border);border-radius:9px;padding:2px;gap:2px}
+.wk-mode-btn{padding:6px 11px;font-family:inherit;font-size:11px;font-weight:600;color:var(--text3);background:none;border:none;border-radius:7px;cursor:pointer;letter-spacing:.04em;text-transform:uppercase}
+.wk-mode-btn.active{background:var(--bg4);color:var(--text)}
+.wk-mode-meta{font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;letter-spacing:.04em}
+
+/* Focus card */
+.fexb{background:var(--bg2);border:1px solid var(--border);border-radius:18px;margin-bottom:12px;overflow:hidden}
+.fexb-head{display:flex;align-items:flex-start;justify-content:space-between;padding:14px 16px 10px;gap:10px}
+.fexb-name{font-size:16px;font-weight:700;line-height:1.25}
+.fexb-best{font-size:10px;color:var(--text3);margin-top:3px;font-family:'DM Mono',monospace;letter-spacing:.02em}
+.fexb-best b{color:var(--amber);font-weight:700}
+.fexb-mv{display:flex;flex-direction:column;gap:2px;flex-shrink:0}
+.fmv-btn{width:24px;height:20px;border:none;background:none;cursor:pointer;color:var(--text3);font-size:13px;line-height:1;padding:0;border-radius:4px}
+.fmv-btn:disabled{opacity:.18;pointer-events:none}
+
+/* Set chips (tappable, jump between sets) */
+.fset-chips{display:flex;align-items:center;gap:6px;padding:0 16px 12px;flex-wrap:wrap}
+.fset-chip{min-width:30px;height:30px;padding:0 10px;border-radius:8px;background:var(--bg3);border:1px solid var(--border);display:inline-flex;align-items:center;justify-content:center;font-family:'DM Mono',monospace;font-size:12px;font-weight:600;color:var(--text2);cursor:pointer;transition:all .12s}
+.fset-chip.done{background:#22c55e22;border-color:#22c55e55;color:var(--green)}
+.fset-chip.active{background:var(--text);border-color:var(--text);color:var(--accent-ink)}
+.fset-chip.warmup{background:#f59e0b1a;border-color:#f59e0b3a;color:var(--amber);font-size:10px}
+.fset-add{width:30px;height:30px;border-radius:8px;background:none;border:1px dashed var(--border);color:var(--text3);font-size:16px;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-family:inherit}
+.fset-add:hover{color:var(--text);border-color:var(--text2)}
+
+/* Active set body */
+.fbody{padding:6px 16px 18px;border-top:1px solid var(--border);background:var(--bg)}
+.fbody.done-state{background:#22c55e08}
+.flbl{display:flex;align-items:center;justify-content:space-between;font-size:10px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin:14px 0 8px}
+.flbl-prev{font-family:'DM Mono',monospace;color:var(--text2);text-transform:none;letter-spacing:.02em;font-weight:500}
+.fstepper{display:flex;align-items:center;gap:8px}
+.fstep-btn{flex-shrink:0;height:48px;padding:0 12px;background:var(--bg3);border:1px solid var(--border);border-radius:11px;color:var(--text);font-family:'DM Mono',monospace;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:background .12s,transform .08s;min-width:54px}
+.fstep-btn:active{transform:scale(.94);background:var(--bg4)}
+.fstep-btn.minor{min-width:46px;font-size:12px;color:var(--text2)}
+.finput-wrap{flex:1;position:relative}
+.finput{width:100%;height:48px;padding:0 14px;background:var(--bg3);border:1px solid var(--border);border-radius:11px;color:var(--text);font-family:'DM Mono',monospace;font-size:22px;font-weight:600;text-align:center;outline:none;-moz-appearance:textfield}
+.finput::-webkit-outer-spin-button,.finput::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.finput:focus{border-color:var(--text2);background:var(--bg4)}
+.finput-suffix{position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;font-weight:600;pointer-events:none;letter-spacing:.04em}
+
+/* Action row: warm-up toggle, big check, delete */
+.fact-row{display:flex;align-items:center;gap:10px;margin-top:18px}
+.fact-wu{flex-shrink:0;height:46px;padding:0 14px;background:var(--bg3);border:1px solid var(--border);border-radius:11px;color:var(--text2);font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;letter-spacing:.06em;text-transform:uppercase;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.fact-wu.active{background:#f59e0b22;border-color:#f59e0b66;color:var(--amber)}
+.fact-check{flex:1;height:46px;background:var(--green);color:#000;border:none;border-radius:11px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;letter-spacing:.04em;display:inline-flex;align-items:center;justify-content:center;gap:8px;transition:opacity .12s,transform .08s}
+.fact-check:active{transform:scale(.97)}
+.fact-check.done{background:var(--bg3);color:var(--text2);border:1px solid var(--border)}
+.fact-check svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+.fact-del{flex-shrink:0;width:46px;height:46px;background:none;border:1px solid var(--border);border-radius:11px;color:var(--text3);font-size:14px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.fact-del:hover{color:var(--red);border-color:var(--red)}
 </style>
 </head>
 <body>
@@ -550,22 +657,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
 
 <!-- TODAY -->
 <div class="view active" id="view-today">
-  <div class="mgrid today-strip" id="overview-mgrid">
-    <div class="mc"><div class="mv" id="m-total">—</div><div class="ml">Sessions</div></div>
-    <div class="mc"><div class="mv" id="m-cycle">—</div><div class="ml">Cycle</div></div>
-    <div class="mc"><div class="mv" id="m-week">—</div><div class="ml">This wk</div></div>
-    <div class="mc" id="m-target-cell" style="display:none"><div class="mv" id="m-target">—</div><div class="ml">To goal</div></div>
-  </div>
-  <div class="ph">
-    <div class="pt">Today</div>
-    <div style="display:flex;align-items:center;justify-content:space-between">
-      <div id="today-date" style="font-size:13px;color:var(--text2)"></div>
-      <div class="sync-pill" onclick="openSyncModal()"><div class="sdot syncing" id="sync-dot"></div><span id="sync-label">Connecting…</span></div>
-    </div>
-  </div>
-  <div class="vi">
-    <div id="today-badge"></div>
-    <div id="today-plan"></div>
+  <div id="today-ribbon" class="t-ribbon-wrap"></div>
+  <div class="vi" style="padding-top:14px">
+    <div id="today-meta" class="t-meta"></div>
+    <div id="today-hero"></div>
+    <div id="today-kpis" class="t-kpis"></div>
     <div id="cycle-summary-banner"></div>
     <div id="recent-sessions"></div>
   </div>
@@ -890,7 +986,10 @@ function getCycleInfo(dateStr) {
   return { isPre:false, cycleNum, cycleLabel, dayName, dayType, label, idx };
 }
 
-function todayStr() { return new Date().toISOString().split('T')[0]; }
+function todayStr() {
+  const d=new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
 
 // Returns the effective dayType for a date — override takes priority over cycle calc
 function getDayType(dateStr) {
@@ -929,11 +1028,16 @@ function toggleWarmup(ei,si) {
   if(!activeWorkout)return;
   const set=activeWorkout.exercises[ei].sets[si];
   set.wu=!set.wu;
-  const ex=activeWorkout.exercises[ei];
-  const ps=getPrevSets(ex.name,activeWorkout.date);
-  const tb=isTimeBased(ex.name);
-  const row=document.getElementById(`sr-${ei}-${si}`);
-  if(row)row.outerHTML=setRowHTML(ei,si,set,ps?.sets[si]||null,tb);
+  const mode=localStorage.getItem('tr-wk-mode-v1')||'focus';
+  if(mode==='focus'){
+    renderWkEx();
+  } else {
+    const ex=activeWorkout.exercises[ei];
+    const ps=getPrevSets(ex.name,activeWorkout.date);
+    const tb=isTimeBased(ex.name);
+    const row=document.getElementById(`sr-${ei}-${si}`);
+    if(row)row.outerHTML=setRowHTML(ei,si,set,ps?.sets[si]||null,tb);
+  }
   persistWorkout();
 }
 
@@ -1353,27 +1457,154 @@ function switchView(name) {
 // ── TODAY ──────────────────────────────────────────────────────────────────
 function renderToday() {
   const today=todayStr(), info=getCycleInfo(today), sessions=all();
-  document.getElementById('today-date').textContent=new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
-  document.getElementById('m-total').textContent=sessions.length;
+  const cycle=activeCycle();
+
+  // ── Cycle ribbon ─────────────────────────────────────────────────────
+  // Walk this cycle's days in display order (D2..D1 by default). For each, determine:
+  // dayType, dayName, is-today, is-done.
+  const ribbonEl=document.getElementById('today-ribbon');
+  const cycleLen=cycle.length;
+  // Find today's position in the cycle by matching dayName (e.g. 'D8') against cycle[i].idx.
+  // Then walk back that many days to get the first day of this cycle.
+  let cyclePos=0;
+  if(!info.isPre){
+    const found=cycle.findIndex(c=>c.idx===info.dayName);
+    if(found>=0)cyclePos=found;
+  }
+  const startD=new Date(today+'T00:00:00');
+  startD.setDate(startD.getDate()-cyclePos);
+  const ribbonCells=[];
+  for(let i=0;i<cycleLen;i++){
+    const d=new Date(today+'T00:00:00'); d.setDate(d.getDate()+(i-cyclePos));
+    // Local-date string (avoid UTC shift from toISOString)
+    const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const di=getCycleInfo(ds);
+    const isToday=ds===today;
+    const sessOnDay=sessions.find(s=>s.date===ds);
+    const dt=di.dayType;
+    const col=TYPE_COLOR[dt]||'var(--border)';
+    const isRest=dt==='REST';
+    const dayLabel=di.dayName||cycle[i]?.idx||`D${i+1}`;
+    const tagShort=isRest?'Rest':(TYPE_TAG[dt]||(dt||'').split(' ')[0].slice(0,4));
+    const tintBg=isRest?'var(--bg2)':`${col}1f`;
+    const tintBorder=isRest?'var(--border)':`${col}55`;
+    ribbonCells.push(`<div class="t-cell ${isToday?'today':''} ${isRest?'rest':''} ${sessOnDay?'done':''}" data-date="${ds}" style="${isToday?'':`background:${tintBg};border-color:${tintBorder}`}">
+      <div class="t-cell-num">${dayLabel}</div>
+      <div class="t-cell-tag" style="${isToday||isRest?'':`color:${col}`}">${tagShort}</div>
+    </div>`);
+  }
+  const useScroll=cycleLen>10;
+  ribbonEl.innerHTML=`<div class="t-ribbon ${useScroll?'scrollable':''}">${ribbonCells.map(c=>useScroll?c.replace('class="t-cell','class="t-cell scrollable'):c).join('')}</div>`;
+  // Wire up cell taps → open day detail in calendar view? for now: jump to calendar with that date selected.
+  ribbonEl.querySelectorAll('.t-cell').forEach(el=>{
+    el.addEventListener('click',()=>{
+      const ds=el.dataset.date;
+      if(!ds)return;
+      switchView('calendar');
+      // small nudge so calendar's date detail shows
+      setTimeout(()=>{ if(typeof showCalDay==='function') showCalDay(ds); },50);
+    });
+  });
+
+  // ── Meta row ─────────────────────────────────────────────────────────
+  const dateStr=new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
+  const metaEl=document.getElementById('today-meta');
+  metaEl.innerHTML=`<div class="t-meta-date"><b>${dateStr.split(',')[0]||dateStr}</b><span style="color:var(--text3)">${dateStr.includes(',')?dateStr.split(',').slice(1).join(',').trim():''}</span></div>
+    <div class="t-sync" onclick="openSyncModal()"><div class="sdot syncing" id="sync-dot"></div><span id="sync-label">Connecting…</span></div>`;
+
+  // ── Hero card ────────────────────────────────────────────────────────
+  const col=TYPE_COLOR[info.dayType]||'var(--text3)';
+  const logged=sessions.find(s=>s.date===today);
+  const heroEl=document.getElementById('today-hero');
+  if(info.isPre){
+    heroEl.innerHTML=`<div class="t-hero">
+      <div class="t-hero-stripe" style="background:var(--border)"></div>
+      <div class="t-hero-body">
+        <div class="t-hero-eyebrow"><span style="color:var(--text3)">Prep period</span></div>
+        <div class="t-hero-day">Pre-cycle</div>
+        <div class="t-hero-sub">Cycle 1 hasn't started yet — log a session whenever you're ready.</div>
+        <button class="t-hero-cta secondary" onclick="startWorkout()">Log custom session</button>
+      </div>
+    </div>`;
+  } else if(info.dayType==='REST'){
+    // Find next training day
+    let nextInfo=null,nextDateStr=null;
+    for(let i=1;i<=cycleLen;i++){
+      const d=new Date(today+'T00:00:00');d.setDate(d.getDate()+i);
+      const ds=d.toISOString().split('T')[0];
+      const ni=getCycleInfo(ds);
+      if(ni.dayType&&ni.dayType!=='REST'){nextInfo=ni;nextDateStr=ds;break;}
+    }
+    const nextCol=nextInfo?(TYPE_COLOR[nextInfo.dayType]||'var(--text3)'):'var(--text3)';
+    const nextEx=nextInfo?getPlanEx(nextInfo.dayType).flatMap(g=>g.ex).slice(0,5):[];
+    const daysAway=nextDateStr?Math.round((new Date(nextDateStr+'T00:00:00')-new Date(today+'T00:00:00'))/86400000):0;
+    heroEl.innerHTML=`<div class="t-hero rest">
+      <div class="t-hero-stripe" style="background:var(--border)"></div>
+      <div class="t-hero-body">
+        <div class="t-hero-eyebrow"><span style="color:var(--text3)">Rest day</span><span class="t-hero-eyebrow-meta">· ${info.label}</span></div>
+        <div class="t-hero-day">Recover</div>
+        <div class="t-hero-sub">${nextInfo?`Next: ${dayTitle(nextInfo.dayType)} ${daysAway===1?'tomorrow':`in ${daysAway} days`}`:'Take it easy.'}</div>
+        ${nextEx.length?`<div class="t-ex-list">${nextEx.map(e=>`<div class="t-ex-row"><span class="t-ex-name" style="color:var(--text2)">${e}</span><span class="t-ex-target" style="color:${nextCol}">·</span></div>`).join('')}</div>`:''}
+        <button class="t-hero-cta secondary" onclick="startWorkout()">Log custom session</button>
+      </div>
+    </div>`;
+  } else {
+    // Training day
+    const exList=getPlanEx(info.dayType).flatMap(g=>g.ex);
+    const exRows=exList.map(e=>{
+      const prev=getPrevPerf(e,today);
+      const bw=isBW(e),tb=isTimeBased(e);
+      let target=null,up=false;
+      if(prev){
+        if(!bw&&!tb){
+          const hist=getExHistory(e);
+          const bestW=hist.length?Math.max(...hist.map(h=>h.w)):0;
+          if(prev.w>=bestW&&bestW>0){target=`${+(prev.w+2.5).toFixed(1)} kg`;up=true;}
+          else if(bestW>0){target=`${bestW} kg`;}
+        } else if(tb){
+          target=`${prev.r}s`;
+        } else {
+          target=`${prev.r} reps`;
+        }
+      }
+      return `<div class="t-ex-row"><span class="t-ex-name">${e}</span>${target?`<span class="t-ex-target ${up?'up':''}">${up?'↑ ':''}${target}</span>`:'<span class="t-ex-target" style="color:var(--text3)">—</span>'}</div>`;
+    }).join('');
+    heroEl.innerHTML=`<div class="t-hero">
+      <div class="t-hero-stripe" style="background:${col}"></div>
+      <div class="t-hero-body">
+        <div class="t-hero-eyebrow" style="color:${col}"><span>${dayCategory(info.dayType)}</span><span class="t-hero-eyebrow-meta">· ${info.label}</span></div>
+        <div class="t-hero-day">${dayTitle(info.dayType)}</div>
+        <div class="t-hero-sub">${exList.length} exercises planned</div>
+        ${exRows?`<div class="t-ex-list">${exRows}</div>`:''}
+        ${logged
+          ?`<div class="t-hero-done"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg> Session logged today</div>`
+          :`<button class="t-hero-cta" onclick="startWorkout()">Start ${dayTitle(info.dayType)}</button>`}
+      </div>
+    </div>`;
+  }
+
+  // ── KPIs ─────────────────────────────────────────────────────────────
+  const kpisEl=document.getElementById('today-kpis');
   const cycleGroups={};
   sessions.forEach(s=>{ if(s.cycle&&s.cycle!=='Custom'){cycleGroups[s.cycle]=(cycleGroups[s.cycle]||0)+1; }});
   const completedCycles=Object.keys(cycleGroups).filter(c=>cycleGroups[c]>=5).sort();
   const latestDone=completedCycles[completedCycles.length-1];
-  document.getElementById('m-cycle').textContent=latestDone?latestDone+' ✓':'Prep';
   const ws=new Date();ws.setDate(ws.getDate()-((ws.getDay()+6)%7));
-  document.getElementById('m-week').textContent=sessions.filter(s=>s.date>=ws.toISOString().split('T')[0]).length;
-
+  const wkCount=sessions.filter(s=>s.date>=ws.toISOString().split('T')[0]).length;
+  let kpiHtml=`<div class="t-kpi"><div class="t-kpi-v">${sessions.length}</div><div class="t-kpi-l">Sessions</div></div>
+    <div class="t-kpi"><div class="t-kpi-v">${latestDone?latestDone+' ✓':'Prep'}</div><div class="t-kpi-l">Cycle</div></div>
+    <div class="t-kpi"><div class="t-kpi-v">${wkCount}</div><div class="t-kpi-l">This wk</div></div>`;
   if(PROFILE.target){
     const tgt=new Date(PROFILE.target+'T00:00:00');
     const daysLeft=Math.max(0,Math.round((tgt-new Date(todayStr()+'T00:00:00'))/86400000));
-    document.getElementById('m-target').textContent=daysLeft+'d';
-    document.getElementById('m-target-cell').style.display='';
-    document.getElementById('overview-mgrid').classList.add('four');
+    kpiHtml+=`<div class="t-kpi"><div class="t-kpi-v">${daysLeft}d</div><div class="t-kpi-l">To goal</div></div>`;
+    kpisEl.classList.add('four');
   } else {
-    document.getElementById('m-target-cell').style.display='none';
-    document.getElementById('overview-mgrid').classList.remove('four');
+    kpisEl.classList.remove('four');
   }
+  kpisEl.innerHTML=kpiHtml;
 
+  // ── Cycle summary banner ─────────────────────────────────────────────
   const sumBanner=document.getElementById('cycle-summary-banner');
   if(PENDING_CYCLE_SUMMARY){
     const ps=PENDING_CYCLE_SUMMARY;
@@ -1392,59 +1623,7 @@ function renderToday() {
     sumBanner.innerHTML='';
   }
 
-  const col=TYPE_COLOR[info.dayType]||'#333';
-  const badgeEl=document.getElementById('today-badge');
-  if(info.dayType&&info.dayType!=='REST'){
-    badgeEl.innerHTML=`<div class="tbadge" style="background:${col}18;color:${col};border:1px solid ${col}33"><span style="width:8px;height:8px;border-radius:50%;background:${col};display:inline-block"></span>${info.label} — ${info.dayType}</div>`;
-  } else if(info.dayType==='REST'){
-    badgeEl.innerHTML=`<div class="tbadge" style="background:var(--bg2);color:var(--text3);border:1px solid var(--border)">😴 ${info.label} — Rest Day</div>`;
-  } else {
-    badgeEl.innerHTML=`<div class="tbadge" style="background:var(--bg2);color:var(--text3);border:1px solid var(--border)">📋 Prep period</div>`;
-  }
-
-  const planEl=document.getElementById('today-plan');
-  const logged=sessions.find(s=>s.date===today);
-  if(info.dayType&&info.dayType!=='REST'){
-    const exList=getPlanEx(info.dayType).flatMap(g=>g.ex);
-    planEl.innerHTML=`<div class="plan-card" style="border-color:${col}44">
-      <div style="font-size:11px;font-weight:700;color:${col};text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">${info.dayType}</div>
-      <div style="font-size:13px;color:var(--text2)">${exList.map(e=>{
-        const prev=getPrevPerf(e,today);
-        const bw=isBW(e),tb=isTimeBased(e);
-        let rightTxt=null;
-        if(prev){
-          if(!bw&&!tb){
-            const hist=getExHistory(e);
-            const bestW=hist.length?Math.max(...hist.map(h=>h.w)):0;
-            rightTxt=prev.w>=bestW&&bestW>0?`→ ${+(prev.w+2.5).toFixed(1)}kg`:`→ ${bestW}kg`;
-          } else {
-            rightTxt=tb?prev.r+'s':prev.r+'r';
-          }
-        }
-        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0"><span><span style="color:${col};margin-right:6px">·</span>${e}</span>${rightTxt?`<span style="font-size:11px;color:var(--green);font-family:'DM Mono',monospace;flex-shrink:0;margin-left:8px;font-weight:600">${rightTxt}</span>`:''}</div>`;
-      }).join('')}</div>
-    </div>
-    ${logged
-      ?`<div style="text-align:center;padding:12px;font-size:13px;color:var(--green);font-weight:600">✓ Session logged today</div>`
-      :`<button class="start-btn" onclick="startWorkout()">Start ${info.dayType}</button>`}`;
-  } else {
-    let nextInfo=null;
-    for(let i=1;i<=8;i++){
-      const d=new Date(today+'T00:00:00');d.setDate(d.getDate()+i);
-      const ds=d.toISOString().split('T')[0];
-      const ni=getCycleInfo(ds);
-      if(ni.dayType&&ni.dayType!=='REST'){nextInfo=ni;break;}
-    }
-    const nextExList=nextInfo?getPlanEx(nextInfo.dayType).flatMap(g=>g.ex):[];
-    const nextCol=nextInfo?(TYPE_COLOR[nextInfo.dayType]||'#666'):'#666';
-    planEl.innerHTML=`
-      ${nextInfo?`<div class="plan-card" style="border-color:var(--border)">
-        <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">Next Up · ${nextInfo.dayType}</div>
-        <div style="font-size:13px;color:var(--text2)">${nextExList.slice(0,5).map(e=>`<div style="padding:2px 0"><span style="color:${nextCol};margin-right:6px">·</span>${e}</div>`).join('')}${nextExList.length>5?`<div style="font-size:11px;color:var(--text3);margin-top:4px">+${nextExList.length-5} more</div>`:''}</div>
-      </div>`:''}
-      <button class="start-btn" style="background:var(--bg2);color:var(--text2);border:1px solid var(--border)" onclick="startWorkout()">+ Log Custom Session</button>`;
-  }
-
+  // ── Recent ───────────────────────────────────────────────────────────
   const recent=[...sessions].reverse().slice(0,4);
   const recEl=document.getElementById('recent-sessions');
   if(!recent.length){recEl.innerHTML='';return;}
@@ -1466,6 +1645,18 @@ function renderToday() {
       ${fbHtml}
     </div>`;
   }).join('');
+}
+
+// Helpers for hero card titles
+function dayTitle(dt){
+  if(!dt||dt==='REST')return 'Rest';
+  const m=dt.match(/^([A-Z]+)/);
+  return m?m[1].charAt(0)+m[1].slice(1).toLowerCase():dt;
+}
+function dayCategory(dt){
+  if(!dt)return '';
+  const m=dt.match(/\(([^)]+)\)/);
+  return m?m[1]:dt.split(' ')[0];
 }
 
 // ── KPI CHART ─────────────────────────────────────────────────────────────
@@ -1696,38 +1887,188 @@ function getBestSet(exName, beforeDate) {
 function renderWkEx() {
   if(!activeWorkout)return;
   const total=activeWorkout.exercises.length;
-  document.getElementById('workout-inner').innerHTML=activeWorkout.exercises.map((ex,ei)=>{
-    const ps=getPrevSets(ex.name,activeWorkout.date);
-    const tb=isTimeBased(ex.name);
-    const best=getBestSet(ex.name,activeWorkout.date);
-    const bestHtml=best
-      ?`<div style="font-size:10px;color:var(--amber);margin-top:2px;font-family:'DM Mono',monospace">★ Best: ${best.label} — ${best.display}</div>`
-      :`<div style="font-size:10px;color:var(--text3);margin-top:2px">No best yet</div>`;
-    const hdr=tb
-      ?`<div class="sth"><span>#</span><span>Previous</span><span colspan="2">Secs</span><span></span><span></span></div>`
-      :`<div class="sth"><span>#</span><span>Previous</span><span>Reps</span><span>kg</span><span></span></div>`;
-    const canUp=ei>0, canDown=ei<total-1;
-    return `<div class="exb" id="exb-${ei}">
-      <div class="exbh">
-        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
-          <div style="display:flex;flex-direction:column;gap:2px">
-            <button onclick="moveExWk(${ei},'up')" style="width:24px;height:20px;border:none;background:none;cursor:pointer;color:var(--text3);font-size:13px;line-height:1;padding:0;border-radius:4px;${canUp?'':'opacity:.2;pointer-events:none'}">▲</button>
-            <button onclick="moveExWk(${ei},'down')" style="width:24px;height:20px;border:none;background:none;cursor:pointer;color:var(--text3);font-size:13px;line-height:1;padding:0;border-radius:4px;${canDown?'':'opacity:.2;pointer-events:none'}">▼</button>
-          </div>
-          <div>
-            <div class="exbn">${ex.name}${tb?'<span class="tbadge-ex">TIME</span>':''}</div>
-            <div class="exbs">${ps?`(${ps.label})`:'No history'}</div>
-            ${bestHtml}
-          </div>
-        </div>
-        <button class="addset" onclick="addSet(${ei})">+ Set</button>
+  const mode=localStorage.getItem('tr-wk-mode-v1')||'focus';
+  const inner=document.getElementById('workout-inner');
+
+  // Mode bar
+  const totalSets=activeWorkout.exercises.reduce((a,e)=>a+e.sets.length,0);
+  const doneSets=activeWorkout.exercises.reduce((a,e)=>a+e.sets.filter(s=>s.done&&!s.wu).length,0);
+  const modeBar=`<div class="wk-modebar">
+    <div class="wk-mode-meta">${doneSets}/${totalSets} sets · ${total} ex</div>
+    <div class="wk-mode-toggle">
+      <button class="wk-mode-btn ${mode==='focus'?'active':''}" onclick="setWkMode('focus')">Focus</button>
+      <button class="wk-mode-btn ${mode==='table'?'active':''}" onclick="setWkMode('table')">Table</button>
+    </div>
+  </div>`;
+
+  if(mode==='focus'){
+    inner.innerHTML=modeBar+activeWorkout.exercises.map((ex,ei)=>renderFocusExercise(ex,ei,total)).join('')
+      +`<div class="addexbar" onclick="openSheet()">+ Add Exercise</div>`;
+  } else {
+    inner.innerHTML=modeBar+activeWorkout.exercises.map((ex,ei)=>renderTableExercise(ex,ei,total)).join('')
+      +`<div class="addexbar" onclick="openSheet()">+ Add Exercise</div>`;
+  }
+}
+
+function setWkMode(m){
+  localStorage.setItem('tr-wk-mode-v1',m);
+  renderWkEx();
+}
+
+// Get the active set index for an exercise: first non-done non-warmup, else last set
+function activeSetIdx(ex){
+  for(let i=0;i<ex.sets.length;i++){if(!ex.sets[i].done&&!ex.sets[i].wu)return i;}
+  // Fallback: first non-done set, even if warmup
+  for(let i=0;i<ex.sets.length;i++){if(!ex.sets[i].done)return i;}
+  return ex.sets.length-1;
+}
+
+// Per-exercise active set is stored on the workout for cross-render persistence
+function getActiveSetIdx(ei){
+  if(!activeWorkout)return 0;
+  const ex=activeWorkout.exercises[ei];
+  if(activeWorkout._activeSet&&activeWorkout._activeSet[ei]!=null){
+    const i=activeWorkout._activeSet[ei];
+    if(i>=0&&i<ex.sets.length)return i;
+  }
+  return activeSetIdx(ex);
+}
+function setActiveSetIdx(ei,si){
+  if(!activeWorkout)return;
+  if(!activeWorkout._activeSet)activeWorkout._activeSet={};
+  activeWorkout._activeSet[ei]=si;
+  renderWkEx();
+}
+
+function renderFocusExercise(ex,ei,total){
+  const tb=isTimeBased(ex.name);
+  const ps=getPrevSets(ex.name,activeWorkout.date);
+  const best=getBestSet(ex.name,activeWorkout.date);
+  const canUp=ei>0,canDown=ei<total-1;
+  const aSi=getActiveSetIdx(ei);
+  const aSet=ex.sets[aSi];
+  const prevSet=ps?.sets[aSi]||null;
+  const bestLine=best
+    ?`<div class="fexb-best">★ <b>Best</b> ${best.label} — ${best.display}</div>`
+    :`<div class="fexb-best">No history yet</div>`;
+
+  // Set chips
+  const chipsHtml=ex.sets.map((s,si)=>{
+    const cls=`fset-chip ${s.wu?'warmup':''} ${s.done?'done':''} ${si===aSi?'active':''}`;
+    const lbl=s.wu?'W':(si+1);
+    return `<div class="${cls}" onclick="setActiveSetIdx(${ei},${si})">${lbl}</div>`;
+  }).join('')+`<button class="fset-add" onclick="addSet(${ei})" title="Add set">+</button>`;
+
+  // Active-set body
+  const prevTxt=prevSet
+    ?(tb?(prevSet.r?`${prevSet.r}s`:'—'):(prevSet.w>0?`${prevSet.r} × ${prevSet.w} kg`:`${prevSet.r} reps`))
+    :'—';
+
+  let body='';
+  if(tb){
+    const cur=aSet.r||0;
+    body=`<div class="fbody ${aSet.done?'done-state':''}">
+      <div class="flbl"><span>Seconds</span><span class="flbl-prev">Last: ${prevTxt}</span></div>
+      <div class="fstepper">
+        <button class="fstep-btn minor" onclick="adjSet(${ei},${aSi},'r',-5)">−5</button>
+        <button class="fstep-btn" onclick="adjSet(${ei},${aSi},'r',-1)">−1</button>
+        <div class="finput-wrap"><input class="finput" type="number" inputmode="numeric" placeholder="${prevSet?.r||30}" value="${cur||''}" oninput="updSet(${ei},${aSi},'r',+this.value)"><span class="finput-suffix">SEC</span></div>
+        <button class="fstep-btn" onclick="adjSet(${ei},${aSi},'r',1)">+1</button>
+        <button class="fstep-btn minor" onclick="adjSet(${ei},${aSi},'r',5)">+5</button>
       </div>
-      <div class="stbl">
-        ${hdr}
-        ${ex.sets.map((s,si)=>setRowHTML(ei,si,s,ps?.sets[si]||null,tb)).join('')}
-      </div>
+      ${actionRow(ei,aSi,aSet)}
     </div>`;
-  }).join('')+`<div class="addexbar" onclick="openSheet()">+ Add Exercise</div>`;
+  } else {
+    body=`<div class="fbody ${aSet.done?'done-state':''}">
+      <div class="flbl"><span>Reps</span><span class="flbl-prev">Last: ${prevTxt}</span></div>
+      <div class="fstepper">
+        <button class="fstep-btn minor" onclick="adjSet(${ei},${aSi},'r',-5)">−5</button>
+        <button class="fstep-btn" onclick="adjSet(${ei},${aSi},'r',-1)">−1</button>
+        <div class="finput-wrap"><input class="finput" type="number" inputmode="numeric" placeholder="${prevSet?.r||10}" value="${aSet.r||''}" oninput="updSet(${ei},${aSi},'r',+this.value)"></div>
+        <button class="fstep-btn" onclick="adjSet(${ei},${aSi},'r',1)">+1</button>
+        <button class="fstep-btn minor" onclick="adjSet(${ei},${aSi},'r',5)">+5</button>
+      </div>
+      <div class="flbl"><span>Weight</span><span class="flbl-prev">${prevSet&&prevSet.w?`Last: ${prevSet.w} kg`:'Bodyweight or 0'}</span></div>
+      <div class="fstepper">
+        <button class="fstep-btn minor" onclick="adjSet(${ei},${aSi},'w',-5)">−5</button>
+        <button class="fstep-btn" onclick="adjSet(${ei},${aSi},'w',-2.5)">−2.5</button>
+        <div class="finput-wrap"><input class="finput" type="number" inputmode="decimal" step="0.5" placeholder="${prevSet?.w||0}" value="${aSet.w||''}" oninput="updSet(${ei},${aSi},'w',+this.value)"><span class="finput-suffix">KG</span></div>
+        <button class="fstep-btn" onclick="adjSet(${ei},${aSi},'w',2.5)">+2.5</button>
+        <button class="fstep-btn minor" onclick="adjSet(${ei},${aSi},'w',5)">+5</button>
+      </div>
+      ${actionRow(ei,aSi,aSet)}
+    </div>`;
+  }
+
+  return `<div class="fexb" id="fexb-${ei}">
+    <div class="fexb-head">
+      <div style="min-width:0;flex:1">
+        <div class="fexb-name">${ex.name}${tb?'<span class="tbadge-ex">TIME</span>':''}</div>
+        ${bestLine}
+      </div>
+      <div class="fexb-mv">
+        <button class="fmv-btn" onclick="moveExWk(${ei},'up')" ${canUp?'':'disabled'}>▲</button>
+        <button class="fmv-btn" onclick="moveExWk(${ei},'down')" ${canDown?'':'disabled'}>▼</button>
+      </div>
+    </div>
+    <div class="fset-chips">${chipsHtml}</div>
+    ${body}
+  </div>`;
+}
+
+function actionRow(ei,si,set){
+  return `<div class="fact-row">
+    <button class="fact-wu ${set.wu?'active':''}" onclick="toggleWarmup(${ei},${si})">${set.wu?'★ Warm-up':'Warm-up'}</button>
+    <button class="fact-check ${set.done?'done':''}" onclick="toggleSet(${ei},${si})">
+      ${set.done?'<svg viewBox=\"0 0 24 24\"><polyline points=\"20 6 9 17 4 12\"/></svg> Done — tap to undo':'<svg viewBox=\"0 0 24 24\"><polyline points=\"20 6 9 17 4 12\"/></svg> Mark set complete'}
+    </button>
+    <button class="fact-del" onclick="delSet(${ei},${si})" title="Delete set">×</button>
+  </div>`;
+}
+
+function adjSet(ei,si,f,delta){
+  if(!activeWorkout)return;
+  const set=activeWorkout.exercises[ei].sets[si];
+  const cur=+(set[f]||0);
+  let nv=+(cur+delta).toFixed(2);
+  if(nv<0)nv=0;
+  set[f]=nv;
+  renderWkEx();
+  persistWorkout();
+}
+
+// Original (table) renderer — preserved for power users
+function renderTableExercise(ex,ei,total){
+  const ps=getPrevSets(ex.name,activeWorkout.date);
+  const tb=isTimeBased(ex.name);
+  const best=getBestSet(ex.name,activeWorkout.date);
+  const bestHtml=best
+    ?`<div style="font-size:10px;color:var(--amber);margin-top:2px;font-family:'DM Mono',monospace">★ Best: ${best.label} — ${best.display}</div>`
+    :`<div style="font-size:10px;color:var(--text3);margin-top:2px">No best yet</div>`;
+  const hdr=tb
+    ?`<div class="sth"><span>#</span><span>Previous</span><span colspan="2">Secs</span><span></span><span></span></div>`
+    :`<div class="sth"><span>#</span><span>Previous</span><span>Reps</span><span>kg</span><span></span></div>`;
+  const canUp=ei>0, canDown=ei<total-1;
+  return `<div class="exb" id="exb-${ei}">
+    <div class="exbh">
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+        <div style="display:flex;flex-direction:column;gap:2px">
+          <button onclick="moveExWk(${ei},'up')" style="width:24px;height:20px;border:none;background:none;cursor:pointer;color:var(--text3);font-size:13px;line-height:1;padding:0;border-radius:4px;${canUp?'':'opacity:.2;pointer-events:none'}">▲</button>
+          <button onclick="moveExWk(${ei},'down')" style="width:24px;height:20px;border:none;background:none;cursor:pointer;color:var(--text3);font-size:13px;line-height:1;padding:0;border-radius:4px;${canDown?'':'opacity:.2;pointer-events:none'}">▼</button>
+        </div>
+        <div>
+          <div class="exbn">${ex.name}${tb?'<span class="tbadge-ex">TIME</span>':''}</div>
+          <div class="exbs">${ps?`(${ps.label})`:'No history'}</div>
+          ${bestHtml}
+        </div>
+      </div>
+      <button class="addset" onclick="addSet(${ei})">+ Set</button>
+    </div>
+    <div class="stbl">
+      ${hdr}
+      ${ex.sets.map((s,si)=>setRowHTML(ei,si,s,ps?.sets[si]||null,tb)).join('')}
+    </div>
+  </div>`;
 }
 
 function moveExWk(ei, dir) {
@@ -1776,16 +2117,47 @@ function toggleSet(ei,si) {
   const ex=activeWorkout.exercises[ei];
   const ps=getPrevSets(ex.name,activeWorkout.date);
   const tb=isTimeBased(ex.name);
-  const row=document.getElementById(`sr-${ei}-${si}`);
-  if(row)row.outerHTML=setRowHTML(ei,si,set,ps?.sets[si]||null,tb);
+  const mode=localStorage.getItem('tr-wk-mode-v1')||'focus';
+  if(mode==='focus'){
+    // Advance active set on completion
+    if(set.done){
+      // find next non-done, non-warmup
+      let nxt=-1;
+      for(let i=0;i<ex.sets.length;i++){if(!ex.sets[i].done&&!ex.sets[i].wu){nxt=i;break;}}
+      if(nxt<0)for(let i=0;i<ex.sets.length;i++){if(!ex.sets[i].done){nxt=i;break;}}
+      if(nxt>=0){
+        if(!activeWorkout._activeSet)activeWorkout._activeSet={};
+        activeWorkout._activeSet[ei]=nxt;
+      }
+    }
+    renderWkEx();
+  } else {
+    const row=document.getElementById(`sr-${ei}-${si}`);
+    if(row)row.outerHTML=setRowHTML(ei,si,set,ps?.sets[si]||null,tb);
+  }
   if(set.done){
     persistWorkout();
     startRest(90);
-    const tb=isTimeBased(ex.name);
     const prevBest=getBestSet(ex.name,activeWorkout.date);
     const curVol=tb?(set.r||0):(set.r||0)*(set.w||0);
     if(curVol>0&&(!prevBest||curVol>prevBest.vol)) showPrToast(ex.name,set,tb);
+  } else {
+    persistWorkout();
   }
+}
+
+function delSet(ei,si){
+  if(!activeWorkout)return;
+  const ex=activeWorkout.exercises[ei];
+  if(ex.sets.length<=1)return; // keep at least one
+  ex.sets.splice(si,1);
+  // adjust active pointer if needed
+  if(activeWorkout._activeSet&&activeWorkout._activeSet[ei]!=null){
+    const a=activeWorkout._activeSet[ei];
+    if(a>=ex.sets.length)activeWorkout._activeSet[ei]=ex.sets.length-1;
+  }
+  renderWkEx();
+  persistWorkout();
 }
 
 let _prToastTimer=null;
@@ -1805,13 +2177,18 @@ function addSet(ei) {
   const ex=activeWorkout.exercises[ei];
   const last=ex.sets[ex.sets.length-1];
   ex.sets.push({r:last?.r||'',w:last?.w||'',done:false});
-  const ps=getPrevSets(ex.name,activeWorkout.date);
-  const tb=isTimeBased(ex.name);
-  const hdr=tb
-    ?`<div class="sth"><span>#</span><span>Previous</span><span>Secs</span><span></span><span></span></div>`
-    :`<div class="sth"><span>#</span><span>Previous</span><span>Reps</span><span>kg</span><span></span></div>`;
-  const blk=document.getElementById(`exb-${ei}`);
-  if(blk)blk.querySelector('.stbl').innerHTML=hdr+ex.sets.map((s,si)=>setRowHTML(ei,si,s,ps?.sets[si]||null,tb)).join('');
+  const mode=localStorage.getItem('tr-wk-mode-v1')||'focus';
+  if(mode==='focus'){
+    renderWkEx();
+  } else {
+    const ps=getPrevSets(ex.name,activeWorkout.date);
+    const tb=isTimeBased(ex.name);
+    const hdr=tb
+      ?`<div class="sth"><span>#</span><span>Previous</span><span>Secs</span><span></span><span></span></div>`
+      :`<div class="sth"><span>#</span><span>Previous</span><span>Reps</span><span>kg</span><span></span></div>`;
+    const blk=document.getElementById(`exb-${ei}`);
+    if(blk)blk.querySelector('.stbl').innerHTML=hdr+ex.sets.map((s,si)=>setRowHTML(ei,si,s,ps?.sets[si]||null,tb)).join('');
+  }
   persistWorkout();
 }
 
