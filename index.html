@@ -195,26 +195,27 @@ body{font-family:var(--fb);background:var(--bg);color:var(--text);font-size:14px
 .cal-detail{background:var(--bg2);border-radius:14px;border:1px solid var(--border);padding:16px;margin-top:14px}
 
 /* ── PROGRAM EDITOR ── */
-.cycle-day{background:var(--bg2);border-radius:14px;border:1px solid var(--border);margin-bottom:10px;overflow:hidden}
-.cycle-day-hdr{padding:14px 16px;display:flex;align-items:center;justify-content:space-between;cursor:pointer}
+.cycle-day{background:var(--bg2);border-radius:14px;border:1px solid var(--border);margin-bottom:8px;overflow:hidden;border-left-width:3px}
+.cycle-day-hdr{padding:13px 14px;display:flex;align-items:center;justify-content:space-between;cursor:pointer}
 .cycle-day-hdr:active{background:var(--bg3)}
 .cdh-left{display:flex;align-items:center;gap:10px}
-.cd-pill{width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700}
-.cd-title{font-size:15px;font-weight:700}
-.cd-sub{font-size:12px;color:var(--text2);margin-top:2px}
-.cd-body{border-top:1px solid var(--border);padding:12px 16px;display:none}
+.cd-pill{height:24px;padding:0 8px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;font-family:var(--fb);letter-spacing:.06em;text-transform:uppercase}
+.cd-title{font-size:14px;font-weight:700;letter-spacing:-.01em}
+.cd-sub{font-size:11px;color:var(--text3);margin-top:2px;font-family:var(--fb);letter-spacing:.02em}
+.cd-body{border-top:1px solid var(--border);padding:10px 14px 14px;display:none}
 .cd-body.open{display:block}
-.cd-ex-row{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border)}
+.cd-ex-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)}
 .cd-ex-row:last-of-type{border-bottom:none}
-.cd-ex-name{font-size:13px;font-weight:500}
+.cd-ex-name{font-size:13px;font-weight:500;color:var(--text2)}
 .cd-ex-group{font-size:11px;color:var(--text3);margin-top:2px}
-.rmex-btn{background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;padding:4px 8px;border-radius:6px}
-.rmex-btn:hover{color:var(--red);background:var(--bg3)}
-.add-ex-to-day{width:100%;margin-top:10px;padding:10px;background:var(--bg3);border:1px dashed var(--border);border-radius:10px;color:var(--text2);font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;text-align:center}
+.rmex-btn{background:none;border:none;color:var(--text4);cursor:pointer;font-size:20px;padding:2px 8px;border-radius:6px;line-height:1;transition:color .12s}
+.rmex-btn:active{color:var(--red)}
+.add-ex-to-day{width:100%;margin-top:10px;padding:10px;background:transparent;border:1px dashed var(--border);border-radius:10px;color:var(--text3);font-family:var(--fb);font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;text-align:center;transition:border-color .12s,color .12s}
+.add-ex-to-day:active{border-color:var(--accent);color:var(--accent)}
 /* Program editor extensions */
-.prog-day-btns{display:flex;align-items:center;gap:2px;flex-shrink:0}
-.pdbn{background:none;border:none;cursor:pointer;color:var(--text3);padding:5px 6px;border-radius:7px;font-size:13px;line-height:1;font-family:inherit;transition:color .12s}
-.pdbn:hover{color:var(--text);background:var(--bg3)}
+.prog-day-btns{display:flex;align-items:center;gap:1px;flex-shrink:0}
+.pdbn{background:none;border:none;cursor:pointer;color:var(--text4);padding:5px 6px;border-radius:7px;font-size:12px;line-height:1;font-family:inherit;transition:color .12s}
+.pdbn:active{color:var(--text);background:var(--bg3)}
 .ex-mv{background:none;border:none;cursor:pointer;color:var(--text3);padding:2px 5px;font-size:11px;border-radius:4px;line-height:1;transition:color .12s}
 .ex-mv:hover{color:var(--text);background:var(--bg3)}
 
@@ -1030,9 +1031,10 @@ body{font-family:var(--fb);background:var(--bg);color:var(--text);font-size:14px
 
 <!-- PROGRAM -->
 <div class="view" id="view-program">
-  <div class="ph" style="margin-bottom:4px">
-    <div class="pt">Program</div>
-    <div class="ps" id="prog-subtitle">8-day cycle · tap a day to expand & edit</div>
+  <div class="v4h">
+    <div class="v4h-eyebrow">Training</div>
+    <div class="v4h-title">Program</div>
+    <div id="prog-subtitle" class="v4h-sub" style="font-size:13px;color:var(--text3);margin-top:2px"></div>
   </div>
   <div class="vi" id="program-inner"></div>
 </div>
@@ -1466,7 +1468,7 @@ function startListeners() {
 }
 
 async function saveSession(sess) {
-  US.push(sess);localStorage.setItem('tr-sess-v4',JSON.stringify(US));
+  US.push(sess);localStorage.setItem('tr-sess-v4',JSON.stringify(US));_clearPrCache();
   if(!fbReady||!db)return;
   setSyncUI('syncing','Saving…');
   const tid=trainerId();
@@ -1478,7 +1480,7 @@ async function updateSession(sess) {
   const idx=US.findIndex(s=>s.id===sess.id);
   if(idx===-1)return;
   US[idx]=sess;
-  localStorage.setItem('tr-sess-v4',JSON.stringify(US));
+  localStorage.setItem('tr-sess-v4',JSON.stringify(US));_clearPrCache();
   if(fbReady&&db){
     setSyncUI('syncing','Saving…');
     const tid=trainerId();
@@ -1491,7 +1493,7 @@ async function updateSession(sess) {
 async function deleteSession(id) {
   if(!confirm('Delete this session? This cannot be undone.'))return;
   US=US.filter(s=>s.id!==id);
-  localStorage.setItem('tr-sess-v4',JSON.stringify(US));
+  localStorage.setItem('tr-sess-v4',JSON.stringify(US));_clearPrCache();
   if(fbReady&&db){
     setSyncUI('syncing','Deleting…');
     const tid=trainerId();
@@ -3102,35 +3104,39 @@ function renderProgram() {
   if(sub)sub.textContent=cycle.length+'-day cycle · tap to expand & edit';
   inner.innerHTML=cycle.map(({idx,dayType,label},di)=>{
     const col=TYPE_COLOR[dayType]||'var(--border)';
+    const tcf=v4TypeClassFull(dayType);
     const groups=PLAN[dayType]||[];
     const allEx=groups.flatMap(g=>g.ex);
     const isRest=dayType==='REST';
     const dtSafe=dayType.replace(/'/g,"\\'");
     const canUp=di>0, canDown=di<cycle.length-1;
-    return `<div class="cycle-day">
+    const abbr=isRest?'REST':dayAbbr(dayType);
+    const pillColors={push:'rgba(96,165,250,',legs:'rgba(251,146,60,','push-s':'rgba(167,139,250,',pull:'rgba(74,222,128,','legs-h':'rgba(251,191,36,',rest:'rgba(100,100,100,'};
+    const pc=pillColors[tcf]||'rgba(100,100,100,';
+    return `<div class="cycle-day" style="border-left-color:${col}">
       <div class="cycle-day-hdr" onclick="toggleProgDay('${dayType}')">
         <div class="cdh-left">
-          <div class="cd-pill" style="background:${col}22;color:${col}">${di+1}</div>
+          <div class="cd-pill" style="background:${pc}.15);color:${pc}1)">${idx}</div>
           <div>
             <div class="cd-title">${label||DAY_FULL_NAMES[dayType]||dayType}</div>
             <div class="cd-sub">${isRest?'Rest day':`${allEx.length} exercise${allEx.length!==1?'s':''}`}</div>
           </div>
         </div>
         <div class="prog-day-btns">
-          <button class="pdbn" title="Move up" onclick="event.stopPropagation();moveProgDay('${dtSafe}','up')" ${!canUp?'style="opacity:.25;pointer-events:none"':''}>↑</button>
-          <button class="pdbn" title="Move down" onclick="event.stopPropagation();moveProgDay('${dtSafe}','down')" ${!canDown?'style="opacity:.25;pointer-events:none"':''}>↓</button>
-          <button class="pdbn" title="Rename" onclick="event.stopPropagation();renameProgDay('${dtSafe}')">✏</button>
-          <button class="pdbn" title="Delete day" onclick="event.stopPropagation();deleteProgDay('${dtSafe}')" style="color:var(--red)">🗑</button>
+          <button class="pdbn" onclick="event.stopPropagation();moveProgDay('${dtSafe}','up')" ${!canUp?'style="opacity:.2;pointer-events:none"':''}>↑</button>
+          <button class="pdbn" onclick="event.stopPropagation();moveProgDay('${dtSafe}','down')" ${!canDown?'style="opacity:.2;pointer-events:none"':''}>↓</button>
+          <button class="pdbn" onclick="event.stopPropagation();renameProgDay('${dtSafe}')">✏</button>
+          <button class="pdbn" onclick="event.stopPropagation();deleteProgDay('${dtSafe}')" style="color:var(--red)">✕</button>
           <div class="arrow" id="prog-arrow-${dayType.replace(/[\s()]/g,'_')}">›</div>
         </div>
       </div>
       <div class="cd-body" id="prog-body-${dayType.replace(/[\s()]/g,'_')}">
-        ${isRest?`<div style="color:var(--text3);font-size:13px;padding:4px 0">Rest day — no exercises. You can still log from the Calendar if needed.</div>`
+        ${isRest?`<div style="color:var(--text3);font-size:12px;padding:4px 0;font-family:var(--fb);letter-spacing:.02em">Rest day — no exercises planned.</div>`
           :renderProgGroups(dayType)}
         ${!isRest?`<button class="add-ex-to-day" onclick="openProgSheet('${dtSafe}')">+ Add exercise</button>`:''}
       </div>
     </div>`;
-  }).join('')+`<button onclick="addProgDay()" style="width:100%;margin-top:6px;padding:14px;background:none;border:2px dashed var(--border);border-radius:14px;color:var(--text3);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer">+ Add training day</button>`;
+  }).join('')+`<button onclick="addProgDay()" style="width:100%;margin-top:8px;padding:14px;background:transparent;border:1px dashed var(--border);border-radius:14px;color:var(--text3);font-family:var(--fb);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer">+ Add training day</button>`;
 }
 
 function renderProgGroups(dayType) {
@@ -3895,9 +3901,13 @@ function calcStreak() {
 }
 
 // ── SESSION PR CHECK ────────────────────────────────────────────────────────
+const _prCache = {};
+function _clearPrCache(){ for(const k in _prCache) delete _prCache[k]; }
+
 function sessionHasPR(sess) {
+  if(_prCache[sess.id] !== undefined) return _prCache[sess.id];
   const allSess = all();
-  return sess.exercises.some(ex => {
+  const result = sess.exercises.some(ex => {
     const bw = isBW(ex.name), tb = isTimeBased(ex.name);
     const prev = allSess.filter(s => s.date < sess.date);
     if (!prev.length) return false;
@@ -3915,6 +3925,8 @@ function sessionHasPR(sess) {
       : Math.max(0, ...ex.sets.filter(st => st.w > 0).map(st => st.w || 0));
     return sessVal > prevBest;
   });
+  _prCache[sess.id] = result;
+  return result;
 }
 
 // ── PR PREFS ────────────────────────────────────────────────────────────────
@@ -4003,6 +4015,13 @@ function addPrEx(nm) {
   renderPrEditSheet();
   renderProfile();
 }
+
+// ── OFFLINE / ONLINE ───────────────────────────────────────────────────────
+window.addEventListener('offline',()=>setSyncUI('err','Offline'));
+window.addEventListener('online',()=>{
+  if(fbReady&&db){setSyncUI('syncing','Reconnecting…');startListeners();}
+  else{setSyncUI('syncing','Connecting…');initFirebase();}
+});
 
 // ── INIT ───────────────────────────────────────────────────────────────────
 renderToday();
