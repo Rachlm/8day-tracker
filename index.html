@@ -236,6 +236,16 @@ body{font-family:var(--fb);background:var(--bg);color:var(--text);font-size:14px
 .prow:last-child{border-bottom:none}
 .prow:active{background:var(--bg3)}
 
+/* PR TROPHY CABINET */
+.pr-trophy-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px 12px 10px;cursor:pointer;transition:opacity .12s;position:relative;overflow:hidden}
+.pr-trophy-card:active{opacity:.7}
+.pr-trophy-name{font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;font-family:var(--fb);margin-bottom:6px;line-height:1.3}
+.pr-trophy-val{font-size:26px;font-weight:700;font-family:var(--fd);color:var(--text);letter-spacing:-.03em;line-height:.95}
+.pr-trophy-unit{font-size:13px;font-weight:600;color:var(--text3);margin-left:1px}
+.pr-trophy-orm{font-size:10px;color:var(--amber);font-family:var(--fm);margin-top:5px;font-weight:600}
+.pr-trophy-trend{font-size:11px;font-weight:700;margin-top:4px}
+.pr-trophy-when{font-size:9px;color:var(--text3);font-family:var(--fm);margin-top:2px}
+.pr-trophy-empty{grid-column:1/-1;padding:24px 0;text-align:center;font-size:13px;color:var(--text3)}
 /* PR EDIT SHEET */
 .pr-edit-sheet{position:fixed;inset:0;z-index:300;display:none}
 .pr-edit-sheet.open{display:block}
@@ -1041,6 +1051,12 @@ body{font-family:var(--fb);background:var(--bg);color:var(--text);font-size:14px
     <div id="prof-target-wrap"></div>
   </div>
   <div id="prof-lifetime"></div>
+  <!-- Trophy Cabinet -->
+  <div style="display:flex;justify-content:space-between;align-items:center;margin:0 16px 8px;padding-left:4px">
+    <div class="eyebrow">Personal Records</div>
+    <button onclick="openPrEditSheet()" style="font-size:9px;font-weight:700;color:var(--accent);background:none;border:none;cursor:pointer;font-family:var(--fb);letter-spacing:.1em;text-transform:uppercase;padding:2px 0">Edit</button>
+  </div>
+  <div id="pr-trophy" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 16px;margin-bottom:16px"></div>
   <!-- Bodyweight (kept but restyled minimally — its own card) -->
   <div class="card" style="margin:0 16px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:12px">
     <div class="ch" style="justify-content:space-between;padding:14px 16px">
@@ -3733,10 +3749,44 @@ function renderProfile() {
     </div>
   </div>`;
 
+  // ── Trophy Cabinet ──
+  const selected=getPrSelected();
+  const trophy=document.getElementById('pr-trophy');
+  if(trophy){
+    if(!selected.length){
+      trophy.innerHTML=`<div class="pr-trophy-empty">No exercises selected — tap <strong>Edit</strong> above to add some.</div>`;
+    } else {
+      trophy.innerHTML=selected.map(nm=>{
+        const h=getExHistory(nm);
+        if(!h.length)return`<div class="pr-trophy-card" onclick="openPrEditSheet()">
+          <div class="pr-trophy-name">${nm.replace(/\s*\([^)]+\)/,'')}</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:4px">No data yet</div>
+        </div>`;
+        const bw=isBW(nm),tb=isTimeBased(nm),unit=tb?'s':bw?'r':'kg';
+        const vals=h.map(x=>bw||tb?x.r:x.w);
+        const best=Math.max(...vals);
+        const bestEntry=h.find(x=>(bw||tb?x.r:x.w)===best);
+        const latest=vals[vals.length-1];
+        const prev=vals.length>1?vals[vals.length-2]:null;
+        const change=prev!==null?+(latest-prev).toFixed(1):null;
+        const trendColor=change>0?'var(--green)':change<0?'var(--red)':'var(--text3)';
+        const trendTxt=change!==null?(change>0?'↑ +':'↓ ')+Math.abs(change)+unit+' last':'—';
+        const orm=(!bw&&!tb&&bestEntry&&bestEntry.r>0&&bestEntry.r<=20)?Math.round(bestEntry.w*(1+bestEntry.r/30)):null;
+        const shortName=nm.replace(/\s*\([^)]+\)/,'');
+        return`<div class="pr-trophy-card" onclick="renderProgressFor('${nm.replace(/'/g,"\\'")}');switchView('progress')">
+          <div class="pr-trophy-name">${shortName}</div>
+          <div class="pr-trophy-val">${best}<span class="pr-trophy-unit">${unit}</span></div>
+          ${bestEntry?.r&&!bw&&!tb?`<div class="pr-trophy-when">× ${bestEntry.r} reps · ${bestEntry.label||''}</div>`:`<div class="pr-trophy-when">${bestEntry?.label||''}</div>`}
+          ${orm?`<div class="pr-trophy-orm">~${orm}kg 1RM</div>`:''}
+          ${change!==null?`<div class="pr-trophy-trend" style="color:${trendColor}">${trendTxt}</div>`:''}
+        </div>`;
+      }).join('');
+    }
+  }
+
   // Settings — short values
   document.getElementById('profile-sync-short').textContent=trainerId().slice(0,12)+'…';
   document.getElementById('profile-prog-short').textContent=cycleLen+'-day';
-  const selected=getPrSelected();
   document.getElementById('profile-pr-short').textContent=selected.length?selected.length+' lifts':'Tap to add';
   document.getElementById('profile-lib-short').textContent=EX_LIBRARY.length?EX_LIBRARY.length+' added':'Default';
 
