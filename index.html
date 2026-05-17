@@ -264,6 +264,16 @@ body{font-family:var(--fb);background:var(--bg);color:var(--text);font-size:14px
 .prow:last-child{border-bottom:none}
 .prow:active{background:var(--bg3)}
 
+/* PWA INSTALL BANNER */
+.install-banner{position:fixed;bottom:calc(var(--nav-h) + var(--sb) + 10px);left:12px;right:12px;z-index:400;background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:14px 16px;display:none;align-items:center;gap:12px;box-shadow:0 8px 32px rgba(0,0,0,.5);animation:slideUp .3s ease}
+.install-banner.show{display:flex}
+@keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+.install-banner-icon{width:44px;height:44px;border-radius:10px;background:var(--accent);color:var(--accent-ink);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+.install-banner-text{flex:1;min-width:0}
+.install-banner-title{font-size:13px;font-weight:700;color:var(--text);letter-spacing:-.01em}
+.install-banner-sub{font-size:11px;color:var(--text3);margin-top:2px}
+.install-banner-btn{padding:8px 14px;background:var(--accent);color:var(--accent-ink);border:none;border-radius:8px;font-family:var(--fb);font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;flex-shrink:0;white-space:nowrap}
+.install-banner-close{background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;padding:2px 6px;flex-shrink:0;line-height:1}
 /* PR TROPHY CABINET */
 .pr-trophy-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px 12px 10px;cursor:pointer;transition:opacity .12s;position:relative;overflow:hidden}
 .pr-trophy-card:active{opacity:.7}
@@ -908,6 +918,8 @@ body{font-family:var(--fb);background:var(--bg);color:var(--text);font-size:14px
 <div class="mbg" id="profile-edit-modal" onclick="if(event.target===this)closeProfileEdit()">
   <div class="mbox">
     <h2>Edit Profile</h2>
+    <label>Avatar (emoji)</label>
+    <input type="text" id="pe-emoji" placeholder="e.g. 💪 🏋️ 🔥" maxlength="4" style="text-align:center;font-size:24px;padding:8px">
     <label>Name</label>
     <input type="text" id="pe-name" placeholder="Your name">
     <label>Age</label>
@@ -1100,9 +1112,12 @@ body{font-family:var(--fb);background:var(--bg);color:var(--text);font-size:14px
 <!-- PROFILE — identity + lifetime stats + settings -->
 <div class="view" id="view-profile">
   <div class="v4h" style="display:flex;justify-content:space-between;align-items:flex-end">
-    <div>
-      <div class="v4h-eyebrow">Profile</div>
-      <div class="v4h-title" id="prof-name">—</div>
+    <div style="display:flex;align-items:center;gap:14px">
+      <div id="prof-avatar" class="pav" onclick="openProfileEdit()" style="margin:0;cursor:pointer;flex-shrink:0">💪</div>
+      <div>
+        <div class="v4h-eyebrow">Profile</div>
+        <div class="v4h-title" id="prof-name">—</div>
+      </div>
     </div>
     <button onclick="openProfileEdit()" style="background:transparent;border:1px solid var(--border);color:var(--text2);padding:6px 10px;border-radius:6px;font-family:var(--fb);font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer">Edit</button>
   </div>
@@ -1167,6 +1182,17 @@ body{font-family:var(--fb);background:var(--bg);color:var(--text);font-size:14px
   <div id="prof-target" style="display:none"></div>
   <div id="prof-activity" style="display:none"></div>
   <div id="pr-list" style="display:none"></div>
+</div>
+
+<!-- PWA INSTALL BANNER -->
+<div class="install-banner" id="install-banner">
+  <div class="install-banner-icon">🏋️</div>
+  <div class="install-banner-text">
+    <div class="install-banner-title">Add 8Day to home screen</div>
+    <div class="install-banner-sub" id="install-banner-sub">Train faster, works offline</div>
+  </div>
+  <button class="install-banner-btn" id="install-banner-btn" onclick="triggerInstall()">Add</button>
+  <button class="install-banner-close" onclick="dismissInstallBanner()">×</button>
 </div>
 
 <!-- NAV — 5 tabs with elevated center start button -->
@@ -1402,6 +1428,20 @@ let PENDING_CYCLE_SUMMARY = JSON.parse(localStorage.getItem('tr-cycle-sum-v1') |
 let PROGRAMS = JSON.parse(localStorage.getItem('tr-programs-v1') || '[]');
 let PROGRAM_SCHEDULE = JSON.parse(localStorage.getItem('tr-prog-sched-v1') || '[]');
 let _editingProgId = null, _newProgDays = [], _newProgColor = '#d4ff3a', _newProgEmoji = '💪', _activatingProgId = null;
+let _editProgId = null; // null = Normal Training, string = custom program being exercise-edited
+
+function _getEditPlan() {
+  if(_editProgId){const p=PROGRAMS.find(p=>p.id===_editProgId);if(p){if(!p.plan)p.plan={};return p.plan;}}
+  return PLAN;
+}
+function _getEditCycle() {
+  if(_editProgId){
+    const p=PROGRAMS.find(prog=>prog.id===_editProgId);
+    if(p)return p.cyclePattern.map((dt,i)=>({idx:'D'+(i+1),dayType:dt,label:dt}));
+  }
+  return activeCycle();
+}
+function _saveEditPlan(){if(_editProgId)savePrograms();else saveMeta();}
 let PR_PREFS = JSON.parse(localStorage.getItem('tr-pr-prefs-v1') || 'null');
 let currentProgressEx = null, progressChart = null, volumeChart = null;
 let kpiChart = null, kpiDay = 'D2', kpiMetric = 'volume';
@@ -2055,13 +2095,21 @@ function renderToday() {
     const exRows=exList.slice(0,previewLimit).map(e=>{
       const prev=getPrevPerf(e,today);
       const bw=isBW(e),tb=isTimeBased(e);
-      let target='—';
+      let targetHtml=`<span style="color:var(--text4)">—</span>`;
       if(prev){
-        if(!bw&&!tb){
-          if(prev.w>0)target=`${prev.r}×${prev.w}`;
-          else target=`${prev.r} reps`;
-        } else if(tb) target=`${prev.r}s`;
-        else target=`${prev.r} reps`;
+        if(!bw&&!tb&&prev.w>0){
+          const hist=getExHistory(e);
+          const bestW=hist.length?Math.max(...hist.map(h=>h.w)):0;
+          const next=prev.w>=bestW&&bestW>0?+(prev.w+2.5).toFixed(1):bestW;
+          const prevTxt=`${prev.r}×${prev.w}`;
+          targetHtml=next>0
+            ?`<div style="font-size:13px;font-weight:700;color:var(--green)">→ ${next}kg</div><div style="font-size:9px;color:var(--text3);margin-top:1px;font-family:var(--fm)">last ${prevTxt}</div>`
+            :`<span>${prevTxt}</span>`;
+        } else if(tb){
+          targetHtml=`<span>${prev.r}s</span>`;
+        } else {
+          targetHtml=`<span>${prev.r}r</span>`;
+        }
       }
       const shortName=e.replace(/\s*\([^)]+\)/,'');
       const sub=e.match(/\(([^)]+)\)/)?.[1]||'';
@@ -2070,7 +2118,7 @@ function renderToday() {
           <div class="v4hero-row-n">${shortName}</div>
           ${sub?`<div class="v4hero-row-s">${sub}</div>`:''}
         </div>
-        <div class="v4hero-row-r">${target}</div>
+        <div class="v4hero-row-r" style="text-align:right">${targetHtml}</div>
       </div>`;
     }).join('');
     const more=exList.length>previewLimit?`<div class="v4hero-more">+${exList.length-previewLimit} MORE</div>`:'';
@@ -2956,6 +3004,44 @@ function renderCycleTab(){
     </div>`;
     if(allFuture&&cn>currentCycleNum)break;
   }
+
+  // ── Custom / non-Normal-Training sessions ─────────────────────────────────
+  const normalCyclePatt=/^C\d+$/;
+  const customSessions=sessions.filter(s=>s.cycle&&!normalCyclePatt.test(s.cycle)&&s.cycle!=='Prep'&&s.cycle!=='Custom');
+  if(customSessions.length){
+    // Group by cycle label
+    const groups={};
+    customSessions.forEach(s=>{
+      if(!groups[s.cycle])groups[s.cycle]=[];
+      groups[s.cycle].push(s);
+    });
+    Object.entries(groups).forEach(([label,sessGroup])=>{
+      sessGroup.sort((a,b)=>a.date.localeCompare(b.date));
+      const dates=sessGroup.map(s=>s.date);
+      const prog=PROGRAMS.find(p=>sessGroup[0].cycle===p.name||label.toLowerCase().includes(p.name.toLowerCase()));
+      const progColor=prog?.color||'var(--amber)';
+      const cards=sessGroup.map(s=>{
+        const tc=v4TypeClass(s.dayType);
+        const hasPR=sessionHasPR(s);
+        const durMin=s.duration?Math.round(s.duration/60):null;
+        return `<div onclick="showDetail('${s.id}')" style="background:var(--bg3);border-radius:10px;padding:10px 12px;cursor:pointer;flex:1;min-width:120px">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap">
+            <span class="v4pill ${tc}">${dayAbbr(s.dayType)||s.dayType}</span>
+            ${hasPR?`<span class="v4pill amber">★ PR</span>`:''}
+          </div>
+          <div style="font-size:12px;font-weight:600;color:var(--text)">${s.date.slice(5)}</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px;font-family:var(--fm)">${s.exercises.length} ex${durMin?` · ${durMin}m`:''}</div>
+        </div>`;
+      }).join('');
+      html+=`<div class="cyc-card" style="border-left-color:${progColor}">
+        <div class="cyc-hd">
+          <div><div class="cyc-title">${label.toUpperCase()}</div><div class="cyc-dates">${_fmtRange(dates[0],dates[dates.length-1])}</div></div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">${cards}</div>
+      </div>`;
+    });
+  }
+
   el.innerHTML=html||'<div style="padding:32px 16px;text-align:center;font-size:13px;color:var(--text3)">No sessions yet.</div>';
 }
 
@@ -3290,16 +3376,19 @@ const CYCLE_ORDER = [
 ];
 
 function renderProgram() {
-  const cycle=activeCycle();
+  const cycle=_getEditCycle();
+  const plan=_getEditPlan();
+  const isCustomProg=!!_editProgId;
+  const customProg=isCustomProg?PROGRAMS.find(p=>p.id===_editProgId):null;
   const inner=document.getElementById('program-inner');
   const sub=document.getElementById('prog-subtitle');
-  if(sub)sub.textContent=cycle.length+'-day cycle · tap to expand & edit';
+  if(sub)sub.textContent=cycle.length+'-day cycle'+(customProg?' · '+customProg.name+' exercises':' · tap to expand & edit');
   // Sort by day number (D1 first, then D2…D8) for display
-  const displayCycle=[...cycle].sort((a,b)=>parseInt(a.idx.slice(1))-parseInt(b.idx.slice(1)));
+  const displayCycle=isCustomProg?cycle:[...cycle].sort((a,b)=>parseInt(a.idx.slice(1))-parseInt(b.idx.slice(1)));
   inner.innerHTML=displayCycle.map(({idx,dayType,label},di)=>{
     const col=TYPE_COLOR[dayType]||'var(--border)';
     const tcf=v4TypeClassFull(dayType);
-    const groups=PLAN[dayType]||[];
+    const groups=plan[dayType]||[];
     const allEx=groups.flatMap(g=>g.ex);
     const isRest=dayType==='REST';
     const dtSafe=dayType.replace(/'/g,"\\'");
@@ -3317,10 +3406,11 @@ function renderProgram() {
           </div>
         </div>
         <div class="prog-day-btns">
+          ${!isCustomProg?`
           <button class="pdbn" onclick="event.stopPropagation();moveProgDay('${dtSafe}','up')" ${!canUp?'style="opacity:.2;pointer-events:none"':''}>↑</button>
           <button class="pdbn" onclick="event.stopPropagation();moveProgDay('${dtSafe}','down')" ${!canDown?'style="opacity:.2;pointer-events:none"':''}>↓</button>
           <button class="pdbn" onclick="event.stopPropagation();renameProgDay('${dtSafe}')">✏</button>
-          <button class="pdbn" onclick="event.stopPropagation();deleteProgDay('${dtSafe}')" style="color:var(--red)">✕</button>
+          <button class="pdbn" onclick="event.stopPropagation();deleteProgDay('${dtSafe}')" style="color:var(--red)">✕</button>`:''}
           <div class="arrow" id="prog-arrow-${dayType.replace(/[\s()]/g,'_')}">›</div>
         </div>
       </div>
@@ -3330,11 +3420,12 @@ function renderProgram() {
         ${!isRest?`<button class="add-ex-to-day" onclick="openProgSheet('${dtSafe}')">+ Add exercise</button>`:''}
       </div>
     </div>`;
-  }).join('')+`<button onclick="addProgDay()" style="width:100%;margin-top:8px;padding:14px;background:transparent;border:1px dashed var(--border);border-radius:14px;color:var(--text3);font-family:var(--fb);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer">+ Add training day</button>`;
+  }).join('')+(isCustomProg?'':
+    `<button onclick="addProgDay()" style="width:100%;margin-top:8px;padding:14px;background:transparent;border:1px dashed var(--border);border-radius:14px;color:var(--text3);font-family:var(--fb);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer">+ Add training day</button>`);
 }
 
 function renderProgGroups(dayType) {
-  const groups=PLAN[dayType]||[];
+  const groups=_getEditPlan()[dayType]||[];
   if(!groups.length)return`<div style="color:var(--text3);font-size:13px">No exercises yet</div>`;
   const flat=groups.flatMap(g=>g.ex);
   return flat.map((nm,fi)=>{
@@ -3363,9 +3454,10 @@ function toggleProgDay(dayType) {
 
 function removeExFromPlan(dayType, exName) {
   if(!confirm(`Remove "${exName}" from ${dayType}?`))return;
-  const groups=PLAN[dayType];if(!groups)return;
+  const plan=_getEditPlan();
+  const groups=plan[dayType];if(!groups)return;
   groups.forEach(g=>g.ex=g.ex.filter(e=>e!==exName));
-  saveMeta();renderProgram();
+  _saveEditPlan();renderProgram();
   // Reopen the group that was open
   const key=dayType.replace(/[\s()]/g,'_');
   document.getElementById(`prog-body-${key}`)?.classList.add('open');
@@ -3383,7 +3475,7 @@ function openProgSheet(dayType) {
 function closeProgSheet(){document.getElementById('prog-sheet').classList.remove('open');}
 
 function filterProgSheet(v) {
-  const existing=new Set((PLAN[progSheetDayType]||[]).flatMap(g=>g.ex));
+  const existing=new Set((_getEditPlan()[progSheetDayType]||[]).flatMap(g=>g.ex));
   const allKnown=new Set([
     ...Object.values(DEFAULT_PLAN).flatMap(gs=>gs.flatMap(g=>g.ex)),
     ...EX_LIBRARY.map(e=>e.name)
@@ -3400,13 +3492,14 @@ function filterProgSheet(v) {
 }
 
 function addExToPlan(name, isNew=false) {
+  const plan=_getEditPlan();
   closeProgSheet();
-  if(!PLAN[progSheetDayType])PLAN[progSheetDayType]=[{g:'Custom',ex:[]}];
-  let customGroup=PLAN[progSheetDayType].find(g=>g.g==='Custom');
-  if(!customGroup){customGroup={g:'Custom',ex:[]};PLAN[progSheetDayType].push(customGroup);}
+  if(!plan[progSheetDayType])plan[progSheetDayType]=[{g:'Custom',ex:[]}];
+  let customGroup=plan[progSheetDayType].find(g=>g.g==='Custom');
+  if(!customGroup){customGroup={g:'Custom',ex:[]};plan[progSheetDayType].push(customGroup);}
   if(!customGroup.ex.includes(name))customGroup.ex.push(name);
   ensureInLibrary(name);
-  saveMeta();renderProgram();
+  _saveEditPlan();renderProgram();
   // Reopen
   const key=progSheetDayType.replace(/[\s()]/g,'_');
   document.getElementById(`prog-body-${key}`)?.classList.add('open');
@@ -3487,15 +3580,16 @@ function moveProgDay(dayType, dir) {
 }
 
 function moveExInPlan(dayType, exName, dir) {
-  const groups=PLAN[dayType];if(!groups)return;
+  const plan=_getEditPlan();
+  const groups=plan[dayType];if(!groups)return;
   const flat=groups.flatMap(g=>g.ex);
   const i=flat.indexOf(exName);
   if(i<0)return;
   const ni=dir==='up'?i-1:i+1;
   if(ni<0||ni>=flat.length)return;
   [flat[i],flat[ni]]=[flat[ni],flat[i]];
-  PLAN[dayType]=[{g:'Exercises',ex:flat}];
-  saveMeta();reopenProgDay(dayType);
+  plan[dayType]=[{g:'Exercises',ex:flat}];
+  _saveEditPlan();reopenProgDay(dayType);
 }
 
 // ── DETAIL ─────────────────────────────────────────────────────────────────
@@ -3896,6 +3990,8 @@ function getDeloadBanner() {
 function renderProfile() {
   const cycleLen=activeCycle().length;
   document.getElementById('prof-name').textContent=PROFILE.name||'—';
+  const avatarEl=document.getElementById('prof-avatar');
+  if(avatarEl)avatarEl.textContent=PROFILE.emoji||'💪';
 
   // Identity tags
   const tags=[];
@@ -4030,6 +4126,7 @@ async function saveProfileData() {
 }
 
 function openProfileEdit() {
+  document.getElementById('pe-emoji').value=PROFILE.emoji||'💪';
   document.getElementById('pe-name').value=PROFILE.name||'';
   document.getElementById('pe-age').value=PROFILE.age||'';
   document.getElementById('pe-height').value=PROFILE.height||'';
@@ -4051,6 +4148,8 @@ function saveProfileEdit() {
   if(height&&(height<100||height>250)){alert('Height must be between 100 and 250 cm.');return;}
   if(weight&&(weight<20||weight>300)){alert('Weight must be between 20 and 300 kg.');return;}
   if(target&&target<todayStr()&&target!==PROFILE.target){/* allow keeping past target */}
+  const emoji=document.getElementById('pe-emoji').value.trim();
+  if(emoji)PROFILE.emoji=emoji;
   if(name)PROFILE.name=name;
   if(age)PROFILE.age=age;
   if(height)PROFILE.height=height;
@@ -4235,7 +4334,8 @@ function saveProgramSchedule(){
   if(fbReady&&db){const tid=trainerId();db.doc(`trainers/${tid}/meta`).set({programSchedule:PROGRAM_SCHEDULE},{merge:true}).catch(()=>{});}
 }
 
-function openProgramsOverlay(){renderProgramsManager();document.getElementById('programs-overlay').classList.add('open');}
+function openProgramsOverlay(){_editProgId=null;renderProgramsManager();document.getElementById('programs-overlay').classList.add('open');}
+function openCustomProgExerciseEditor(progId){_editProgId=progId;closeProgramsOverlay();switchView('program');}
 function closeProgramsOverlay(){document.getElementById('programs-overlay').classList.remove('open');}
 
 function renderProgramsManager(){
@@ -4295,6 +4395,7 @@ function renderProgramsManager(){
       </div>
       <div class="prog-card-btns">
         ${!isActive?`<button class="prog-card-btn primary" onclick="openActivateProgSheet('${prog.id}')">Activate</button>`:''}
+        <button class="prog-card-btn secondary" onclick="openCustomProgExerciseEditor('${prog.id}')">Exercises</button>
         <button class="prog-card-btn secondary" onclick="openEditProgSheet('${prog.id}')">Edit</button>
         ${!isActive?`<button class="prog-card-btn danger" onclick="deleteCustomProg('${prog.id}')">✕</button>`:''}
       </div>
@@ -4477,6 +4578,54 @@ function _saveProgram(){
   savePrograms();
   closeNewProgSheet();
   renderProgramsManager();
+}
+
+// ── PWA INSTALL PROMPT ────────────────────────────────────────────────────
+let _deferredInstallPrompt = null;
+
+(function initInstallPrompt(){
+  // Never show if already installed or dismissed
+  const dismissed = localStorage.getItem('tr-install-dismissed-v1');
+  const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+  if(standalone || dismissed) return;
+
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent.toLowerCase()) && !window.MSStream;
+
+  if(isIOS){
+    // iOS: show manual instructions after 3s
+    setTimeout(()=>{
+      const sub = document.getElementById('install-banner-sub');
+      const btn = document.getElementById('install-banner-btn');
+      if(sub) sub.textContent = 'Tap Share → Add to Home Screen';
+      if(btn){ btn.textContent = 'How?'; btn.onclick = ()=>{
+        alert('To install:\n1. Tap the Share button (□↑) in Safari\n2. Scroll down and tap "Add to Home Screen"\n3. Tap "Add"');
+      };}
+      document.getElementById('install-banner')?.classList.add('show');
+    }, 3000);
+  } else {
+    // Android/Chrome: capture the native prompt
+    window.addEventListener('beforeinstallprompt', e=>{
+      e.preventDefault();
+      _deferredInstallPrompt = e;
+      setTimeout(()=>document.getElementById('install-banner')?.classList.add('show'), 3000);
+    });
+    window.addEventListener('appinstalled', ()=>{
+      dismissInstallBanner();
+      _deferredInstallPrompt = null;
+    });
+  }
+})();
+
+function triggerInstall(){
+  if(_deferredInstallPrompt){
+    _deferredInstallPrompt.prompt();
+    _deferredInstallPrompt.userChoice.then(()=>{dismissInstallBanner();_deferredInstallPrompt=null;});
+  }
+}
+
+function dismissInstallBanner(){
+  document.getElementById('install-banner')?.classList.remove('show');
+  localStorage.setItem('tr-install-dismissed-v1','1');
 }
 
 // ── OFFLINE / ONLINE ───────────────────────────────────────────────────────

@@ -908,6 +908,8 @@ body{font-family:var(--fb);background:var(--bg);color:var(--text);font-size:14px
 <div class="mbg" id="profile-edit-modal" onclick="if(event.target===this)closeProfileEdit()">
   <div class="mbox">
     <h2>Edit Profile</h2>
+    <label>Avatar (emoji)</label>
+    <input type="text" id="pe-emoji" placeholder="e.g. 💪 🏋️ 🔥" maxlength="4" style="text-align:center;font-size:24px;padding:8px">
     <label>Name</label>
     <input type="text" id="pe-name" placeholder="Your name">
     <label>Age</label>
@@ -1100,9 +1102,12 @@ body{font-family:var(--fb);background:var(--bg);color:var(--text);font-size:14px
 <!-- PROFILE — identity + lifetime stats + settings -->
 <div class="view" id="view-profile">
   <div class="v4h" style="display:flex;justify-content:space-between;align-items:flex-end">
-    <div>
-      <div class="v4h-eyebrow">Profile</div>
-      <div class="v4h-title" id="prof-name">—</div>
+    <div style="display:flex;align-items:center;gap:14px">
+      <div id="prof-avatar" class="pav" onclick="openProfileEdit()" style="margin:0;cursor:pointer;flex-shrink:0">💪</div>
+      <div>
+        <div class="v4h-eyebrow">Profile</div>
+        <div class="v4h-title" id="prof-name">—</div>
+      </div>
     </div>
     <button onclick="openProfileEdit()" style="background:transparent;border:1px solid var(--border);color:var(--text2);padding:6px 10px;border-radius:6px;font-family:var(--fb);font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer">Edit</button>
   </div>
@@ -1402,6 +1407,20 @@ let PENDING_CYCLE_SUMMARY = JSON.parse(localStorage.getItem('tr-cycle-sum-v1') |
 let PROGRAMS = JSON.parse(localStorage.getItem('tr-programs-v1') || '[]');
 let PROGRAM_SCHEDULE = JSON.parse(localStorage.getItem('tr-prog-sched-v1') || '[]');
 let _editingProgId = null, _newProgDays = [], _newProgColor = '#d4ff3a', _newProgEmoji = '💪', _activatingProgId = null;
+let _editProgId = null; // null = Normal Training, string = custom program being exercise-edited
+
+function _getEditPlan() {
+  if(_editProgId){const p=PROGRAMS.find(p=>p.id===_editProgId);if(p){if(!p.plan)p.plan={};return p.plan;}}
+  return PLAN;
+}
+function _getEditCycle() {
+  if(_editProgId){
+    const p=PROGRAMS.find(prog=>prog.id===_editProgId);
+    if(p)return p.cyclePattern.map((dt,i)=>({idx:'D'+(i+1),dayType:dt,label:dt}));
+  }
+  return activeCycle();
+}
+function _saveEditPlan(){if(_editProgId)savePrograms();else saveMeta();}
 let PR_PREFS = JSON.parse(localStorage.getItem('tr-pr-prefs-v1') || 'null');
 let currentProgressEx = null, progressChart = null, volumeChart = null;
 let kpiChart = null, kpiDay = 'D2', kpiMetric = 'volume';
@@ -1613,6 +1632,8 @@ function startListeners() {
     if(snap.exists&&snap.data().dayOverrides){DAY_OVERRIDES=snap.data().dayOverrides;localStorage.setItem('tr-day-ov-v1',JSON.stringify(DAY_OVERRIDES));}
     if(snap.exists&&snap.data().profile){PROFILE=snap.data().profile;localStorage.setItem('tr-profile-v1',JSON.stringify(PROFILE));}
     if(snap.exists&&snap.data().bwLog){BW_LOG=snap.data().bwLog;localStorage.setItem('tr-bw-v1',JSON.stringify(BW_LOG));renderBwChart();}
+    if(snap.exists&&snap.data().programs){PROGRAMS=snap.data().programs;localStorage.setItem('tr-programs-v1',JSON.stringify(PROGRAMS));}
+    if(snap.exists&&snap.data().programSchedule){PROGRAM_SCHEDULE=snap.data().programSchedule;localStorage.setItem('tr-prog-sched-v1',JSON.stringify(PROGRAM_SCHEDULE));}
   },()=>{});
 }
 
@@ -2053,13 +2074,21 @@ function renderToday() {
     const exRows=exList.slice(0,previewLimit).map(e=>{
       const prev=getPrevPerf(e,today);
       const bw=isBW(e),tb=isTimeBased(e);
-      let target='—';
+      let targetHtml=`<span style="color:var(--text4)">—</span>`;
       if(prev){
-        if(!bw&&!tb){
-          if(prev.w>0)target=`${prev.r}×${prev.w}`;
-          else target=`${prev.r} reps`;
-        } else if(tb) target=`${prev.r}s`;
-        else target=`${prev.r} reps`;
+        if(!bw&&!tb&&prev.w>0){
+          const hist=getExHistory(e);
+          const bestW=hist.length?Math.max(...hist.map(h=>h.w)):0;
+          const next=prev.w>=bestW&&bestW>0?+(prev.w+2.5).toFixed(1):bestW;
+          const prevTxt=`${prev.r}×${prev.w}`;
+          targetHtml=next>0
+            ?`<div style="font-size:13px;font-weight:700;color:var(--green)">→ ${next}kg</div><div style="font-size:9px;color:var(--text3);margin-top:1px;font-family:var(--fm)">last ${prevTxt}</div>`
+            :`<span>${prevTxt}</span>`;
+        } else if(tb){
+          targetHtml=`<span>${prev.r}s</span>`;
+        } else {
+          targetHtml=`<span>${prev.r}r</span>`;
+        }
       }
       const shortName=e.replace(/\s*\([^)]+\)/,'');
       const sub=e.match(/\(([^)]+)\)/)?.[1]||'';
@@ -2068,7 +2097,7 @@ function renderToday() {
           <div class="v4hero-row-n">${shortName}</div>
           ${sub?`<div class="v4hero-row-s">${sub}</div>`:''}
         </div>
-        <div class="v4hero-row-r">${target}</div>
+        <div class="v4hero-row-r" style="text-align:right">${targetHtml}</div>
       </div>`;
     }).join('');
     const more=exList.length>previewLimit?`<div class="v4hero-more">+${exList.length-previewLimit} MORE</div>`:'';
@@ -2954,6 +2983,44 @@ function renderCycleTab(){
     </div>`;
     if(allFuture&&cn>currentCycleNum)break;
   }
+
+  // ── Custom / non-Normal-Training sessions ─────────────────────────────────
+  const normalCyclePatt=/^C\d+$/;
+  const customSessions=sessions.filter(s=>s.cycle&&!normalCyclePatt.test(s.cycle)&&s.cycle!=='Prep'&&s.cycle!=='Custom');
+  if(customSessions.length){
+    // Group by cycle label
+    const groups={};
+    customSessions.forEach(s=>{
+      if(!groups[s.cycle])groups[s.cycle]=[];
+      groups[s.cycle].push(s);
+    });
+    Object.entries(groups).forEach(([label,sessGroup])=>{
+      sessGroup.sort((a,b)=>a.date.localeCompare(b.date));
+      const dates=sessGroup.map(s=>s.date);
+      const prog=PROGRAMS.find(p=>sessGroup[0].cycle===p.name||label.toLowerCase().includes(p.name.toLowerCase()));
+      const progColor=prog?.color||'var(--amber)';
+      const cards=sessGroup.map(s=>{
+        const tc=v4TypeClass(s.dayType);
+        const hasPR=sessionHasPR(s);
+        const durMin=s.duration?Math.round(s.duration/60):null;
+        return `<div onclick="showDetail('${s.id}')" style="background:var(--bg3);border-radius:10px;padding:10px 12px;cursor:pointer;flex:1;min-width:120px">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap">
+            <span class="v4pill ${tc}">${dayAbbr(s.dayType)||s.dayType}</span>
+            ${hasPR?`<span class="v4pill amber">★ PR</span>`:''}
+          </div>
+          <div style="font-size:12px;font-weight:600;color:var(--text)">${s.date.slice(5)}</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px;font-family:var(--fm)">${s.exercises.length} ex${durMin?` · ${durMin}m`:''}</div>
+        </div>`;
+      }).join('');
+      html+=`<div class="cyc-card" style="border-left-color:${progColor}">
+        <div class="cyc-hd">
+          <div><div class="cyc-title">${label.toUpperCase()}</div><div class="cyc-dates">${_fmtRange(dates[0],dates[dates.length-1])}</div></div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">${cards}</div>
+      </div>`;
+    });
+  }
+
   el.innerHTML=html||'<div style="padding:32px 16px;text-align:center;font-size:13px;color:var(--text3)">No sessions yet.</div>';
 }
 
@@ -3288,16 +3355,19 @@ const CYCLE_ORDER = [
 ];
 
 function renderProgram() {
-  const cycle=activeCycle();
+  const cycle=_getEditCycle();
+  const plan=_getEditPlan();
+  const isCustomProg=!!_editProgId;
+  const customProg=isCustomProg?PROGRAMS.find(p=>p.id===_editProgId):null;
   const inner=document.getElementById('program-inner');
   const sub=document.getElementById('prog-subtitle');
-  if(sub)sub.textContent=cycle.length+'-day cycle · tap to expand & edit';
+  if(sub)sub.textContent=cycle.length+'-day cycle'+(customProg?' · '+customProg.name+' exercises':' · tap to expand & edit');
   // Sort by day number (D1 first, then D2…D8) for display
-  const displayCycle=[...cycle].sort((a,b)=>parseInt(a.idx.slice(1))-parseInt(b.idx.slice(1)));
+  const displayCycle=isCustomProg?cycle:[...cycle].sort((a,b)=>parseInt(a.idx.slice(1))-parseInt(b.idx.slice(1)));
   inner.innerHTML=displayCycle.map(({idx,dayType,label},di)=>{
     const col=TYPE_COLOR[dayType]||'var(--border)';
     const tcf=v4TypeClassFull(dayType);
-    const groups=PLAN[dayType]||[];
+    const groups=plan[dayType]||[];
     const allEx=groups.flatMap(g=>g.ex);
     const isRest=dayType==='REST';
     const dtSafe=dayType.replace(/'/g,"\\'");
@@ -3315,10 +3385,11 @@ function renderProgram() {
           </div>
         </div>
         <div class="prog-day-btns">
+          ${!isCustomProg?`
           <button class="pdbn" onclick="event.stopPropagation();moveProgDay('${dtSafe}','up')" ${!canUp?'style="opacity:.2;pointer-events:none"':''}>↑</button>
           <button class="pdbn" onclick="event.stopPropagation();moveProgDay('${dtSafe}','down')" ${!canDown?'style="opacity:.2;pointer-events:none"':''}>↓</button>
           <button class="pdbn" onclick="event.stopPropagation();renameProgDay('${dtSafe}')">✏</button>
-          <button class="pdbn" onclick="event.stopPropagation();deleteProgDay('${dtSafe}')" style="color:var(--red)">✕</button>
+          <button class="pdbn" onclick="event.stopPropagation();deleteProgDay('${dtSafe}')" style="color:var(--red)">✕</button>`:''}
           <div class="arrow" id="prog-arrow-${dayType.replace(/[\s()]/g,'_')}">›</div>
         </div>
       </div>
@@ -3328,11 +3399,12 @@ function renderProgram() {
         ${!isRest?`<button class="add-ex-to-day" onclick="openProgSheet('${dtSafe}')">+ Add exercise</button>`:''}
       </div>
     </div>`;
-  }).join('')+`<button onclick="addProgDay()" style="width:100%;margin-top:8px;padding:14px;background:transparent;border:1px dashed var(--border);border-radius:14px;color:var(--text3);font-family:var(--fb);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer">+ Add training day</button>`;
+  }).join('')+(isCustomProg?'':
+    `<button onclick="addProgDay()" style="width:100%;margin-top:8px;padding:14px;background:transparent;border:1px dashed var(--border);border-radius:14px;color:var(--text3);font-family:var(--fb);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer">+ Add training day</button>`);
 }
 
 function renderProgGroups(dayType) {
-  const groups=PLAN[dayType]||[];
+  const groups=_getEditPlan()[dayType]||[];
   if(!groups.length)return`<div style="color:var(--text3);font-size:13px">No exercises yet</div>`;
   const flat=groups.flatMap(g=>g.ex);
   return flat.map((nm,fi)=>{
@@ -3361,9 +3433,10 @@ function toggleProgDay(dayType) {
 
 function removeExFromPlan(dayType, exName) {
   if(!confirm(`Remove "${exName}" from ${dayType}?`))return;
-  const groups=PLAN[dayType];if(!groups)return;
+  const plan=_getEditPlan();
+  const groups=plan[dayType];if(!groups)return;
   groups.forEach(g=>g.ex=g.ex.filter(e=>e!==exName));
-  saveMeta();renderProgram();
+  _saveEditPlan();renderProgram();
   // Reopen the group that was open
   const key=dayType.replace(/[\s()]/g,'_');
   document.getElementById(`prog-body-${key}`)?.classList.add('open');
@@ -3381,7 +3454,7 @@ function openProgSheet(dayType) {
 function closeProgSheet(){document.getElementById('prog-sheet').classList.remove('open');}
 
 function filterProgSheet(v) {
-  const existing=new Set((PLAN[progSheetDayType]||[]).flatMap(g=>g.ex));
+  const existing=new Set((_getEditPlan()[progSheetDayType]||[]).flatMap(g=>g.ex));
   const allKnown=new Set([
     ...Object.values(DEFAULT_PLAN).flatMap(gs=>gs.flatMap(g=>g.ex)),
     ...EX_LIBRARY.map(e=>e.name)
@@ -3398,13 +3471,14 @@ function filterProgSheet(v) {
 }
 
 function addExToPlan(name, isNew=false) {
+  const plan=_getEditPlan();
   closeProgSheet();
-  if(!PLAN[progSheetDayType])PLAN[progSheetDayType]=[{g:'Custom',ex:[]}];
-  let customGroup=PLAN[progSheetDayType].find(g=>g.g==='Custom');
-  if(!customGroup){customGroup={g:'Custom',ex:[]};PLAN[progSheetDayType].push(customGroup);}
+  if(!plan[progSheetDayType])plan[progSheetDayType]=[{g:'Custom',ex:[]}];
+  let customGroup=plan[progSheetDayType].find(g=>g.g==='Custom');
+  if(!customGroup){customGroup={g:'Custom',ex:[]};plan[progSheetDayType].push(customGroup);}
   if(!customGroup.ex.includes(name))customGroup.ex.push(name);
   ensureInLibrary(name);
-  saveMeta();renderProgram();
+  _saveEditPlan();renderProgram();
   // Reopen
   const key=progSheetDayType.replace(/[\s()]/g,'_');
   document.getElementById(`prog-body-${key}`)?.classList.add('open');
@@ -3485,15 +3559,16 @@ function moveProgDay(dayType, dir) {
 }
 
 function moveExInPlan(dayType, exName, dir) {
-  const groups=PLAN[dayType];if(!groups)return;
+  const plan=_getEditPlan();
+  const groups=plan[dayType];if(!groups)return;
   const flat=groups.flatMap(g=>g.ex);
   const i=flat.indexOf(exName);
   if(i<0)return;
   const ni=dir==='up'?i-1:i+1;
   if(ni<0||ni>=flat.length)return;
   [flat[i],flat[ni]]=[flat[ni],flat[i]];
-  PLAN[dayType]=[{g:'Exercises',ex:flat}];
-  saveMeta();reopenProgDay(dayType);
+  plan[dayType]=[{g:'Exercises',ex:flat}];
+  _saveEditPlan();reopenProgDay(dayType);
 }
 
 // ── DETAIL ─────────────────────────────────────────────────────────────────
@@ -3854,91 +3929,4 @@ function checkCycleComplete(sess) {
   const avgDiff=withDiff.length?withDiff.reduce((a,s)=>a+(diffMap[s.feedback.difficulty]||3),0)/withDiff.length:3;
   const totalVol=cycleSessions.reduce((a,s)=>a+calcVolume(s),0);
   const prs=[];
-  const allEx=new Set(cycleSessions.flatMap(s=>s.exercises.map(e=>e.name)));
-  const cycleStartDate=cycleSessions.map(s=>s.date).sort()[0];
-  allEx.forEach(name=>{
-    const hist=getExHistory(name);
-    const bw=isBW(name);
-    const prevHist=hist.filter(h=>h.date<cycleStartDate);
-    if(!prevHist.length)return; // no history before this cycle — can't be a PR
-    const prevMax=Math.max(0,...prevHist.map(h=>bw?h.r:h.w));
-    if(prevMax===0)return;
-    const cycleMax=Math.max(0,...cycleSessions.flatMap(s=>s.exercises.filter(e=>e.name===name).flatMap(e=>e.sets.map(st=>bw?st.r||0:st.w||0))));
-    if(cycleMax>prevMax)prs.push(name.split(' (')[0]);
-  });
-  PENDING_CYCLE_SUMMARY={label:info.cycleLabel,sessions:cycleSessions.length,totalVol,avgDiff,prs:prs.slice(0,4)};
-  localStorage.setItem('tr-cycle-sum-v1',JSON.stringify(PENDING_CYCLE_SUMMARY));
-}
-
-function dismissCycleSummary() {
-  PENDING_CYCLE_SUMMARY=null;
-  localStorage.removeItem('tr-cycle-sum-v1');
-  document.getElementById('cycle-summary-banner').innerHTML='';
-}
-
-// ── DELOAD SUGGESTION ──────────────────────────────────────────────────────
-function getDeloadBanner() {
-  const sessions=all().filter(s=>s.dayType!=='REST');
-  if(sessions.length<6)return null;
-  const diffMap={'Very Easy':1,'Easy':2,'Moderate':3,'Difficult':4,'Very Difficult':5};
-  const recent=sessions.slice(-6).filter(s=>s.feedback?.difficulty);
-  if(recent.length<4)return null;
-  const avg=recent.reduce((a,s)=>a+(diffMap[s.feedback.difficulty]||3),0)/recent.length;
-  const last3=sessions.slice(-3).filter(s=>s.feedback?.difficulty);
-  const last3High=last3.length===3&&last3.every(s=>(diffMap[s.feedback.difficulty]||0)>=4);
-  if(avg>=3.8||last3High)return'Avg fatigue is high over recent sessions. Consider a deload week: reduce weights by 40–50% and cut sets to 2 per exercise.';
-  return null;
-}
-
-// ── PROFILE ─────────────────────────────────────────────────────────────────
-function renderProfile() {
-  const cycleLen=activeCycle().length;
-  document.getElementById('prof-name').textContent=PROFILE.name||'—';
-
-  // Identity tags
-  const tags=[];
-  if(PROFILE.goal)tags.push(PROFILE.goal.toUpperCase());
-  tags.push((cycleLen+'-DAY CYCLE'));
-  const dims=[];
-  if(PROFILE.height)dims.push(PROFILE.height+' CM');
-  if(PROFILE.weight)dims.push(PROFILE.weight+' KG');
-  if(PROFILE.age)dims.push(PROFILE.age+' YO');
-  if(dims.length)tags.push(dims.join(' · '));
-  document.getElementById('prof-tags').innerHTML=tags.map(t=>`<span class="v4ident-tag">${t}</span>`).join('');
-
-  // Target callout
-  const wrap=document.getElementById('prof-target-wrap');
-  if(PROFILE.target){
-    const d=new Date(PROFILE.target+'T00:00:00');
-    const days=Math.max(0,Math.round((d-new Date(todayStr()+'T00:00:00'))/86400000));
-    wrap.innerHTML=`<div class="v4ident-target">
-      <span class="dot"></span>
-      <span>TARGET · ${d.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}).toUpperCase()}</span>
-      <span class="days">${days}d to go</span>
-    </div>`;
-  } else wrap.innerHTML='';
-
-  // Lifetime stats
-  const sessions=all();
-  const trainSess=sessions.filter(s=>s.dayType!=='REST');
-  const totalVol=trainSess.reduce((a,s)=>a+calcVolume(s),0);
-  const totalVolT=(totalVol/1000).toFixed(0);
-  const prCount=(()=>{
-    const names=allExNames(); let n=0;
-    for(const nm of names){
-      const h=getExHistory(nm); if(!h.length)continue;
-      const isBwx=isBW(nm),isTb=isTimeBased(nm);
-      const m=isBwx||isTb?'r':'w';
-      const bestIdx=h.reduce((bi,x,i)=>x[m]>=h[bi][m]?i:bi,0);
-      const prior=h.filter((_,i)=>i<bestIdx);
-      const priorBest=prior.length?Math.max(...prior.map(x=>x[m])):0;
-      if(h[bestIdx][m]>priorBest&&h[bestIdx][m]>0)n++;
-    }
-    return n;
-  })();
-  const streak=calcStreak();
-  const cycles=Object.keys(trainSess.reduce((a,s)=>{ if(s.cycle&&s.cycle!=='Custom')a[s.cycle]=1; return a; },{})).length;
-  // Weekly avg
-  if(trainSess.length){
-    var firstDate=new Date(trainSess[0].date+'T00:00:00');
-    var weeks=Math.max(1,(new Date(todayStr()+'T00:0
+  const allEx=new Set(cycleSessions.flatMap(s=>s.exercise
