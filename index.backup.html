@@ -264,6 +264,16 @@ body{font-family:var(--fb);background:var(--bg);color:var(--text);font-size:14px
 .prow:last-child{border-bottom:none}
 .prow:active{background:var(--bg3)}
 
+/* PWA INSTALL BANNER */
+.install-banner{position:fixed;bottom:calc(var(--nav-h) + var(--sb) + 10px);left:12px;right:12px;z-index:400;background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:14px 16px;display:none;align-items:center;gap:12px;box-shadow:0 8px 32px rgba(0,0,0,.5);animation:slideUp .3s ease}
+.install-banner.show{display:flex}
+@keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+.install-banner-icon{width:44px;height:44px;border-radius:10px;background:var(--accent);color:var(--accent-ink);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+.install-banner-text{flex:1;min-width:0}
+.install-banner-title{font-size:13px;font-weight:700;color:var(--text);letter-spacing:-.01em}
+.install-banner-sub{font-size:11px;color:var(--text3);margin-top:2px}
+.install-banner-btn{padding:8px 14px;background:var(--accent);color:var(--accent-ink);border:none;border-radius:8px;font-family:var(--fb);font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;flex-shrink:0;white-space:nowrap}
+.install-banner-close{background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;padding:2px 6px;flex-shrink:0;line-height:1}
 /* PR TROPHY CABINET */
 .pr-trophy-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px 12px 10px;cursor:pointer;transition:opacity .12s;position:relative;overflow:hidden}
 .pr-trophy-card:active{opacity:.7}
@@ -1172,6 +1182,17 @@ body{font-family:var(--fb);background:var(--bg);color:var(--text);font-size:14px
   <div id="prof-target" style="display:none"></div>
   <div id="prof-activity" style="display:none"></div>
   <div id="pr-list" style="display:none"></div>
+</div>
+
+<!-- PWA INSTALL BANNER -->
+<div class="install-banner" id="install-banner">
+  <div class="install-banner-icon">🏋️</div>
+  <div class="install-banner-text">
+    <div class="install-banner-title">Add 8Day to home screen</div>
+    <div class="install-banner-sub" id="install-banner-sub">Train faster, works offline</div>
+  </div>
+  <button class="install-banner-btn" id="install-banner-btn" onclick="triggerInstall()">Add</button>
+  <button class="install-banner-close" onclick="dismissInstallBanner()">×</button>
 </div>
 
 <!-- NAV — 5 tabs with elevated center start button -->
@@ -3929,4 +3950,701 @@ function checkCycleComplete(sess) {
   const avgDiff=withDiff.length?withDiff.reduce((a,s)=>a+(diffMap[s.feedback.difficulty]||3),0)/withDiff.length:3;
   const totalVol=cycleSessions.reduce((a,s)=>a+calcVolume(s),0);
   const prs=[];
-  const allEx=new Set(cycleSessions.flatMap(s=>s.exercise
+  const allEx=new Set(cycleSessions.flatMap(s=>s.exercises.map(e=>e.name)));
+  const cycleStartDate=cycleSessions.map(s=>s.date).sort()[0];
+  allEx.forEach(name=>{
+    const hist=getExHistory(name);
+    const bw=isBW(name);
+    const prevHist=hist.filter(h=>h.date<cycleStartDate);
+    if(!prevHist.length)return; // no history before this cycle — can't be a PR
+    const prevMax=Math.max(0,...prevHist.map(h=>bw?h.r:h.w));
+    if(prevMax===0)return;
+    const cycleMax=Math.max(0,...cycleSessions.flatMap(s=>s.exercises.filter(e=>e.name===name).flatMap(e=>e.sets.map(st=>bw?st.r||0:st.w||0))));
+    if(cycleMax>prevMax)prs.push(name.split(' (')[0]);
+  });
+  PENDING_CYCLE_SUMMARY={label:info.cycleLabel,sessions:cycleSessions.length,totalVol,avgDiff,prs:prs.slice(0,4)};
+  localStorage.setItem('tr-cycle-sum-v1',JSON.stringify(PENDING_CYCLE_SUMMARY));
+}
+
+function dismissCycleSummary() {
+  PENDING_CYCLE_SUMMARY=null;
+  localStorage.removeItem('tr-cycle-sum-v1');
+  document.getElementById('cycle-summary-banner').innerHTML='';
+}
+
+// ── DELOAD SUGGESTION ──────────────────────────────────────────────────────
+function getDeloadBanner() {
+  const sessions=all().filter(s=>s.dayType!=='REST');
+  if(sessions.length<6)return null;
+  const diffMap={'Very Easy':1,'Easy':2,'Moderate':3,'Difficult':4,'Very Difficult':5};
+  const recent=sessions.slice(-6).filter(s=>s.feedback?.difficulty);
+  if(recent.length<4)return null;
+  const avg=recent.reduce((a,s)=>a+(diffMap[s.feedback.difficulty]||3),0)/recent.length;
+  const last3=sessions.slice(-3).filter(s=>s.feedback?.difficulty);
+  const last3High=last3.length===3&&last3.every(s=>(diffMap[s.feedback.difficulty]||0)>=4);
+  if(avg>=3.8||last3High)return'Avg fatigue is high over recent sessions. Consider a deload week: reduce weights by 40–50% and cut sets to 2 per exercise.';
+  return null;
+}
+
+// ── PROFILE ─────────────────────────────────────────────────────────────────
+function renderProfile() {
+  const cycleLen=activeCycle().length;
+  document.getElementById('prof-name').textContent=PROFILE.name||'—';
+  const avatarEl=document.getElementById('prof-avatar');
+  if(avatarEl)avatarEl.textContent=PROFILE.emoji||'💪';
+
+  // Identity tags
+  const tags=[];
+  if(PROFILE.goal)tags.push(PROFILE.goal.toUpperCase());
+  tags.push((cycleLen+'-DAY CYCLE'));
+  const dims=[];
+  if(PROFILE.height)dims.push(PROFILE.height+' CM');
+  if(PROFILE.weight)dims.push(PROFILE.weight+' KG');
+  if(PROFILE.age)dims.push(PROFILE.age+' YO');
+  if(dims.length)tags.push(dims.join(' · '));
+  document.getElementById('prof-tags').innerHTML=tags.map(t=>`<span class="v4ident-tag">${t}</span>`).join('');
+
+  // Target callout
+  const wrap=document.getElementById('prof-target-wrap');
+  if(PROFILE.target){
+    const d=new Date(PROFILE.target+'T00:00:00');
+    const days=Math.max(0,Math.round((d-new Date(todayStr()+'T00:00:00'))/86400000));
+    wrap.innerHTML=`<div class="v4ident-target">
+      <span class="dot"></span>
+      <span>TARGET · ${d.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}).toUpperCase()}</span>
+      <span class="days">${days}d to go</span>
+    </div>`;
+  } else wrap.innerHTML='';
+
+  // Lifetime stats
+  const sessions=all();
+  const trainSess=sessions.filter(s=>s.dayType!=='REST');
+  const totalVol=trainSess.reduce((a,s)=>a+calcVolume(s),0);
+  const totalVolT=(totalVol/1000).toFixed(0);
+  const prCount=(()=>{
+    const names=allExNames(); let n=0;
+    for(const nm of names){
+      const h=getExHistory(nm); if(!h.length)continue;
+      const isBwx=isBW(nm),isTb=isTimeBased(nm);
+      const m=isBwx||isTb?'r':'w';
+      const bestIdx=h.reduce((bi,x,i)=>x[m]>=h[bi][m]?i:bi,0);
+      const prior=h.filter((_,i)=>i<bestIdx);
+      const priorBest=prior.length?Math.max(...prior.map(x=>x[m])):0;
+      if(h[bestIdx][m]>priorBest&&h[bestIdx][m]>0)n++;
+    }
+    return n;
+  })();
+  const streak=calcStreak();
+  const cycles=Object.keys(trainSess.reduce((a,s)=>{ if(s.cycle&&s.cycle!=='Custom')a[s.cycle]=1; return a; },{})).length;
+  // Weekly avg
+  if(trainSess.length){
+    var firstDate=new Date(trainSess[0].date+'T00:00:00');
+    var weeks=Math.max(1,(new Date(todayStr()+'T00:00:00')-firstDate)/(86400000*7));
+    var wkAvg=(trainSess.length/weeks).toFixed(1);
+  } else var wkAvg='0';
+  document.getElementById('prof-lifetime').innerHTML=`<div class="v4life">
+    <div class="eyebrow" style="margin-bottom:14px">LIFETIME</div>
+    <div class="v4life-row">
+      <div class="v4life-cell"><div class="v">${trainSess.length}</div><div class="l">Sessions</div></div>
+      <div class="v4life-cell"><div class="v">${totalVolT}<sub>t</sub></div><div class="l">Volume</div></div>
+      <div class="v4life-cell"><div class="v" style="color:var(--amber)">${prCount}</div><div class="l">PRs</div></div>
+    </div>
+    <div class="v4life-hr"></div>
+    <div class="v4life-row">
+      <div class="v4life-cell sm"><div class="v" style="color:${streak>0?'var(--accent)':'var(--text)'}">${streak}</div><div class="l">Streak</div></div>
+      <div class="v4life-cell sm"><div class="v">${wkAvg}</div><div class="l">Wk avg</div></div>
+      <div class="v4life-cell sm"><div class="v">${cycles}</div><div class="l">Cycles</div></div>
+    </div>
+  </div>`;
+
+  // ── Trophy Cabinet ──
+  const selected=getPrSelected();
+  const trophy=document.getElementById('pr-trophy');
+  if(trophy){
+    if(!selected.length){
+      trophy.innerHTML=`<div class="pr-trophy-empty">No exercises selected — tap <strong>Edit</strong> above to add some.</div>`;
+    } else {
+      trophy.innerHTML=selected.map(nm=>{
+        const h=getExHistory(nm);
+        if(!h.length)return`<div class="pr-trophy-card" onclick="openPrEditSheet()">
+          <div class="pr-trophy-name">${nm.replace(/\s*\([^)]+\)/,'')}</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:4px">No data yet</div>
+        </div>`;
+        const bw=isBW(nm),tb=isTimeBased(nm),unit=tb?'s':bw?'r':'kg';
+        const vals=h.map(x=>bw||tb?x.r:x.w);
+        const best=Math.max(...vals);
+        const bestEntry=h.find(x=>(bw||tb?x.r:x.w)===best);
+        const latest=vals[vals.length-1];
+        const prev=vals.length>1?vals[vals.length-2]:null;
+        const change=prev!==null?+(latest-prev).toFixed(1):null;
+        const trendColor=change>0?'var(--green)':change<0?'var(--red)':'var(--text3)';
+        const trendTxt=change!==null?(change>0?'↑ +':'↓ ')+Math.abs(change)+unit+' last':'—';
+        const orm=(!bw&&!tb&&bestEntry&&bestEntry.r>0&&bestEntry.r<=20)?Math.round(bestEntry.w*(1+bestEntry.r/30)):null;
+        const shortName=nm.replace(/\s*\([^)]+\)/,'');
+        const equip=nm.match(/\(([^)]+)\)/)?.[1]||'';
+        return`<div class="pr-trophy-card" onclick="renderProgressFor('${nm.replace(/'/g,"\\'")}');switchView('progress')">
+          <div class="pr-trophy-name">${shortName}</div>
+          ${equip?`<div style="display:inline-block;font-size:8px;font-weight:700;color:var(--text4);background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-family:var(--fb);letter-spacing:.06em;margin-bottom:4px">${equip.toUpperCase()}</div>`:'<div style="margin-bottom:4px"></div>'}
+          <div class="pr-trophy-val">${best}<span class="pr-trophy-unit">${unit}</span></div>
+          ${bestEntry?.r&&!bw&&!tb?`<div class="pr-trophy-when">× ${bestEntry.r} reps · ${bestEntry.label||''}</div>`:`<div class="pr-trophy-when">${bestEntry?.label||''}</div>`}
+          ${orm?`<div class="pr-trophy-orm">~${orm}kg 1RM</div>`:''}
+          ${change!==null?`<div class="pr-trophy-trend" style="color:${trendColor}">${trendTxt}</div>`:''}
+        </div>`;
+      }).join('');
+    }
+  }
+
+  // Settings — short values
+  document.getElementById('profile-sync-short').textContent=trainerId().slice(0,12)+'…';
+  const activeProgEntry=_getActiveProgramEntry(todayStr());
+  const activeProgName=activeProgEntry&&activeProgEntry.programId!=='normal'?(PROGRAMS.find(p=>p.id===activeProgEntry.programId)?.name||'Custom'):'Normal';
+  document.getElementById('profile-prog-short').textContent=activeProgName;
+  document.getElementById('profile-pr-short').textContent=selected.length?selected.length+' lifts':'Tap to add';
+  document.getElementById('profile-lib-short').textContent=EX_LIBRARY.length?EX_LIBRARY.length+' added':'Default';
+
+  renderBwChart();
+
+  // Deload banner (relocated to top of identity area)
+  const existing=document.getElementById('deload-banner');
+  if(existing)existing.remove();
+  const deload=getDeloadBanner();
+  if(deload){
+    const el=document.createElement('div');
+    el.id='deload-banner';
+    el.className='warn';
+    el.style.margin='0 16px 12px';
+    el.innerHTML=`⚠️ <strong>Deload suggested.</strong> ${deload}`;
+    document.getElementById('prof-lifetime').insertAdjacentElement('beforebegin',el);
+  }
+}
+
+async function saveProfileData() {
+  localStorage.setItem('tr-profile-v1',JSON.stringify(PROFILE));
+  if(!fbReady||!db)return;
+  const tid=trainerId();
+  try{await db.doc(`trainers/${tid}/meta`).set({profile:PROFILE},{merge:true});}catch(e){}
+}
+
+function openProfileEdit() {
+  document.getElementById('pe-emoji').value=PROFILE.emoji||'💪';
+  document.getElementById('pe-name').value=PROFILE.name||'';
+  document.getElementById('pe-age').value=PROFILE.age||'';
+  document.getElementById('pe-height').value=PROFILE.height||'';
+  document.getElementById('pe-weight').value=PROFILE.weight||'';
+  document.getElementById('pe-goal').value=PROFILE.goal||'Hypertrophy';
+  document.getElementById('pe-target').value=PROFILE.target||'';
+  document.getElementById('profile-edit-modal').classList.add('open');
+}
+
+function closeProfileEdit(){document.getElementById('profile-edit-modal').classList.remove('open');}
+
+function saveProfileEdit() {
+  const name=document.getElementById('pe-name').value.trim();
+  const age=+document.getElementById('pe-age').value;
+  const height=+document.getElementById('pe-height').value;
+  const weight=+document.getElementById('pe-weight').value;
+  const target=document.getElementById('pe-target').value;
+  if(age&&(age<10||age>100)){alert('Age must be between 10 and 100.');return;}
+  if(height&&(height<100||height>250)){alert('Height must be between 100 and 250 cm.');return;}
+  if(weight&&(weight<20||weight>300)){alert('Weight must be between 20 and 300 kg.');return;}
+  if(target&&target<todayStr()&&target!==PROFILE.target){/* allow keeping past target */}
+  const emoji=document.getElementById('pe-emoji').value.trim();
+  if(emoji)PROFILE.emoji=emoji;
+  if(name)PROFILE.name=name;
+  if(age)PROFILE.age=age;
+  if(height)PROFILE.height=height;
+  if(weight)PROFILE.weight=weight;
+  PROFILE.goal=document.getElementById('pe-goal').value||PROFILE.goal;
+  if(target)PROFILE.target=target;
+  saveProfileData();
+  closeProfileEdit();
+  renderProfile();
+}
+
+// ── SYNC MODAL ─────────────────────────────────────────────────────────────
+function openSyncModal(){
+  document.getElementById('sync-code-display').textContent=trainerId();
+  document.getElementById('copy-hint').textContent='Tap to copy';
+  document.getElementById('switch-input').value='';
+  document.getElementById('sync-modal').classList.add('open');
+}
+function closeSyncModal(){document.getElementById('sync-modal').classList.remove('open');}
+function copyCode(){
+  navigator.clipboard.writeText(trainerId()).catch(()=>{});
+  document.getElementById('copy-hint').textContent='✓ Copied!';
+  setTimeout(()=>document.getElementById('copy-hint').textContent='Tap to copy',1500);
+}
+async function switchCode(){
+  const code=document.getElementById('switch-input').value.trim();if(!code)return;
+  localStorage.setItem(TK,code);US=[];closeSyncModal();setSyncUI('syncing','Loading…');
+  if(fbReady)startListeners();
+}
+
+// ── EXPORT ─────────────────────────────────────────────────────────────────
+function doExport(){
+  const rows=[['Date','Label','Cycle','Day Type','Exercise','Set','Reps','Weight (kg)','Notes']];
+  all().forEach(s=>s.exercises.forEach(ex=>ex.sets.forEach((st,i)=>rows.push([s.date,s.label,s.cycle,s.dayType,ex.name,i+1,st.r||0,st.w||0,i===0?(s.notes||''):'']))));
+  const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);a.download='training-'+todayStr()+'.csv';a.click();
+}
+
+// ── STREAK ──────────────────────────────────────────────────────────────────
+function calcStreak() {
+  const today = todayStr();
+  const dates = new Set(all().filter(s => s.dayType !== 'REST' && s.date <= today).map(s => s.date));
+  if (!dates.size) return 0;
+  // Start from today if trained, otherwise yesterday
+  let check = dates.has(today) ? today : (() => {
+    const d = new Date(today+'T00:00:00'); d.setDate(d.getDate()-1);
+    return d.toISOString().split('T')[0];
+  })();
+  let streak = 0;
+  while (dates.has(check)) {
+    streak++;
+    const d = new Date(check+'T00:00:00'); d.setDate(d.getDate()-1);
+    check = d.toISOString().split('T')[0];
+  }
+  return streak;
+}
+
+// ── SESSION PR CHECK ────────────────────────────────────────────────────────
+const _prCache = {};
+function _clearPrCache(){ for(const k in _prCache) delete _prCache[k]; }
+
+function sessionHasPR(sess) {
+  if(_prCache[sess.id] !== undefined) return _prCache[sess.id];
+  const allSess = all();
+  const result = sess.exercises.some(ex => {
+    const bw = isBW(ex.name), tb = isTimeBased(ex.name);
+    const prev = allSess.filter(s => s.date < sess.date);
+    if (!prev.length) return false;
+    const prevBest = prev.reduce((best, s) => {
+      const e = s.exercises.find(e => e.name === ex.name);
+      if (!e || !e.sets.length) return best;
+      const val = (bw || tb)
+        ? Math.max(...e.sets.map(st => st.r || 0))
+        : Math.max(0, ...e.sets.filter(st => st.w > 0).map(st => st.w || 0));
+      return Math.max(best, val);
+    }, 0);
+    if (prevBest === 0) return false;
+    const sessVal = (bw || tb)
+      ? Math.max(...ex.sets.map(st => st.r || 0))
+      : Math.max(0, ...ex.sets.filter(st => st.w > 0).map(st => st.w || 0));
+    return sessVal > prevBest;
+  });
+  _prCache[sess.id] = result;
+  return result;
+}
+
+// ── PR PREFS ────────────────────────────────────────────────────────────────
+const _PR_MG_DEFAULT = [
+  'Bench Press (BB)','Bench Press (DB)','Incline Press (BB)','Incline Press (DB)','Chest Fly (DB)','Chest Fly (Cable)','Chest Press (Machine)','Decline Press (BB)','Decline Press (DB)',
+  'Back Squat (BB)','Front Squat (BB)','Hack Squat (Machine)','Leg Press (Machine)','RDL (BB)','RDL (DB)','Leg Curl (Machine)','Leg Extension (Machine)','Bulgarian Split Squat (DB)','Bulgarian Split Squat (BB)','Lunge (DB)','Lunge (BB)','Calf Raise (Machine)',
+  'Bent Over Row (BB)','Bent Over Row (DB)','Lat Pulldown (Machine)','Cable Row (Cable)','Seated Row (Machine)','Pull Up (Bodyweight)','Chin Up (Bodyweight)','Single Arm Row (DB)','T-Bar Row (BB)','Face Pull (Cable)',
+  'Overhead Press (BB)','Overhead Press (DB)','Lateral Raise (DB)','Lateral Raise (Cable)','Front Raise (DB)','Arnold Press (DB)','Upright Row (BB)','Upright Row (DB)',
+  'Bicep Curl (BB)','Bicep Curl (DB)','Hammer Curl (DB)','Preacher Curl (Machine)','Tricep Pushdown (Cable)','Skull Crusher (BB)','Overhead Tricep (Cable)','Dip (Bodyweight)','Close Grip Bench (BB)',
+  'Plank (Bodyweight)','Cable Crunch (Cable)','Ab Wheel (Bodyweight)','Hanging Leg Raise (Bodyweight)','Dead Hang (Bodyweight)','L-Sit (Bodyweight)'
+];
+
+function getPrSelected() {
+  if (PR_PREFS && Array.isArray(PR_PREFS.selected)) return PR_PREFS.selected.slice();
+  const logged = new Set(allExNames());
+  return _PR_MG_DEFAULT.filter(nm => logged.has(nm));
+}
+
+function savePrPrefs() {
+  localStorage.setItem('tr-pr-prefs-v1', JSON.stringify(PR_PREFS));
+}
+
+function openPrEditSheet() {
+  if (!PR_PREFS) {
+    PR_PREFS = { selected: getPrSelected() };
+    savePrPrefs();
+  }
+  renderPrEditSheet();
+  document.getElementById('pr-edit-sheet').classList.add('open');
+}
+
+function closePrEditSheet() {
+  document.getElementById('pr-edit-sheet').classList.remove('open');
+}
+
+function renderPrEditSheet() {
+  const selected = getPrSelected();
+  const allEx = allExNames().sort();
+  const unselected = allEx.filter(nm => !selected.includes(nm));
+  let html = '';
+  if (selected.length) {
+    html += `<div class="pr-sec-lbl">Shown — ${selected.length} exercise${selected.length !== 1 ? 's' : ''}</div>`;
+    html += selected.map((nm, i) => `
+      <div class="pr-ex-row">
+        <button class="pr-mv" onclick="movePrEx(${i},-1)" ${i === 0 ? 'disabled' : ''}>↑</button>
+        <button class="pr-mv" onclick="movePrEx(${i},1)" ${i === selected.length - 1 ? 'disabled' : ''}>↓</button>
+        <div class="pr-ex-name">${nm}</div>
+        <button class="pr-rm" onclick="removePrEx('${nm.replace(/'/g, "\\'")}')">✕</button>
+      </div>`).join('');
+  }
+  if (unselected.length) {
+    html += `<div class="pr-sec-lbl">Add exercise</div>`;
+    html += unselected.map(nm => `
+      <div class="pr-ex-row">
+        <div class="pr-ex-name" style="color:var(--text2)">${nm}</div>
+        <button class="pr-add" onclick="addPrEx('${nm.replace(/'/g, "\\'")}')">+</button>
+      </div>`).join('');
+  }
+  document.getElementById('pr-edit-body').innerHTML = html;
+}
+
+function movePrEx(idx, dir) {
+  const sel = getPrSelected();
+  const newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= sel.length) return;
+  [sel[idx], sel[newIdx]] = [sel[newIdx], sel[idx]];
+  PR_PREFS = { selected: sel };
+  savePrPrefs();
+  renderPrEditSheet();
+  renderProfile();
+}
+
+function removePrEx(nm) {
+  const sel = getPrSelected().filter(x => x !== nm);
+  PR_PREFS = { selected: sel };
+  savePrPrefs();
+  renderPrEditSheet();
+  renderProfile();
+}
+
+function addPrEx(nm) {
+  const sel = getPrSelected();
+  if (!sel.includes(nm)) sel.push(nm);
+  PR_PREFS = { selected: sel };
+  savePrPrefs();
+  renderPrEditSheet();
+  renderProfile();
+}
+
+// ── PROGRAMS ──────────────────────────────────────────────────────────────
+
+function savePrograms(){
+  localStorage.setItem('tr-programs-v1',JSON.stringify(PROGRAMS));
+  if(fbReady&&db){const tid=trainerId();db.doc(`trainers/${tid}/meta`).set({programs:PROGRAMS},{merge:true}).catch(()=>{});}
+}
+function saveProgramSchedule(){
+  localStorage.setItem('tr-prog-sched-v1',JSON.stringify(PROGRAM_SCHEDULE));
+  if(fbReady&&db){const tid=trainerId();db.doc(`trainers/${tid}/meta`).set({programSchedule:PROGRAM_SCHEDULE},{merge:true}).catch(()=>{});}
+}
+
+function openProgramsOverlay(){_editProgId=null;renderProgramsManager();document.getElementById('programs-overlay').classList.add('open');}
+function openCustomProgExerciseEditor(progId){_editProgId=progId;closeProgramsOverlay();switchView('program');}
+function closeProgramsOverlay(){document.getElementById('programs-overlay').classList.remove('open');}
+
+function renderProgramsManager(){
+  const today=todayStr();
+  const activeEntry=_getActiveProgramEntry(today);
+  const activeId=activeEntry?.programId||'normal';
+  const inner=document.getElementById('programs-inner');if(!inner)return;
+
+  // Helper: get last position label for a program
+  function lastPosLabel(progId){
+    if(progId==='normal'){
+      const ns=all().filter(s=>!_getCycleInfoNormal(s.date).isPre).sort((a,b)=>b.date.localeCompare(a.date));
+      return ns.length?ns[0].label:'C1·D2';
+    }
+    const prog=PROGRAMS.find(p=>p.id===progId);
+    const prevEntry=PROGRAM_SCHEDULE.filter(e=>e.programId===progId&&e.endDate).sort((a,b)=>b.endDate.localeCompare(a.endDate))[0];
+    if(!prog||!prevEntry)return'W1·D1';
+    const d=Math.max(0,Math.round((new Date(prevEntry.endDate+'T00:00:00')-new Date(prevEntry.startDate+'T00:00:00'))/86400000));
+    const cn=prevEntry.startCycleNum+Math.floor(d/prog.cyclePattern.length);
+    return prog.name.slice(0,4).toUpperCase()+'·W'+cn;
+  }
+
+  // Normal Training card
+  const normalPaused=activeId!=='normal';
+  const normalHadHistory=all().some(s=>!_getCycleInfoNormal(s.date).isPre);
+  let html=`<div class="prog-card${activeId==='normal'?' prog-active':''}">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div>
+        <div style="font-size:10px;font-weight:700;color:var(--text3);font-family:var(--fb);letter-spacing:.1em;margin-bottom:4px">DEFAULT</div>
+        <div class="prog-card-name">🏋️ Normal Training</div>
+        <div class="prog-card-sub">${activeCycle().length}-day cycle</div>
+      </div>
+      ${activeId==='normal'
+        ?`<span class="v4pill accent">● ACTIVE</span>`
+        :`<span class="v4pill" style="color:var(--text3);border-color:var(--border)">⏸ ${lastPosLabel('normal')}</span>`}
+    </div>
+    <div class="prog-card-btns">
+      ${normalPaused?`<button class="prog-card-btn primary" onclick="openActivateProgSheet('normal')">Resume</button>`:''}
+      <button class="prog-card-btn secondary" onclick="closeProgramsOverlay();switchView('program')">Edit</button>
+    </div>
+  </div>`;
+
+  // Custom programs
+  PROGRAMS.forEach(prog=>{
+    const isActive=activeId===prog.id;
+    const hasPrev=PROGRAM_SCHEDULE.some(e=>e.programId===prog.id&&e.endDate);
+    const col=prog.color||'var(--accent)';
+    html+=`<div class="prog-card${isActive?' prog-active':''}" style="border-left-color:${col}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div>
+          <div class="prog-card-name">${prog.emoji||'📋'} ${prog.name}</div>
+          <div class="prog-card-sub">${prog.cyclePattern.length}-day cycle · ${prog.cyclePattern.filter(d=>d!=='REST').length} training days</div>
+        </div>
+        ${isActive
+          ?`<span class="v4pill" style="color:${col};background:${col}18;border-color:${col}44">● ACTIVE</span>`
+          :hasPrev?`<span class="v4pill" style="color:var(--text3);border-color:var(--border)">⏸ ${lastPosLabel(prog.id)}</span>`:''}
+      </div>
+      <div class="prog-card-btns">
+        ${!isActive?`<button class="prog-card-btn primary" onclick="openActivateProgSheet('${prog.id}')">Activate</button>`:''}
+        <button class="prog-card-btn secondary" onclick="openCustomProgExerciseEditor('${prog.id}')">Exercises</button>
+        <button class="prog-card-btn secondary" onclick="openEditProgSheet('${prog.id}')">Edit</button>
+        ${!isActive?`<button class="prog-card-btn danger" onclick="deleteCustomProg('${prog.id}')">✕</button>`:''}
+      </div>
+    </div>`;
+  });
+
+  inner.innerHTML=html+`<button onclick="openNewProgSheet()" style="width:100%;margin-top:6px;padding:14px;background:transparent;border:1px dashed var(--border);border-radius:14px;color:var(--text3);font-family:var(--fb);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer">+ Create new program</button>`;
+}
+
+// ── ACTIVATE / SWITCH ──────────────────────────────────────────────────────
+
+function openActivateProgSheet(progId){
+  _activatingProgId=progId;
+  const prog=progId==='normal'?null:PROGRAMS.find(p=>p.id===progId);
+  const progName=prog?`${prog.emoji||''} ${prog.name}`:'🏋️ Normal Training';
+  const hasPrev=progId==='normal'
+    ?all().some(s=>!_getCycleInfoNormal(s.date).isPre)
+    :PROGRAM_SCHEDULE.some(e=>e.programId===progId&&e.endDate);
+  let lastPos='';
+  if(hasPrev){
+    if(progId==='normal'){
+      const ns=all().filter(s=>!_getCycleInfoNormal(s.date).isPre).sort((a,b)=>b.date.localeCompare(a.date));
+      lastPos=ns.length?ns[0].label:'';
+    } else {
+      const prevEntry=PROGRAM_SCHEDULE.filter(e=>e.programId===progId&&e.endDate).sort((a,b)=>b.endDate.localeCompare(a.endDate))[0];
+      if(prevEntry&&prog){
+        const d=Math.max(0,Math.round((new Date(prevEntry.endDate+'T00:00:00')-new Date(prevEntry.startDate+'T00:00:00'))/86400000));
+        const cn=prevEntry.startCycleNum+Math.floor(d/prog.cyclePattern.length);
+        lastPos='Week '+cn;
+      }
+    }
+  }
+  const el=document.getElementById('activate-prog-inner');
+  el.innerHTML=`
+    <div style="font-size:18px;font-weight:700;margin-bottom:4px">Activate ${progName}</div>
+    <div style="font-size:13px;color:var(--text3);margin-bottom:20px">Where would you like to start?</div>
+    ${hasPrev&&lastPos?`<button class="prog-switch-btn highlight" onclick="confirmActivate('${progId}','continue')">
+      <div style="font-size:13px;font-weight:700;color:var(--text)">Continue where I left off</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:3px;font-family:var(--fm)">${lastPos}</div>
+    </button>`:''}
+    <button class="prog-switch-btn" onclick="confirmActivate('${progId}','fresh')">
+      <div style="font-size:13px;font-weight:700;color:var(--text)">Start fresh</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:3px;font-family:var(--fm)">Reset to Cycle 1</div>
+    </button>`;
+  document.getElementById('activate-prog-sheet').classList.add('open');
+}
+
+function closeActivateProgSheet(){document.getElementById('activate-prog-sheet').classList.remove('open');}
+
+function confirmActivate(progId,mode){
+  closeActivateProgSheet();
+  const today=todayStr();
+  // End current active entry
+  PROGRAM_SCHEDULE.forEach(e=>{if(!e.endDate)e.endDate=today;});
+  let startCycleNum=1;
+  if(mode==='continue'){
+    if(progId==='normal'){
+      const info=_getCycleInfoNormal(today);
+      startCycleNum=Math.max(1,info.cycleNum);
+    } else {
+      const prog=PROGRAMS.find(p=>p.id===progId);
+      const prevEntry=PROGRAM_SCHEDULE.filter(e=>e.programId===progId&&e.endDate).sort((a,b)=>b.endDate.localeCompare(a.endDate))[0];
+      if(prog&&prevEntry){
+        const d=Math.max(0,Math.round((new Date(prevEntry.endDate+'T00:00:00')-new Date(prevEntry.startDate+'T00:00:00'))/86400000));
+        startCycleNum=prevEntry.startCycleNum+Math.floor(d/prog.cyclePattern.length);
+      }
+    }
+  }
+  // For normal training, no schedule entry needed (default)
+  if(progId!=='normal'){
+    PROGRAM_SCHEDULE.push({id:'sched_'+Date.now(),programId:progId,startDate:today,startCycleNum,endDate:null});
+    saveProgramSchedule();
+  }
+  savePrograms();saveProgramSchedule();
+  renderProgramsManager();renderProfile();refreshActiveView();
+}
+
+function deleteCustomProg(progId){
+  if(!confirm('Delete this program? This cannot be undone.'))return;
+  PROGRAMS=PROGRAMS.filter(p=>p.id!==progId);
+  PROGRAM_SCHEDULE=PROGRAM_SCHEDULE.filter(e=>e.programId!==progId);
+  savePrograms();saveProgramSchedule();renderProgramsManager();
+}
+
+// ── CREATE / EDIT PROGRAM ──────────────────────────────────────────────────
+
+const PROG_DAY_OPTIONS=[
+  {value:'PUSH (Hypertrophy)',label:'Push · Hypertrophy'},
+  {value:'LEGS (Strength)',label:'Legs · Strength'},
+  {value:'PULL',label:'Pull'},
+  {value:'PUSH (Strength)',label:'Push · Strength'},
+  {value:'LEGS (Hypertrophy)',label:'Legs · Hypertrophy'},
+  {value:'FULL BODY',label:'Full Body'},
+  {value:'UPPER BODY',label:'Upper Body'},
+  {value:'LOWER BODY',label:'Lower Body'},
+  {value:'CARDIO',label:'Cardio'},
+  {value:'REST',label:'Rest Day'},
+];
+const PROG_COLORS=['#d4ff3a','#22c55e','#3b82f6','#f97316','#a855f7','#f59e0b','#ef4444','#06b6d4'];
+
+function openNewProgSheet(){
+  _editingProgId=null;
+  _newProgDays=[{type:'FULL BODY'},{type:'REST'},{type:'FULL BODY'}];
+  _newProgColor=PROG_COLORS[0];
+  _newProgEmoji='💪';
+  _renderNewProgSheet('','',false);
+  document.getElementById('new-prog-sheet').classList.add('open');
+}
+
+function openEditProgSheet(progId){
+  const prog=PROGRAMS.find(p=>p.id===progId);if(!prog)return;
+  _editingProgId=progId;
+  _newProgDays=prog.cyclePattern.map(t=>({type:t}));
+  _newProgColor=prog.color||PROG_COLORS[0];
+  _newProgEmoji=prog.emoji||'💪';
+  _renderNewProgSheet(prog.name,prog.emoji||'💪',true);
+  document.getElementById('new-prog-sheet').classList.add('open');
+}
+
+function closeNewProgSheet(){document.getElementById('new-prog-sheet').classList.remove('open');}
+
+function _renderNewProgSheet(nameVal,emojiVal,isEdit){
+  const optHtml=PROG_DAY_OPTIONS.map(o=>`<option value="${o.value}">${o.label}</option>`).join('');
+  const slotsHtml=_newProgDays.map((d,i)=>`
+    <div class="prog-day-slot">
+      <div class="prog-day-num">D${i+1}</div>
+      <select class="prog-day-sel" onchange="_updateProgDay(${i},this.value)">${PROG_DAY_OPTIONS.map(o=>`<option value="${o.value}"${o.value===d.type?' selected':''}>${o.label}</option>`).join('')}</select>
+      <button onclick="_removeProgDay(${i})" style="background:none;border:none;color:var(--text4);cursor:pointer;font-size:18px;padding:2px 6px;line-height:1;flex-shrink:0">−</button>
+    </div>`).join('');
+  const colorsHtml=PROG_COLORS.map(c=>`<div class="prog-color-sw${c===_newProgColor?' sel':''}" style="background:${c}" onclick="_selectProgColor('${c}')"></div>`).join('');
+  document.getElementById('new-prog-inner').innerHTML=`
+    <div style="font-size:18px;font-weight:700;margin-bottom:16px">${isEdit?'Edit Program':'New Program'}</div>
+    <div style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;font-family:var(--fb);margin-bottom:6px">Name</div>
+    <input id="new-prog-name" type="text" placeholder="e.g. Holiday, Summer…" value="${nameVal}" style="width:100%;padding:11px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:inherit;font-size:14px;outline:none;box-sizing:border-box;margin-bottom:14px">
+    <div style="display:flex;gap:10px;margin-bottom:14px">
+      <div style="flex:1">
+        <div style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;font-family:var(--fb);margin-bottom:6px">Emoji</div>
+        <input id="new-prog-emoji" type="text" value="${emojiVal}" maxlength="2" style="width:100%;padding:11px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:inherit;font-size:18px;outline:none;box-sizing:border-box;text-align:center">
+      </div>
+      <div style="flex:2">
+        <div style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;font-family:var(--fb);margin-bottom:6px">Color</div>
+        <div class="prog-color-row">${colorsHtml}</div>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;font-family:var(--fb)">Cycle Days (${_newProgDays.length})</div>
+      <button onclick="_addProgDay()" style="font-size:10px;font-weight:700;color:var(--accent);background:none;border:none;cursor:pointer;font-family:var(--fb);letter-spacing:.06em">+ Add Day</button>
+    </div>
+    <div id="prog-day-slots" style="background:var(--bg3);border-radius:10px;padding:0 12px;margin-bottom:16px">${slotsHtml}</div>
+    <button onclick="_saveProgram()" style="width:100%;padding:14px;background:${_newProgColor};color:#0a0a0a;font-family:var(--fb);font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;border:none;border-radius:12px;cursor:pointer">${isEdit?'Save Changes':'Create Program'}</button>`;
+}
+
+function _updateProgDay(i,val){_newProgDays[i].type=val;}
+function _removeProgDay(i){
+  if(_newProgDays.length<=1)return;
+  _newProgDays.splice(i,1);
+  _renderNewProgSheet(document.getElementById('new-prog-name')?.value||'',document.getElementById('new-prog-emoji')?.value||'💪',!!_editingProgId);
+}
+function _addProgDay(){
+  _newProgDays.push({type:'REST'});
+  _renderNewProgSheet(document.getElementById('new-prog-name')?.value||'',document.getElementById('new-prog-emoji')?.value||'💪',!!_editingProgId);
+}
+function _selectProgColor(col){
+  _newProgColor=col;
+  _renderNewProgSheet(document.getElementById('new-prog-name')?.value||'',document.getElementById('new-prog-emoji')?.value||'💪',!!_editingProgId);
+}
+
+function _saveProgram(){
+  const name=document.getElementById('new-prog-name')?.value.trim();
+  const emoji=document.getElementById('new-prog-emoji')?.value.trim()||'💪';
+  if(!name){alert('Please enter a program name.');return;}
+  if(_newProgDays.length<1){alert('Add at least one day.');return;}
+  const cyclePattern=_newProgDays.map(d=>d.type);
+  if(_editingProgId){
+    const prog=PROGRAMS.find(p=>p.id===_editingProgId);
+    if(prog){Object.assign(prog,{name,emoji,color:_newProgColor,cyclePattern,plan:prog.plan||{}});}
+  } else {
+    PROGRAMS.push({id:'prog_'+Date.now(),name,emoji,color:_newProgColor,cyclePattern,plan:{}});
+  }
+  savePrograms();
+  closeNewProgSheet();
+  renderProgramsManager();
+}
+
+// ── PWA INSTALL PROMPT ────────────────────────────────────────────────────
+let _deferredInstallPrompt = null;
+
+(function initInstallPrompt(){
+  // Never show if already installed or dismissed
+  const dismissed = localStorage.getItem('tr-install-dismissed-v1');
+  const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+  if(standalone || dismissed) return;
+
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent.toLowerCase()) && !window.MSStream;
+
+  if(isIOS){
+    // iOS: show manual instructions after 3s
+    setTimeout(()=>{
+      const sub = document.getElementById('install-banner-sub');
+      const btn = document.getElementById('install-banner-btn');
+      if(sub) sub.textContent = 'Tap Share → Add to Home Screen';
+      if(btn){ btn.textContent = 'How?'; btn.onclick = ()=>{
+        alert('To install:\n1. Tap the Share button (□↑) in Safari\n2. Scroll down and tap "Add to Home Screen"\n3. Tap "Add"');
+      };}
+      document.getElementById('install-banner')?.classList.add('show');
+    }, 3000);
+  } else {
+    // Android/Chrome: capture the native prompt
+    window.addEventListener('beforeinstallprompt', e=>{
+      e.preventDefault();
+      _deferredInstallPrompt = e;
+      setTimeout(()=>document.getElementById('install-banner')?.classList.add('show'), 3000);
+    });
+    window.addEventListener('appinstalled', ()=>{
+      dismissInstallBanner();
+      _deferredInstallPrompt = null;
+    });
+  }
+})();
+
+function triggerInstall(){
+  if(_deferredInstallPrompt){
+    _deferredInstallPrompt.prompt();
+    _deferredInstallPrompt.userChoice.then(()=>{dismissInstallBanner();_deferredInstallPrompt=null;});
+  }
+}
+
+function dismissInstallBanner(){
+  document.getElementById('install-banner')?.classList.remove('show');
+  localStorage.setItem('tr-install-dismissed-v1','1');
+}
+
+// ── OFFLINE / ONLINE ───────────────────────────────────────────────────────
+window.addEventListener('offline',()=>setSyncUI('err','Offline'));
+window.addEventListener('online',()=>{
+  if(fbReady&&db){setSyncUI('syncing','Reconnecting…');startListeners();}
+  else{setSyncUI('syncing','Connecting…');initFirebase();}
+});
+
+// ── INIT ───────────────────────────────────────────────────────────────────
+renderToday();
+restoreWorkout();
+initFirebase();
+</script>
+
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+}
+</script>
+</body>
+</html>

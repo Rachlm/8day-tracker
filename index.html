@@ -1170,6 +1170,12 @@ body{font-family:var(--fb);background:var(--bg);color:var(--text);font-size:14px
       <div class="val" id="profile-lib-short">—</div>
       <div class="arrow">›</div>
     </div>
+    <div class="v4set-row" onclick="openVacationSheet()">
+      <svg viewBox="0 0 24 24"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
+      <div class="lbl">Holiday Mode</div>
+      <div class="val" id="profile-vacation-short">Not set</div>
+      <div class="arrow">›</div>
+    </div>
     <div class="v4set-row" onclick="doExport()">
       <svg viewBox="0 0 24 24"><path d="M12 3v12M7 8l5-5 5 5M5 21h14"/></svg>
       <div class="lbl">Export data</div>
@@ -1182,6 +1188,15 @@ body{font-family:var(--fb);background:var(--bg);color:var(--text);font-size:14px
   <div id="prof-target" style="display:none"></div>
   <div id="prof-activity" style="display:none"></div>
   <div id="pr-list" style="display:none"></div>
+</div>
+
+<!-- VACATION SHEET -->
+<div class="add-day-sheet" id="vacation-sheet">
+  <div class="add-day-bg" onclick="closeVacationSheet()"></div>
+  <div class="add-day-box">
+    <div class="add-day-handle"></div>
+    <div id="vacation-inner"></div>
+  </div>
 </div>
 
 <!-- PWA INSTALL BANNER -->
@@ -1428,6 +1443,7 @@ let PENDING_CYCLE_SUMMARY = JSON.parse(localStorage.getItem('tr-cycle-sum-v1') |
 let PROGRAMS = JSON.parse(localStorage.getItem('tr-programs-v1') || '[]');
 let PROGRAM_SCHEDULE = JSON.parse(localStorage.getItem('tr-prog-sched-v1') || '[]');
 let _editingProgId = null, _newProgDays = [], _newProgColor = '#d4ff3a', _newProgEmoji = '💪', _activatingProgId = null;
+let VACATION = JSON.parse(localStorage.getItem('tr-vacation-v1') || 'null');
 let _editProgId = null; // null = Normal Training, string = custom program being exercise-edited
 
 function _getEditPlan() {
@@ -1464,15 +1480,35 @@ function isTimeBased(name) {
 // ── CYCLE ──────────────────────────────────────────────────────────────────
 function _getCycleInfoNormal(dateStr) {
   const anchor = dateStr >= '2026-04-27' ? '2026-04-04' : '2026-04-03';
-  const diff = Math.round((new Date(dateStr+'T00:00:00') - new Date(anchor+'T00:00:00')) / 86400000);
-  if (diff < 0) return { isPre:true, label:'Prep', dayType:null, dayName:'', cycleLabel:'Prep' };
-  const idx = ((diff % 8) + 8) % 8;
-  const cycleNum = Math.floor(diff / 8) + 1;
-  const dayType = CYCLE_PATTERN[idx];
-  const dayName = DAY_NAMES[idx];
-  const cycleLabel = 'C' + cycleNum;
-  const label = cycleLabel+'·'+dayName;
-  return { isPre:false, cycleNum, cycleLabel, dayName, dayType, label, idx };
+  const d = new Date(dateStr+'T00:00:00');
+  const rawDiff = Math.round((d - new Date(anchor+'T00:00:00')) / 86400000);
+  if (rawDiff < 0) return { isPre:true, label:'Prep', dayType:null, dayName:'', cycleLabel:'Prep' };
+
+  if (VACATION) {
+    const vStart = new Date(VACATION.start+'T00:00:00');
+    const vEnd   = new Date(VACATION.end+'T00:00:00');
+    // During vacation — cycle is paused
+    if (d >= vStart && d <= vEnd) {
+      const daysLeft = Math.max(0, Math.floor((vEnd - d) / 86400000));
+      return { isVacation:true, vacationName:VACATION.name, label:VACATION.name,
+               cycleLabel:VACATION.name, dayType:null, dayName:'', cycleNum:0, idx:-1, isPre:false, daysLeft };
+    }
+    // After vacation — subtract vacation duration so cycle resumes from correct position
+    if (d > vEnd) {
+      const vDays = Math.round((vEnd - vStart) / 86400000) + 1;
+      const adj = rawDiff - vDays;
+      if (adj < 0) return { isPre:true, label:'Prep', dayType:null, dayName:'', cycleLabel:'Prep' };
+      const idx2 = ((adj % 8) + 8) % 8;
+      const cn2  = Math.floor(adj / 8) + 1;
+      const dt2  = CYCLE_PATTERN[idx2], dn2 = DAY_NAMES[idx2], cl2 = 'C'+cn2;
+      return { isPre:false, cycleNum:cn2, cycleLabel:cl2, dayName:dn2, dayType:dt2, label:cl2+'·'+dn2, idx:idx2 };
+    }
+  }
+
+  const idx = ((rawDiff % 8) + 8) % 8;
+  const cycleNum = Math.floor(rawDiff / 8) + 1;
+  const dayType = CYCLE_PATTERN[idx], dayName = DAY_NAMES[idx], cycleLabel = 'C'+cycleNum;
+  return { isPre:false, cycleNum, cycleLabel, dayName, dayType, label:cycleLabel+'·'+dayName, idx };
 }
 
 function _getActiveProgramEntry(dateStr) {
@@ -1655,6 +1691,7 @@ function startListeners() {
     if(snap.exists&&snap.data().bwLog){BW_LOG=snap.data().bwLog;localStorage.setItem('tr-bw-v1',JSON.stringify(BW_LOG));renderBwChart();}
     if(snap.exists&&snap.data().programs){PROGRAMS=snap.data().programs;localStorage.setItem('tr-programs-v1',JSON.stringify(PROGRAMS));}
     if(snap.exists&&snap.data().programSchedule){PROGRAM_SCHEDULE=snap.data().programSchedule;localStorage.setItem('tr-prog-sched-v1',JSON.stringify(PROGRAM_SCHEDULE));}
+    if(snap.exists&&'vacation' in snap.data()){VACATION=snap.data().vacation;localStorage.setItem('tr-vacation-v1',JSON.stringify(VACATION));}
   },()=>{});
 }
 
@@ -2058,6 +2095,24 @@ function renderToday() {
       </div>
       <div class="v4hero-info">Cycle 1 hasn't started yet — log a session whenever you're ready.</div>
       <div class="v4hero-cta"><button class="v4btn ghost" onclick="startWorkout()">+ Log custom session</button></div>
+    </div>`;
+  } else if(info.isVacation){
+    heroEl.innerHTML=`<div class="v4hero">
+      <div class="v4hero-top">
+        <div>
+          <div class="v4hero-eyebrow" style="color:var(--amber)"><span class="dot" style="background:var(--amber)"></span> HOLIDAY MODE</div>
+          <div class="v4hero-day" style="color:var(--text2)">${(VACATION?.name||'').toUpperCase()}</div>
+        </div>
+        <div class="v4hero-meta">
+          <div class="v4hero-cyc">🏖️</div>
+          <div class="v4hero-prog">${info.daysLeft>0?info.daysLeft+'d left':'ends today'}</div>
+        </div>
+      </div>
+      <div class="v4hero-info">Cycle paused · resumes ${info.daysLeft>0?'in '+info.daysLeft+' day'+(info.daysLeft!==1?'s':''):'tomorrow'}.</div>
+      <div class="v4hero-cta">
+        <button class="v4btn ghost" onclick="showLogDay('${today}')">+ Log a workout</button>
+        <button class="v4btn ghost" style="margin-top:8px;font-size:10px;color:var(--text3)" onclick="clearVacation()">End holiday early</button>
+      </div>
     </div>`;
   } else if(info.dayType==='REST'){
     // Find next training day
@@ -4099,6 +4154,8 @@ function renderProfile() {
   const activeProgEntry=_getActiveProgramEntry(todayStr());
   const activeProgName=activeProgEntry&&activeProgEntry.programId!=='normal'?(PROGRAMS.find(p=>p.id===activeProgEntry.programId)?.name||'Custom'):'Normal';
   document.getElementById('profile-prog-short').textContent=activeProgName;
+  const vacEl=document.getElementById('profile-vacation-short');
+  if(vacEl)vacEl.textContent=VACATION?`${VACATION.name} · ${_fmtRange(VACATION.start,VACATION.end)}`:'Not set';
   document.getElementById('profile-pr-short').textContent=selected.length?selected.length+' lifts':'Tap to add';
   document.getElementById('profile-lib-short').textContent=EX_LIBRARY.length?EX_LIBRARY.length+' added':'Default';
 
@@ -4578,6 +4635,60 @@ function _saveProgram(){
   savePrograms();
   closeNewProgSheet();
   renderProgramsManager();
+}
+
+// ── HOLIDAY MODE ──────────────────────────────────────────────────────────
+
+async function saveVacation(){
+  localStorage.setItem('tr-vacation-v1',JSON.stringify(VACATION));
+  if(fbReady&&db){const tid=trainerId();db.doc(`trainers/${tid}/meta`).set({vacation:VACATION},{merge:true}).catch(()=>{});}
+}
+
+function openVacationSheet(){
+  const inner=document.getElementById('vacation-inner');if(!inner)return;
+  const today=todayStr();
+  inner.innerHTML=`
+    <div style="font-size:18px;font-weight:700;margin-bottom:16px">Holiday Mode</div>
+    ${VACATION?`
+      <div style="background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3);border-radius:12px;padding:14px;margin-bottom:14px">
+        <div style="font-size:10px;font-weight:700;color:var(--amber);font-family:var(--fb);letter-spacing:.08em;margin-bottom:4px">🏖️ ACTIVE</div>
+        <div style="font-size:16px;font-weight:700">${VACATION.name}</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:3px;font-family:var(--fm)">${_fmtRange(VACATION.start,VACATION.end)}</div>
+      </div>
+      <button onclick="clearVacation()" style="width:100%;padding:13px;background:none;border:1px solid var(--red);border-radius:12px;color:var(--red);font-family:var(--fb);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;margin-bottom:14px">End holiday</button>
+      <div style="height:1px;background:var(--border);margin-bottom:14px"></div>`:''}
+    <div style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;font-family:var(--fb);margin-bottom:8px">${VACATION?'Update holiday':'Set holiday period'}</div>
+    <input id="vac-name" type="text" placeholder="e.g. Summer Holiday, Christmas…" value="${VACATION?.name||''}" style="width:100%;padding:11px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:inherit;font-size:14px;outline:none;box-sizing:border-box;margin-bottom:10px">
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      <div style="flex:1">
+        <div style="font-size:10px;font-weight:700;color:var(--text3);font-family:var(--fb);letter-spacing:.06em;margin-bottom:4px">FROM</div>
+        <input id="vac-start" type="date" value="${VACATION?.start||today}" style="width:100%;padding:10px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:inherit;font-size:13px;outline:none;box-sizing:border-box">
+      </div>
+      <div style="flex:1">
+        <div style="font-size:10px;font-weight:700;color:var(--text3);font-family:var(--fb);letter-spacing:.06em;margin-bottom:4px">TO</div>
+        <input id="vac-end" type="date" value="${VACATION?.end||''}" style="width:100%;padding:10px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:inherit;font-size:13px;outline:none;box-sizing:border-box">
+      </div>
+    </div>
+    <button onclick="saveVacationFromSheet()" style="width:100%;padding:14px;background:var(--text);color:var(--bg);font-family:var(--fb);font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;border:none;border-radius:12px;cursor:pointer">Set Holiday Mode</button>`;
+  document.getElementById('vacation-sheet').classList.add('open');
+}
+
+function closeVacationSheet(){document.getElementById('vacation-sheet').classList.remove('open');}
+
+function saveVacationFromSheet(){
+  const name=document.getElementById('vac-name')?.value.trim();
+  const start=document.getElementById('vac-start')?.value;
+  const end=document.getElementById('vac-end')?.value;
+  if(!name){alert('Please enter a name for your holiday.');return;}
+  if(!start||!end){alert('Please set start and end dates.');return;}
+  if(end<start){alert('End date must be after start date.');return;}
+  VACATION={name,start,end};
+  saveVacation();closeVacationSheet();refreshActiveView();renderProfile();
+}
+
+function clearVacation(){
+  if(!confirm('End holiday mode? Normal Training will resume.'))return;
+  VACATION=null;saveVacation();closeVacationSheet();refreshActiveView();renderProfile();
 }
 
 // ── PWA INSTALL PROMPT ────────────────────────────────────────────────────
