@@ -1277,13 +1277,22 @@ const DAY_FULL_NAMES = {
   'PULL':'Pull',
   'PUSH (Strength)':'Push — Strength',
   'LEGS (Hypertrophy)':'Legs — Hypertrophy',
-  'REST':'Rest Day'
+  'REST':'Rest Day',
+  'WORKOUT A':'Workout A',
+  'WORKOUT B':'Workout B',
+  'WORKOUT C':'Workout C',
+  'FULL BODY':'Full Body',
+  'UPPER BODY':'Upper Body',
+  'LOWER BODY':'Lower Body',
+  'CARDIO':'Cardio'
 };
 
 const TYPE_COLOR = {
   'PUSH (Hypertrophy)':'#3b82f6','LEGS (Strength)':'#f97316',
   'PULL':'#22c55e','PUSH (Strength)':'#a855f7',
-  'LEGS (Hypertrophy)':'#f59e0b','REST':'#2a2a2a','Active Recovery':'#22c55e'
+  'LEGS (Hypertrophy)':'#f59e0b','REST':'#2a2a2a','Active Recovery':'#22c55e',
+  'WORKOUT A':'#60a5fa','WORKOUT B':'#fb923c','WORKOUT C':'#a78bfa',
+  'FULL BODY':'#4ade80','UPPER BODY':'#22d3ee','LOWER BODY':'#facc15','CARDIO':'#f87171'
 };
 
 const TYPE_TAG = {
@@ -1661,7 +1670,7 @@ async function initFirebase() {
   try {
     if(!firebase.apps.length)firebase.initializeApp(FB_CONFIG);
     db=firebase.firestore();
-    await db.enablePersistence({synchronizeTabs:true}).catch(()=>{});
+    db.settings({ experimentalForceLongPolling: true, merge: true });
     fbReady=true;setSyncUI('syncing','Connecting…');startListeners();
   } catch(e){setSyncUI('err','Offline');}
 }
@@ -2520,8 +2529,15 @@ function startWorkout(forDate, forDayType, forLabel) {
 function buildSets(nm, date) {
   const ps=getPrevSets(nm,date);
   const tb=isTimeBased(nm);
-  // Build 3 sets by default, matching previous set at each index if available
-  return [0,1,2].map(i=>{
+  // Check active program planMeta for target sets count
+  let numSets=3;
+  const custom=_getActiveCustomProgram(date||todayStr());
+  if(custom&&custom.prog.planMeta){
+    const info=getCycleInfo(date||todayStr());
+    const meta=custom.prog.planMeta[info.dayType]?.[nm];
+    if(meta?.sets)numSets=meta.sets;
+  }
+  return Array.from({length:numSets},(_,i)=>{
     const prev=ps?.sets[i];
     if(tb) return {r:prev?.r||30,w:0,done:false};
     return {r:prev?.r||'',w:prev?.w||'',done:false};
@@ -2956,6 +2972,12 @@ function _ds(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'
 
 function v4TypeClassFull(dt){
   if(!dt||dt==='REST')return 'rest';
+  if(dt==='WORKOUT A')return 'push';
+  if(dt==='WORKOUT B')return 'legs';
+  if(dt==='WORKOUT C')return 'push-s';
+  if(dt==='FULL BODY'||dt==='CARDIO')return 'pull';
+  if(dt==='UPPER BODY')return 'push';
+  if(dt==='LOWER BODY')return 'legs';
   if(dt.includes('PUSH')&&dt.includes('Strength'))return 'push-s';
   if(dt.includes('PUSH'))return 'push';
   if(dt.includes('LEGS')&&dt.includes('Hypertrophy'))return 'legs-h';
@@ -2965,6 +2987,13 @@ function v4TypeClassFull(dt){
 }
 function dayAbbr(dt){
   if(!dt||dt==='REST')return '';
+  if(dt==='WORKOUT A')return 'Wkt A';
+  if(dt==='WORKOUT B')return 'Wkt B';
+  if(dt==='WORKOUT C')return 'Wkt C';
+  if(dt==='FULL BODY')return 'Full';
+  if(dt==='UPPER BODY')return 'Upper';
+  if(dt==='LOWER BODY')return 'Lower';
+  if(dt==='CARDIO')return 'Cardio';
   if(dt.includes('PUSH')&&dt.includes('Hypertrophy'))return 'Push H';
   if(dt.includes('PUSH')&&dt.includes('Strength'))return 'Push S';
   if(dt.includes('LEGS')&&dt.includes('Strength'))return 'Legs S';
@@ -3483,21 +3512,47 @@ function renderProgGroups(dayType) {
   const groups=_getEditPlan()[dayType]||[];
   if(!groups.length)return`<div style="color:var(--text3);font-size:13px">No exercises yet</div>`;
   const flat=groups.flatMap(g=>g.ex);
+  const prog=_editProgId?PROGRAMS.find(p=>p.id===_editProgId):null;
+  const planMeta=prog?.planMeta||{};
   return flat.map((nm,fi)=>{
     const safe=nm.replace(/'/g,"\\'");
     const dtSafe=dayType.replace(/'/g,"\\'");
+    const meta=planMeta[dayType]?.[nm];
+    const setsLbl=meta?(meta.sets+'×'+(meta.minReps===meta.maxReps?meta.maxReps:meta.minReps+'–'+meta.maxReps)):'3×?';
     return `<div class="cd-ex-row">
       <div style="display:flex;align-items:center;gap:6px;flex:1;min-width:0">
         <div style="display:flex;flex-direction:column;gap:1px;flex-shrink:0">
           <button class="ex-mv" onclick="moveExInPlan('${dtSafe}','${safe}','up')" ${fi===0?'style="opacity:.2;pointer-events:none"':''}>▲</button>
           <button class="ex-mv" onclick="moveExInPlan('${dtSafe}','${safe}','down')" ${fi===flat.length-1?'style="opacity:.2;pointer-events:none"':''}>▼</button>
         </div>
-        <div class="cd-ex-name">${nm}</div>
+        <div style="flex:1;min-width:0">
+          <div class="cd-ex-name">${nm}</div>
+        </div>
+        <button onclick="editExTarget('${dtSafe}','${safe}')" style="font-size:11px;font-weight:700;color:var(--accent);background:rgba(212,255,58,.1);border:1px solid rgba(212,255,58,.25);border-radius:8px;padding:3px 8px;cursor:pointer;flex-shrink:0;font-family:var(--fm)">${setsLbl}</button>
       </div>
       <button class="rmex-btn" onclick="removeExFromPlan('${dtSafe}','${safe}')">−</button>
     </div>`;
   }).join('');
 }
+
+function editExTarget(dayType, exName) {
+  const prog=_editProgId?PROGRAMS.find(p=>p.id===_editProgId):null;
+  if(!prog)return;
+  if(!prog.planMeta)prog.planMeta={};
+  if(!prog.planMeta[dayType])prog.planMeta[dayType]={};
+  const cur=prog.planMeta[dayType][exName]||{sets:3,minReps:8,maxReps:12};
+  const val=prompt(`${exName}\nFormat: sets × minReps–maxReps\nExamples: 3×8-12  or  2×10-15  or  3×12`,`${cur.sets}×${cur.minReps}-${cur.maxReps}`);
+  if(!val)return;
+  const m=val.match(/(\d+)\s*[×x]\s*(\d+)\s*[-–]\s*(\d+)/)||val.match(/(\d+)\s*[×x]\s*(\d+)/);
+  if(!m){alert('Format: 3×8-12');return;}
+  prog.planMeta[dayType][exName]={sets:parseInt(m[1]),minReps:parseInt(m[2]),maxReps:parseInt(m[3]||m[2])};
+  savePrograms();
+  const key=dayType.replace(/[\s()]/g,'_');
+  renderProgram();
+  document.getElementById(`prog-body-${key}`)?.classList.add('open');
+  if(document.getElementById(`prog-arrow-${key}`))document.getElementById(`prog-arrow-${key}`).textContent='∨';
+}
+
 
 function toggleProgDay(dayType) {
   const key=dayType.replace(/[\s()]/g,'_');
@@ -3512,6 +3567,8 @@ function removeExFromPlan(dayType, exName) {
   const plan=_getEditPlan();
   const groups=plan[dayType];if(!groups)return;
   groups.forEach(g=>g.ex=g.ex.filter(e=>e!==exName));
+  // Also remove from planMeta
+  if(_editProgId){const prog=PROGRAMS.find(p=>p.id===_editProgId);if(prog?.planMeta?.[dayType])delete prog.planMeta[dayType][exName];}
   _saveEditPlan();renderProgram();
   // Reopen the group that was open
   const key=dayType.replace(/[\s()]/g,'_');
@@ -4540,14 +4597,17 @@ function deleteCustomProg(progId){
 // ── CREATE / EDIT PROGRAM ──────────────────────────────────────────────────
 
 const PROG_DAY_OPTIONS=[
+  {value:'WORKOUT A',label:'Workout A'},
+  {value:'WORKOUT B',label:'Workout B'},
+  {value:'WORKOUT C',label:'Workout C'},
+  {value:'FULL BODY',label:'Full Body'},
+  {value:'UPPER BODY',label:'Upper Body'},
+  {value:'LOWER BODY',label:'Lower Body'},
   {value:'PUSH (Hypertrophy)',label:'Push · Hypertrophy'},
   {value:'LEGS (Strength)',label:'Legs · Strength'},
   {value:'PULL',label:'Pull'},
   {value:'PUSH (Strength)',label:'Push · Strength'},
   {value:'LEGS (Hypertrophy)',label:'Legs · Hypertrophy'},
-  {value:'FULL BODY',label:'Full Body'},
-  {value:'UPPER BODY',label:'Upper Body'},
-  {value:'LOWER BODY',label:'Lower Body'},
   {value:'CARDIO',label:'Cardio'},
   {value:'REST',label:'Rest Day'},
 ];
@@ -4745,6 +4805,52 @@ window.addEventListener('online',()=>{
   if(fbReady&&db){setSyncUI('syncing','Reconnecting…');startListeners();}
   else{setSyncUI('syncing','Connecting…');initFirebase();}
 });
+
+// ── SEED A/B PROGRAM ──────────────────────────────────────────────────────
+(function seedABProgram(){
+  if(PROGRAMS.some(p=>p.name==='A/B Training'))return;
+  const abId='prog_ab_v1';
+  // 14-day cycle: Week 1 = A REST B REST A REST REST, Week 2 = B REST A REST B REST REST
+  const cyclePattern=['WORKOUT A','REST','WORKOUT B','REST','WORKOUT A','REST','REST','WORKOUT B','REST','WORKOUT A','REST','WORKOUT B','REST','REST'];
+  const wktA=['Back squat (BB)','Bench press (BB)','Pull-ups','Romanian deadlift (BB)','Overhead press (BB)','Bent-over row (BB)','Barbell curl','Lateral raises (DB)','Single-arm overhead triceps (DB)'];
+  const wktB=['Bulgarian split squat (DB)','Incline press (DB)','Chin-ups','Leg curl (bench attachment)','Weighted dips','Single-arm row (DB)','Rear-delt raises (DB)','Standing calf raises (DB)','Hanging knee raise','Ab wheel'];
+  const plan={
+    'WORKOUT A':[{g:'Workout A',ex:wktA}],
+    'WORKOUT B':[{g:'Workout B',ex:wktB}]
+  };
+  const planMeta={
+    'WORKOUT A':{
+      'Back squat (BB)':{sets:3,minReps:8,maxReps:12},
+      'Bench press (BB)':{sets:3,minReps:8,maxReps:12},
+      'Pull-ups':{sets:3,minReps:6,maxReps:12},
+      'Romanian deadlift (BB)':{sets:3,minReps:8,maxReps:12},
+      'Overhead press (BB)':{sets:3,minReps:8,maxReps:12},
+      'Bent-over row (BB)':{sets:3,minReps:8,maxReps:12},
+      'Barbell curl':{sets:2,minReps:8,maxReps:12},
+      'Lateral raises (DB)':{sets:3,minReps:12,maxReps:20},
+      'Single-arm overhead triceps (DB)':{sets:2,minReps:10,maxReps:15}
+    },
+    'WORKOUT B':{
+      'Bulgarian split squat (DB)':{sets:3,minReps:10,maxReps:12},
+      'Incline press (DB)':{sets:3,minReps:10,maxReps:15},
+      'Chin-ups':{sets:3,minReps:6,maxReps:12},
+      'Leg curl (bench attachment)':{sets:3,minReps:10,maxReps:15},
+      'Weighted dips':{sets:3,minReps:8,maxReps:12},
+      'Single-arm row (DB)':{sets:3,minReps:10,maxReps:15},
+      'Rear-delt raises (DB)':{sets:3,minReps:12,maxReps:20},
+      'Standing calf raises (DB)':{sets:3,minReps:12,maxReps:20},
+      'Hanging knee raise':{sets:3,minReps:10,maxReps:15},
+      'Ab wheel':{sets:2,minReps:8,maxReps:15}
+    }
+  };
+  // Add all exercises to the library
+  [...wktA,...wktB].forEach(nm=>{
+    if(!EX_LIBRARY.find(e=>e.name===nm))EX_LIBRARY.push({name:nm,type:'reps',group:'A/B Training'});
+  });
+  localStorage.setItem('tr-exlib-v1',JSON.stringify(EX_LIBRARY));
+  PROGRAMS.push({id:abId,name:'A/B Training',emoji:'🏋️',color:'#3b82f6',cyclePattern,plan,planMeta});
+  localStorage.setItem('tr-programs-v1',JSON.stringify(PROGRAMS));
+})();
 
 // ── INIT ───────────────────────────────────────────────────────────────────
 renderToday();
