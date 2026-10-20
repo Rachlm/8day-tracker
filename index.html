@@ -2475,6 +2475,7 @@ function restoreWorkout() {
   if(!raw) return;
   try {
     activeWorkout = JSON.parse(raw);
+    _topUpWorkoutFromPlan();
     document.getElementById('wk-title').textContent = activeWorkout.dayType;
     document.getElementById('wk-sub').textContent = activeWorkout.label || activeWorkout.date;
     renderWkEx();
@@ -2495,9 +2496,21 @@ function restoreWorkout() {
 }
 
 // ── WORKOUT ────────────────────────────────────────────────────────────────
+// Adds any plan exercises missing from a workout saved by an older version (runs once per workout)
+function _topUpWorkoutFromPlan(){
+  if(!activeWorkout||activeWorkout._toppedUp||!activeWorkout.dayType)return;
+  activeWorkout._toppedUp=true;
+  try{
+    const names=[...new Set(getActivePlanEx(activeWorkout.dayType,activeWorkout.date).flatMap(g=>g.ex))];
+    const have=new Set(activeWorkout.exercises.map(e=>e.name));
+    names.forEach(n=>{if(!have.has(n))activeWorkout.exercises.push({name:n,sets:buildSets(n,activeWorkout.date)});});
+  }catch(e){}
+  persistWorkout();
+}
+
 function startWorkout(forDate, forDayType, forLabel) {
   // If workout already active, just resume it
-  if(activeWorkout){resumeWk();return;}
+  if(activeWorkout){_topUpWorkoutFromPlan();renderWkEx();resumeWk();return;}
   const date=forDate||todayStr();
   const info=getCycleInfo(date);
   const isCustom=!!forLabel&&!forDayType;
@@ -2507,7 +2520,7 @@ function startWorkout(forDate, forDayType, forLabel) {
   const label=forLabel||info.label||'Custom';
   activeWorkout={
     date,label,cycle:info.cycleLabel||'Custom',dayType:forDayType||info.dayType||'Custom',
-    startedAt:Date.now(),
+    startedAt:Date.now(),_toppedUp:true,
     exercises:defaultEx.map(name=>({name,sets:buildSets(name,date)}))
   };
   persistWorkout(); // save immediately so reload always recovers
