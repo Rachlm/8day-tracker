@@ -2503,7 +2503,7 @@ function startWorkout(forDate, forDayType, forLabel) {
   const isCustom=!!forLabel&&!forDayType;
   const dayType=forDayType||(info.dayType&&info.dayType!=='REST'?info.dayType:'PUSH (Hypertrophy)');
   const groups=isCustom?[]:getActivePlanEx(dayType,date);
-  const defaultEx=groups.flatMap(g=>g.ex).slice(0,5);
+  const defaultEx=[...new Set(groups.flatMap(g=>g.ex))];
   const label=forLabel||info.label||'Custom';
   activeWorkout={
     date,label,cycle:info.cycleLabel||'Custom',dayType:forDayType||info.dayType||'Custom',
