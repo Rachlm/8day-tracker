@@ -1106,6 +1106,7 @@ body{font-family:var(--fb);background:var(--bg);color:var(--text);font-size:14px
       <div class="card">
         <div class="ch" style="flex-direction:column;align-items:flex-start;gap:10px">
           <div class="ct" id="kpi-title">Progress by Cycle</div>
+          <div class="kpi-row"><span class="kpi-row-lbl">Program</span><div style="display:flex;gap:6px;flex-wrap:wrap" id="kpi-prog-pills"></div></div>
           <div class="kpi-row"><span class="kpi-row-lbl">Group</span><div style="display:flex;gap:6px;flex-wrap:wrap" id="kpi-group-pills"></div></div>
           <div class="kpi-row"><span class="kpi-row-lbl">Show</span><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center" id="kpi-limit-pills"></div></div>
           <div class="kpi-row"><span class="kpi-row-lbl">Day</span><div style="display:flex;gap:6px;flex-wrap:wrap" id="kpi-day-pills"></div></div>
@@ -2385,7 +2386,7 @@ function getKpiValue(sess, metric) {
 }
 
 // Chart view settings (remembered per device)
-let kpiGroup = 'cycle', kpiLimit = 10;
+let kpiGroup = 'cycle', kpiLimit = 10, kpiProg = 'CURRENT';
 try {
   const kv = JSON.parse(localStorage.getItem('tr-kpi-view-v1') || 'null');
   if (kv) {
@@ -2393,6 +2394,7 @@ try {
     if (kv.limit !== undefined) kpiLimit = kv.limit;
     if (kv.day) kpiDay = kv.day;
     if (kv.metric) kpiMetric = kv.metric;
+    if (kv.prog) kpiProg = kv.prog;
   }
 } catch (e) {}
 const KPI_GROUPS = [
@@ -2402,23 +2404,70 @@ const KPI_GROUPS = [
   {key:'cycle', label:'Cycle'},
 ];
 const KPI_LIMITS = [5, 10, 20, 0]; // 0 = all
+const KPI_NORMAL_COLOR = '#22c55e';
 function _saveKpiView() {
-  try { localStorage.setItem('tr-kpi-view-v1', JSON.stringify({group:kpiGroup, limit:kpiLimit, day:kpiDay, metric:kpiMetric})); } catch (e) {}
+  try { localStorage.setItem('tr-kpi-view-v1', JSON.stringify({group:kpiGroup, limit:kpiLimit, day:kpiDay, metric:kpiMetric, prog:kpiProg})); } catch (e) {}
 }
 function setKpi(field, val) {
   if (field === 'group') kpiGroup = val;
   else if (field === 'limit') kpiLimit = Math.max(0, parseInt(val, 10) || 0);
   else if (field === 'day') kpiDay = val;
   else if (field === 'metric') kpiMetric = val;
+  else if (field === 'prog') { kpiProg = val; kpiDay = 'ALL'; }
   _saveKpiView();
   renderKpiChart();
 }
 function _kpiLabelParts(s) {
   const parts = (s.label || '').split('·').map(p => p.trim());
-  return { cyc: parts.find(p => /^C\d+$/i.test(p)) || null, day: parts.find(p => /^D\d+$/i.test(p)) || null };
+  return { cyc: parts.find(p => /^[CW]\d+$/i.test(p)) || null, day: parts.find(p => /^D\d+$/i.test(p)) || null };
+}
+// Which program a session belongs to: label prefix first, then the schedule on that date
+function _kpiSessProg(s) {
+  const parts = (s.label || '').split('·').map(p => p.trim());
+  if (parts.length >= 3 && /^W\d+$/i.test(parts[1])) {
+    const p = PROGRAMS.find(pr => (pr.name || '').slice(0,4).toUpperCase() === parts[0]);
+    if (p) return p.id;
+  }
+  if (/^C\d+$/i.test(parts[0] || '')) return 'normal';
+  const e = _getActiveProgramEntry(s.date);
+  if (e && e.programId !== 'normal' && PROGRAMS.some(p => p.id === e.programId)) return e.programId;
+  return 'normal';
+}
+function _kpiProgInfo(id) {
+  if (id === 'normal') return { id, name: 'Normal 8-day', short: 'NORM', color: KPI_NORMAL_COLOR };
+  const p = PROGRAMS.find(pr => pr.id === id);
+  return { id, name: p?.name || 'Program', short: (p?.name || 'PROG').slice(0,4).toUpperCase(), color: _kpiColor(p?.color) };
+}
+function _kpiCurrentProg() {
+  const e = _getActiveProgramEntry(todayStr());
+  return (e && e.programId !== 'normal' && PROGRAMS.some(p => p.id === e.programId)) ? e.programId : 'normal';
+}
+function _kpiColor(c) {
+  if (!c) return '#d4ff3a';
+  if (c.startsWith('var(')) {
+    const v = getComputedStyle(document.documentElement).getPropertyValue(c.slice(4, -1).trim()).trim();
+    return v || '#d4ff3a';
+  }
+  return c;
+}
+function _kpiAlpha(c, a) {
+  let m = c.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+  if (m) {
+    let h = m[1]; if (h.length === 3) h = h.split('').map(x => x + x).join('');
+    return `rgba(${parseInt(h.slice(0,2),16)},${parseInt(h.slice(2,4),16)},${parseInt(h.slice(4,6),16)},${a})`;
+  }
+  m = c.match(/^rgba?\(([^)]+)\)/i);
+  if (m) { const p = m[1].split(',').slice(0,3).join(','); return `rgba(${p},${a})`; }
+  return c;
+}
+function _kpiDayShort(dt) {
+  const m = (dt || '').match(/^([A-Za-z ]+?)\s*\(([^)]+)\)/);
+  const cap = w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+  if (m) return cap(m[1].trim()) + ' ' + m[2].trim().charAt(0).toUpperCase();
+  return (dt || '').split(/\s+/).map(cap).join(' ').slice(0, 12);
 }
 const _MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-function _kpiBucket(s) {
+function _kpiBucket(s, prefixProg) {
   const d = new Date(s.date + 'T00:00:00');
   if (kpiGroup === 'day') {
     return { key: s.date, label: `${d.getDate()} ${_MON[d.getMonth()]}` };
@@ -2435,10 +2484,11 @@ function _kpiBucket(s) {
   if (kpiGroup === 'month') {
     return { key: s.date.slice(0, 7), label: `${_MON[d.getMonth()]} '${String(d.getFullYear()).slice(2)}` };
   }
-  // cycle
+  // cycle — always keyed per program so cycles of different programs never merge
+  const pid = s._prog;
   const c = _kpiLabelParts(s).cyc || s.cycle || '?';
-  const prog = (s.label || '').split('·').length > 2 ? (s.label.split('·')[0].trim() + ' ') : '';
-  return { key: prog + c, label: prog + c };
+  const pre = prefixProg && pid !== 'normal' ? _kpiProgInfo(pid).short + ' ' : '';
+  return { key: pid + '|' + c, label: pre + c };
 }
 
 function renderKpiChart() {
@@ -2446,12 +2496,41 @@ function renderKpiChart() {
   const metricPills = document.getElementById('kpi-metric-pills');
   const groupPills = document.getElementById('kpi-group-pills');
   const limitPills = document.getElementById('kpi-limit-pills');
+  const progPills = document.getElementById('kpi-prog-pills');
   if (!dayPills) return;
 
-  const dayOpts = [{key:'ALL', short:'All'}, ...KPI_DAYS];
+  // All training sessions tagged with their program
+  const allSess = all().filter(s => s.dayType !== 'REST').map(s => ({ ...s, _prog: _kpiSessProg(s) }));
+  const curProg = _kpiCurrentProg();
+  const progsWithData = [...new Set(allSess.map(s => s._prog))];
+
+  // ── Program pills
+  if (kpiProg !== 'CURRENT' && kpiProg !== 'ALL' && kpiProg !== 'normal' && !PROGRAMS.some(p => p.id === kpiProg)) kpiProg = 'CURRENT';
+  const selProg = kpiProg === 'CURRENT' ? curProg : kpiProg;
+  if (progPills) {
+    const opts = [{ key: 'CURRENT', label: 'Current · ' + _kpiProgInfo(curProg).name }];
+    const others = ['normal', ...PROGRAMS.map(p => p.id)].filter(id => id !== curProg && (progsWithData.includes(id) || id === 'normal'));
+    others.forEach(id => opts.push({ key: id, label: _kpiProgInfo(id).name }));
+    opts.push({ key: 'ALL', label: 'All' });
+    progPills.innerHTML = opts.map(o => {
+      const col = o.key === 'ALL' ? null : _kpiProgInfo(o.key === 'CURRENT' ? curProg : o.key).color;
+      return `<div class="kpi-pill ${kpiProg === o.key ? 'active' : ''}" onclick="setKpi('prog','${o.key}')">${col ? `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${col};margin-right:5px;vertical-align:middle"></span>` : ''}${o.label}</div>`;
+    }).join('');
+  }
+
+  // Sessions of the selected program
+  const progSess = selProg === 'ALL' ? allSess : allSess.filter(s => s._prog === selProg);
+
+  // ── Day pills built from the program's own workout types
+  let dayTypes = [];
+  if (selProg === 'normal') dayTypes = activeCycle().map(c => c.dayType);
+  else if (selProg !== 'ALL') dayTypes = (PROGRAMS.find(p => p.id === selProg)?.cyclePattern) || [];
+  dayTypes = [...new Set([...dayTypes, ...progSess.map(s => s.dayType)])].filter(dt => dt && dt !== 'REST');
+  if (selProg === 'ALL') dayTypes.sort();
+  const dayOpts = [{key:'ALL', short:'All'}, ...dayTypes.map(dt => ({ key: dt, short: _kpiDayShort(dt) }))];
   if (!dayOpts.some(d => d.key === kpiDay)) kpiDay = 'ALL';
   dayPills.innerHTML = dayOpts.map(d =>
-    `<div class="kpi-pill ${kpiDay === d.key ? 'active' : ''}" onclick="setKpi('day','${d.key}')">${d.short}</div>`
+    `<div class="kpi-pill ${kpiDay === d.key ? 'active' : ''}" onclick="setKpi('day','${d.key.replace(/'/g, "\\'")}')" title="${d.key.replace(/"/g, '&quot;')}">${d.short}</div>`
   ).join('');
   metricPills.innerHTML = KPI_METRICS.map(m =>
     `<div class="kpi-pill ${kpiMetric === m.key ? 'active' : ''}" onclick="setKpi('metric','${m.key}')">${m.label}</div>`
@@ -2463,7 +2542,7 @@ function renderKpiChart() {
     const isPreset = KPI_LIMITS.includes(kpiLimit);
     limitPills.innerHTML = KPI_LIMITS.map(n =>
       `<div class="kpi-pill ${kpiLimit === n ? 'active' : ''}" onclick="setKpi('limit',${n})">${n ? 'Last ' + n : 'All'}</div>`
-    ).join('') + `<input class="kpi-num ${!isPreset ? 'active' : ''}" type="number" inputmode="numeric" min="1" placeholder="#" value="${!isPreset ? kpiLimit : ''}" onchange="if(+this.value>0)setKpi('limit',this.value)" title="Custom number"${!isPreset ? ' style="border-color:var(--accent)"' : ''}>`;
+    ).join('') + `<input class="kpi-num" type="number" inputmode="numeric" min="1" placeholder="#" value="${!isPreset ? kpiLimit : ''}" onchange="if(+this.value>0)setKpi('limit',this.value)" title="Custom number"${!isPreset ? ' style="border-color:var(--accent)"' : ''}>`;
   }
   const groupName = (KPI_GROUPS.find(g => g.key === kpiGroup) || {}).label || 'Cycle';
   const titleEl = document.getElementById('kpi-title');
@@ -2477,17 +2556,15 @@ function renderKpiChart() {
   const alertEl = document.getElementById('fatigue-alert');
   if (alertEl) alertEl.style.display = highFatigue ? '' : 'none';
 
-  // Filter sessions by selected day (or all)
-  const sessions = all().filter(s => {
-    if (s.dayType === 'REST') return false;
-    if (kpiDay === 'ALL') return true;
-    return _kpiLabelParts(s).day === kpiDay;
-  }).sort((a, b) => a.date.localeCompare(b.date));
+  // Filter by workout type
+  const sessions = progSess
+    .filter(s => kpiDay === 'ALL' || s.dayType === kpiDay)
+    .sort((a, b) => a.date.localeCompare(b.date));
 
   // Bucket by group
   const bucketMap = new Map();
   sessions.forEach(s => {
-    const b = _kpiBucket(s);
+    const b = _kpiBucket(s, selProg === 'ALL');
     if (!bucketMap.has(b.key)) bucketMap.set(b.key, { label: b.label, first: s.date, items: [] });
     bucketMap.get(b.key).items.push(s);
   });
@@ -2521,7 +2598,34 @@ function renderKpiChart() {
   const vals   = buckets.map(b => aggregate(b.items));
   const counts = buckets.map(b => b.items.length);
   const unit   = kpiMetric === 'totalreps' ? ' reps' : kpiMetric === 'fatigue' ? '' : ' kg';
-  const barColor = kpiMetric === 'fatigue' ? '#f97316' : '#22c55e';
+  // Program of each bar = program of its latest session
+  const barProg = buckets.map(b => b.items[b.items.length - 1]._prog);
+  const mixed   = buckets.map(b => new Set(b.items.map(s => s._prog)).size > 1);
+  const barCol  = barProg.map(id => kpiMetric === 'fatigue' && selProg !== 'ALL' ? '#f97316' : _kpiProgInfo(id).color);
+  // Program switch markers (between bars where the program changes)
+  const switches = [];
+  for (let i = 1; i < barProg.length; i++) if (barProg[i] !== barProg[i - 1]) switches.push({ i, name: _kpiProgInfo(barProg[i]).name });
+
+  const switchPlugin = {
+    id: 'kpiSwitch',
+    afterDatasetsDraw(chart) {
+      if (!switches.length) return;
+      const { ctx, chartArea, scales: { x } } = chart;
+      ctx.save();
+      switches.forEach(sw => {
+        const xPos = (x.getPixelForValue(sw.i - 1) + x.getPixelForValue(sw.i)) / 2;
+        ctx.strokeStyle = '#9a9a9a'; ctx.lineWidth = 1; ctx.setLineDash([4, 3]);
+        ctx.beginPath(); ctx.moveTo(xPos, chartArea.top); ctx.lineTo(xPos, chartArea.bottom); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = '#c8c8c8'; ctx.font = '600 9px DM Mono, monospace'; ctx.textAlign = 'left';
+        const txt = '▸ ' + sw.name;
+        const w = ctx.measureText(txt).width;
+        const tx = Math.min(xPos + 3, chartArea.right - w - 2);
+        ctx.fillText(txt, tx, chartArea.top + 9);
+      });
+      ctx.restore();
+    }
+  };
 
   if (kpiChart) { kpiChart.destroy(); kpiChart = null; }
 
@@ -2531,24 +2635,33 @@ function renderKpiChart() {
       labels,
       datasets: [{
         data: vals,
-        backgroundColor: barColor + '22',
-        borderColor: barColor,
+        backgroundColor: barCol.map(c => _kpiAlpha(c, .18)),
+        borderColor: barCol,
         borderWidth: 1.5,
         borderRadius: 4
       }]
     },
+    plugins: [switchPlugin],
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      layout: { padding: { top: switches.length ? 12 : 0 } },
       plugins: {
         legend: { display: false },
-        tooltip: { callbacks: { label: c => {
-          if (kpiMetric === 'fatigue') {
-            const lbl = ['','Very Easy','Easy','Moderate','Difficult','Very Difficult'];
-            return lbl[c.parsed.y] || c.parsed.y;
-          }
-          return c.parsed.y.toLocaleString() + unit;
-        }, afterLabel: c => counts[c.dataIndex] > 1 ? `${counts[c.dataIndex]} sessions${kpiMetric === 'fatigue' ? ' (avg)' : kpiMetric === 'maxweight' ? ' (max)' : ' (total)'}` : '' }}
+        tooltip: { callbacks: {
+          title: items => {
+            const i = items[0].dataIndex;
+            return labels[i] + (selProg === 'ALL' || mixed[i] ? ' · ' + (mixed[i] ? 'mixed programs' : _kpiProgInfo(barProg[i]).name) : '');
+          },
+          label: c => {
+            if (kpiMetric === 'fatigue') {
+              const lbl = ['','Very Easy','Easy','Moderate','Difficult','Very Difficult'];
+              return lbl[c.parsed.y] || c.parsed.y;
+            }
+            return c.parsed.y.toLocaleString() + unit;
+          },
+          afterLabel: c => counts[c.dataIndex] > 1 ? `${counts[c.dataIndex]} sessions${kpiMetric === 'fatigue' ? ' (avg)' : kpiMetric === 'maxweight' ? ' (max)' : ' (total)'}` : ''
+        }}
       },
       scales: {
         y: {
