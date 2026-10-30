@@ -448,6 +448,15 @@ body{font-family:var(--fb);background:var(--bg);color:var(--text);font-size:14px
 .fexb-mv{display:flex;flex-direction:column;gap:2px;flex-shrink:0}
 .fmv-btn{width:24px;height:20px;border:none;background:none;cursor:pointer;color:var(--text3);font-size:13px;line-height:1;padding:0;border-radius:4px}
 .fmv-btn:disabled{opacity:.18;pointer-events:none}
+.fex-del{width:32px;height:32px;flex-shrink:0;border:1px solid var(--border);background:var(--bg3);border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;color:var(--text3);margin-right:6px}
+.fex-del svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.fex-del:active{color:var(--red);border-color:var(--red)}
+.pc-row{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;margin-bottom:6px;cursor:pointer;font-size:14px}
+.pc-row input{width:18px;height:18px;accent-color:var(--green);flex-shrink:0}
+.pc-lbl{font-size:12px;font-weight:600;color:var(--text2);margin:14px 0 8px;text-transform:uppercase;letter-spacing:.06em}
+.kpi-row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.kpi-row-lbl{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;width:52px;flex-shrink:0}
+.kpi-num{width:52px;padding:5px 8px;border-radius:20px;background:var(--bg3);border:1px solid var(--border);font-size:12px;font-weight:600;color:var(--text);font-family:inherit;outline:none;text-align:center}
 
 /* Set chips (tappable, jump between sets) */
 .fset-chips{display:flex;align-items:center;gap:6px;padding:0 16px 12px;flex-wrap:wrap}
@@ -760,6 +769,19 @@ body{font-family:var(--fb);background:var(--bg);color:var(--text);font-size:14px
     <div style="display:flex;gap:10px">
       <button onclick="skipFeedback()" style="flex:1;padding:14px;background:var(--bg3);border:1px solid var(--border);border-radius:12px;color:var(--text2);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer">Skip</button>
       <button onclick="saveFeedback()" style="flex:2;padding:14px;background:var(--green);color:#000;border:none;border-radius:12px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">Save Feedback</button>
+    </div>
+  </div>
+</div>
+
+<!-- PROGRAM CHANGES MODAL (shown after finishing a workout when it differs from the plan) -->
+<div class="fbg" id="planchg-modal">
+  <div class="fsheet" style="max-height:85vh;overflow-y:auto">
+    <div style="font-size:20px;font-weight:700;margin-bottom:4px">Program changes?</div>
+    <div style="font-size:13px;color:var(--text2)" id="planchg-sub">This workout was different from your program.</div>
+    <div id="planchg-list"></div>
+    <div style="display:flex;gap:10px;margin-top:18px">
+      <button onclick="skipPlanChanges()" style="flex:1;padding:14px;background:var(--bg3);border:1px solid var(--border);border-radius:12px;color:var(--text2);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">Skip, don't change</button>
+      <button onclick="applyPlanChanges()" style="flex:1;padding:14px;background:var(--green);color:#000;border:none;border-radius:12px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">Apply</button>
     </div>
   </div>
 </div>
@@ -1083,9 +1105,11 @@ body{font-family:var(--fb);background:var(--bg);color:var(--text);font-size:14px
       <div id="fatigue-alert" class="warn" style="display:none;margin-bottom:8px">⚠️ <strong>High fatigue detected.</strong> Last 3 sessions rated Difficult or harder — consider a deload.</div>
       <div class="card">
         <div class="ch" style="flex-direction:column;align-items:flex-start;gap:10px">
-          <div class="ct">Progress by Cycle</div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap" id="kpi-day-pills"></div>
-          <div style="display:flex;gap:6px" id="kpi-metric-pills"></div>
+          <div class="ct" id="kpi-title">Progress by Cycle</div>
+          <div class="kpi-row"><span class="kpi-row-lbl">Group</span><div style="display:flex;gap:6px;flex-wrap:wrap" id="kpi-group-pills"></div></div>
+          <div class="kpi-row"><span class="kpi-row-lbl">Show</span><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center" id="kpi-limit-pills"></div></div>
+          <div class="kpi-row"><span class="kpi-row-lbl">Day</span><div style="display:flex;gap:6px;flex-wrap:wrap" id="kpi-day-pills"></div></div>
+          <div class="kpi-row"><span class="kpi-row-lbl">Metric</span><div style="display:flex;gap:6px;flex-wrap:wrap" id="kpi-metric-pills"></div></div>
         </div>
         <div style="padding:4px 16px 16px">
           <div id="kpi-no-data" style="display:none;text-align:center;padding:28px 0;font-size:13px;color:var(--text3)">No data available</div>
@@ -2360,21 +2384,90 @@ function getKpiValue(sess, metric) {
   }
 }
 
+// Chart view settings (remembered per device)
+let kpiGroup = 'cycle', kpiLimit = 10;
+try {
+  const kv = JSON.parse(localStorage.getItem('tr-kpi-view-v1') || 'null');
+  if (kv) {
+    if (kv.group) kpiGroup = kv.group;
+    if (kv.limit !== undefined) kpiLimit = kv.limit;
+    if (kv.day) kpiDay = kv.day;
+    if (kv.metric) kpiMetric = kv.metric;
+  }
+} catch (e) {}
+const KPI_GROUPS = [
+  {key:'day',   label:'Day'},
+  {key:'week',  label:'Week'},
+  {key:'month', label:'Month'},
+  {key:'cycle', label:'Cycle'},
+];
+const KPI_LIMITS = [5, 10, 20, 0]; // 0 = all
+function _saveKpiView() {
+  try { localStorage.setItem('tr-kpi-view-v1', JSON.stringify({group:kpiGroup, limit:kpiLimit, day:kpiDay, metric:kpiMetric})); } catch (e) {}
+}
+function setKpi(field, val) {
+  if (field === 'group') kpiGroup = val;
+  else if (field === 'limit') kpiLimit = Math.max(0, parseInt(val, 10) || 0);
+  else if (field === 'day') kpiDay = val;
+  else if (field === 'metric') kpiMetric = val;
+  _saveKpiView();
+  renderKpiChart();
+}
+function _kpiLabelParts(s) {
+  const parts = (s.label || '').split('·').map(p => p.trim());
+  return { cyc: parts.find(p => /^C\d+$/i.test(p)) || null, day: parts.find(p => /^D\d+$/i.test(p)) || null };
+}
+const _MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function _kpiBucket(s) {
+  const d = new Date(s.date + 'T00:00:00');
+  if (kpiGroup === 'day') {
+    return { key: s.date, label: `${d.getDate()} ${_MON[d.getMonth()]}` };
+  }
+  if (kpiGroup === 'week') {
+    // ISO week (Monday start)
+    const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    const dn = t.getUTCDay() || 7;
+    t.setUTCDate(t.getUTCDate() + 4 - dn);
+    const y = t.getUTCFullYear();
+    const wk = Math.ceil(((t - Date.UTC(y, 0, 1)) / 86400000 + 1) / 7);
+    return { key: `${y}-W${String(wk).padStart(2,'0')}`, label: `W${wk}${y !== new Date().getFullYear() ? " '" + String(y).slice(2) : ''}` };
+  }
+  if (kpiGroup === 'month') {
+    return { key: s.date.slice(0, 7), label: `${_MON[d.getMonth()]} '${String(d.getFullYear()).slice(2)}` };
+  }
+  // cycle
+  const c = _kpiLabelParts(s).cyc || s.cycle || '?';
+  const prog = (s.label || '').split('·').length > 2 ? (s.label.split('·')[0].trim() + ' ') : '';
+  return { key: prog + c, label: prog + c };
+}
+
 function renderKpiChart() {
-  // Render day pills
   const dayPills = document.getElementById('kpi-day-pills');
   const metricPills = document.getElementById('kpi-metric-pills');
+  const groupPills = document.getElementById('kpi-group-pills');
+  const limitPills = document.getElementById('kpi-limit-pills');
   if (!dayPills) return;
 
-  dayPills.innerHTML = KPI_DAYS.map(d =>
-    `<div class="kpi-pill ${kpiDay === d.key ? 'active' : ''}"
-      onclick="kpiDay='${d.key}';renderKpiChart()">${d.short}</div>`
+  const dayOpts = [{key:'ALL', short:'All'}, ...KPI_DAYS];
+  if (!dayOpts.some(d => d.key === kpiDay)) kpiDay = 'ALL';
+  dayPills.innerHTML = dayOpts.map(d =>
+    `<div class="kpi-pill ${kpiDay === d.key ? 'active' : ''}" onclick="setKpi('day','${d.key}')">${d.short}</div>`
   ).join('');
-
   metricPills.innerHTML = KPI_METRICS.map(m =>
-    `<div class="kpi-pill ${kpiMetric === m.key ? 'active' : ''}"
-      onclick="kpiMetric='${m.key}';renderKpiChart()">${m.label}</div>`
+    `<div class="kpi-pill ${kpiMetric === m.key ? 'active' : ''}" onclick="setKpi('metric','${m.key}')">${m.label}</div>`
   ).join('');
+  if (groupPills) groupPills.innerHTML = KPI_GROUPS.map(g =>
+    `<div class="kpi-pill ${kpiGroup === g.key ? 'active' : ''}" onclick="setKpi('group','${g.key}')">${g.label}</div>`
+  ).join('');
+  if (limitPills) {
+    const isPreset = KPI_LIMITS.includes(kpiLimit);
+    limitPills.innerHTML = KPI_LIMITS.map(n =>
+      `<div class="kpi-pill ${kpiLimit === n ? 'active' : ''}" onclick="setKpi('limit',${n})">${n ? 'Last ' + n : 'All'}</div>`
+    ).join('') + `<input class="kpi-num ${!isPreset ? 'active' : ''}" type="number" inputmode="numeric" min="1" placeholder="#" value="${!isPreset ? kpiLimit : ''}" onchange="if(+this.value>0)setKpi('limit',this.value)" title="Custom number"${!isPreset ? ' style="border-color:var(--accent)"' : ''}>`;
+  }
+  const groupName = (KPI_GROUPS.find(g => g.key === kpiGroup) || {}).label || 'Cycle';
+  const titleEl = document.getElementById('kpi-title');
+  if (titleEl) titleEl.textContent = `Progress by ${groupName}`;
 
   // Fatigue alert — last 3 workouts across all days with difficulty ≥ 4
   const allSorted = all().filter(s => s.feedback?.difficulty);
@@ -2384,19 +2477,28 @@ function renderKpiChart() {
   const alertEl = document.getElementById('fatigue-alert');
   if (alertEl) alertEl.style.display = highFatigue ? '' : 'none';
 
-  // Filter sessions matching selected day
-  // label format is "C1·D2", "C2·D3", etc. — extract day part
+  // Filter sessions by selected day (or all)
   const sessions = all().filter(s => {
     if (s.dayType === 'REST') return false;
-    const parts = (s.label || '').split('·');
-    return parts.length === 2 && parts[1].trim() === kpiDay;
+    if (kpiDay === 'ALL') return true;
+    return _kpiLabelParts(s).day === kpiDay;
   }).sort((a, b) => a.date.localeCompare(b.date));
+
+  // Bucket by group
+  const bucketMap = new Map();
+  sessions.forEach(s => {
+    const b = _kpiBucket(s);
+    if (!bucketMap.has(b.key)) bucketMap.set(b.key, { label: b.label, first: s.date, items: [] });
+    bucketMap.get(b.key).items.push(s);
+  });
+  let buckets = [...bucketMap.values()].sort((a, b) => a.first.localeCompare(b.first));
+  if (kpiLimit > 0) buckets = buckets.slice(-kpiLimit);
 
   const noData = document.getElementById('kpi-no-data');
   const cvs = document.getElementById('kpi-cvs');
   if (!cvs) return;
 
-  if (sessions.length === 0) {
+  if (buckets.length === 0) {
     cvs.style.display = 'none';
     if (noData) noData.style.display = '';
     if (kpiChart) { kpiChart.destroy(); kpiChart = null; }
@@ -2406,8 +2508,18 @@ function renderKpiChart() {
   cvs.style.display = '';
   if (noData) noData.style.display = 'none';
 
-  const labels = sessions.map(s => (s.label || '').split('·')[0].trim());
-  const vals   = sessions.map(s => kpiMetric === 'fatigue' ? (getKpiValue(s, kpiMetric) || null) : Math.round(getKpiValue(s, kpiMetric)));
+  const aggregate = items => {
+    const v = items.map(s => getKpiValue(s, kpiMetric));
+    if (kpiMetric === 'fatigue') {
+      const nz = v.filter(x => x > 0);
+      return nz.length ? +(nz.reduce((a, b) => a + b, 0) / nz.length).toFixed(1) : null;
+    }
+    if (kpiMetric === 'maxweight') return Math.round(Math.max(0, ...v));
+    return Math.round(v.reduce((a, b) => a + b, 0));
+  };
+  const labels = buckets.map(b => b.label);
+  const vals   = buckets.map(b => aggregate(b.items));
+  const counts = buckets.map(b => b.items.length);
   const unit   = kpiMetric === 'totalreps' ? ' reps' : kpiMetric === 'fatigue' ? '' : ' kg';
   const barColor = kpiMetric === 'fatigue' ? '#f97316' : '#22c55e';
 
@@ -2436,7 +2548,7 @@ function renderKpiChart() {
             return lbl[c.parsed.y] || c.parsed.y;
           }
           return c.parsed.y.toLocaleString() + unit;
-        }}}
+        }, afterLabel: c => counts[c.dataIndex] > 1 ? `${counts[c.dataIndex]} sessions${kpiMetric === 'fatigue' ? ' (avg)' : kpiMetric === 'maxweight' ? ' (max)' : ' (total)'}` : '' }}
       },
       scales: {
         y: {
@@ -2453,7 +2565,7 @@ function renderKpiChart() {
           border: { display: false }
         },
         x: {
-          ticks: { color: '#505050', font: { size: 11, family: 'DM Mono' } },
+          ticks: { color: '#505050', font: { size: 10, family: 'DM Mono' }, maxRotation: 45, autoSkip: true },
           grid: { display: false },
           border: { display: false }
         }
@@ -2696,6 +2808,7 @@ function renderFocusExercise(ex,ei,total){
         <div class="fexb-name">${ex.name}${tb?'<span class="tbadge-ex">TIME</span>':''}</div>
         ${bestLine}
       </div>
+      <button class="fex-del" onclick="removeExWk(${ei})" title="Remove exercise from this workout"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
       <div class="fexb-mv">
         <button class="fmv-btn" onclick="moveExWk(${ei},'up')" ${canUp?'':'disabled'}>▲</button>
         <button class="fmv-btn" onclick="moveExWk(${ei},'down')" ${canDown?'':'disabled'}>▼</button>
@@ -2752,7 +2865,10 @@ function renderTableExercise(ex,ei,total){
           ${bestHtml}
         </div>
       </div>
-      <button class="addset" onclick="addSet(${ei})">+ Set</button>
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+        <button class="fex-del" onclick="removeExWk(${ei})" title="Remove exercise from this workout"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
+        <button class="addset" onclick="addSet(${ei})">+ Set</button>
+      </div>
     </div>
     <div class="stbl">
       ${hdr}
@@ -2767,6 +2883,28 @@ function moveExWk(ei, dir) {
   const ni=dir==='up'?ei-1:ei+1;
   if(ni<0||ni>=exs.length)return;
   [exs[ei],exs[ni]]=[exs[ni],exs[ei]];
+  renderWkEx();
+  persistWorkout();
+}
+
+function removeExWk(ei){
+  if(!activeWorkout)return;
+  const ex=activeWorkout.exercises[ei];
+  if(!ex)return;
+  const doneCnt=ex.sets.filter(s=>s.done).length;
+  const msg=`Remove "${ex.name}" from this workout?`+(doneCnt?`\n\n${doneCnt} completed set${doneCnt>1?'s':''} will be lost.`:'')+`\n\n(Your program is not changed — you'll be asked at the end.)`;
+  if(!confirm(msg))return;
+  activeWorkout.exercises.splice(ei,1);
+  // shift per-exercise active-set pointers
+  if(activeWorkout._activeSet){
+    const nx={};
+    Object.keys(activeWorkout._activeSet).forEach(k=>{
+      const i=+k;
+      if(i<ei)nx[i]=activeWorkout._activeSet[k];
+      else if(i>ei)nx[i-1]=activeWorkout._activeSet[k];
+    });
+    activeWorkout._activeSet=nx;
+  }
   renderWkEx();
   persistWorkout();
 }
@@ -2930,7 +3068,7 @@ function filterSheet(v) {
 function addExWk(name, isCustom=false) {
   if(!activeWorkout)return;
   closeSheet();
-  if(isCustom){const dt=activeWorkout.dayType;if(!CUSTOM_EX[dt])CUSTOM_EX[dt]=[];if(!CUSTOM_EX[dt].includes(name))CUSTOM_EX[dt].push(name);saveMeta();}
+  // Program is no longer changed here — finishWorkout() asks whether to add it to the program
   ensureInLibrary(name);
   if(!activeWorkout.exercises.find(e=>e.name===name)){
     activeWorkout.exercises.push({name,sets:buildSets(name,activeWorkout.date)});
@@ -2945,8 +3083,83 @@ function finishWorkout() {
   const exercises=activeWorkout.exercises.map(ex=>({...ex,sets:ex.sets.filter(s=>s.done&&(s.r||s.w))})).filter(ex=>ex.sets.length>0);
   if(!exercises.length){if(!confirm('No completed sets. Discard?'))return;closeWk();return;}
   pendingSession={id:'u'+Date.now(),date:activeWorkout.date,label:activeWorkout.label,cycle:activeWorkout.cycle,dayType:activeWorkout.dayType,notes:'',exercises,volume:calcVolume({exercises}),duration:Math.floor((Date.now()-activeWorkout.startedAt)/1000)};
+  const diff=_computePlanDiff(activeWorkout,exercises);
   closeWk();
-  openFeedback();
+  if(diff&&(diff.added.length||diff.removed.length))openPlanChanges(diff);
+  else openFeedback();
+}
+
+// ── PROGRAM CHANGES AFTER WORKOUT ─────────────────────────────────────────
+let _planDiff=null;
+function _computePlanDiff(wk,doneExercises){
+  try{
+    const dt=wk.dayType;
+    if(!dt||dt==='REST'||dt==='Custom')return null;
+    const planNames=[...new Set(getActivePlanEx(dt,wk.date).flatMap(g=>g.ex))];
+    const planSet=new Set(planNames);
+    const wkNames=new Set(wk.exercises.map(e=>e.name));
+    // Added = exercises actually performed (≥1 completed set) that aren't in the program
+    const added=doneExercises.map(e=>e.name).filter(n=>!planSet.has(n));
+    // Removed = program exercises the user deleted from the workout
+    const removed=planNames.filter(n=>!wkNames.has(n));
+    return {dayType:dt,date:wk.date,added:[...new Set(added)],removed};
+  }catch(e){return null;}
+}
+function openPlanChanges(diff){
+  _planDiff=diff;
+  const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  const custom=_getActiveCustomProgram(diff.date);
+  document.getElementById('planchg-sub').textContent=`This workout was different from your ${custom?custom.prog.name||'program':'program'} for ${diff.dayType}.`;
+  let html='';
+  if(diff.added.length){
+    html+=`<div class="pc-lbl" style="color:var(--green)">Added in this workout</div>`;
+    html+=diff.added.map((n,i)=>`<label class="pc-row"><input type="checkbox" data-pc="add" data-i="${i}" checked><div><div style="font-weight:600">${esc(n)}</div><div style="font-size:11px;color:var(--text3)">Add to program</div></div></label>`).join('');
+  }
+  if(diff.removed.length){
+    html+=`<div class="pc-lbl" style="color:var(--red)">Removed from this workout</div>`;
+    html+=diff.removed.map((n,i)=>`<label class="pc-row"><input type="checkbox" data-pc="rem" data-i="${i}"><div><div style="font-weight:600">${esc(n)}</div><div style="font-size:11px;color:var(--text3)">Remove from program</div></div></label>`).join('');
+  }
+  document.getElementById('planchg-list').innerHTML=html;
+  document.getElementById('planchg-modal').classList.add('open');
+}
+function applyPlanChanges(){
+  const diff=_planDiff;
+  if(diff){
+    const toAdd=[],toRem=[];
+    document.querySelectorAll('#planchg-list input[data-pc]').forEach(cb=>{
+      if(!cb.checked)return;
+      const i=+cb.dataset.i;
+      if(cb.dataset.pc==='add')toAdd.push(diff.added[i]);else toRem.push(diff.removed[i]);
+    });
+    if(toAdd.length||toRem.length){
+      const dt=diff.dayType;
+      const custom=_getActiveCustomProgram(diff.date);
+      let plan;
+      if(custom){if(!custom.prog.plan)custom.prog.plan={};plan=custom.prog.plan;}
+      else plan=PLAN;
+      if(!plan[dt])plan[dt]=[];
+      // Removals
+      if(toRem.length){
+        plan[dt].forEach(g=>g.ex=g.ex.filter(n=>!toRem.includes(n)));
+        if(!custom&&CUSTOM_EX[dt])CUSTOM_EX[dt]=CUSTOM_EX[dt].filter(n=>!toRem.includes(n));
+        if(custom&&custom.prog.planMeta?.[dt])toRem.forEach(n=>delete custom.prog.planMeta[dt][n]);
+      }
+      // Additions go into the "Custom" group of that day
+      if(toAdd.length){
+        let cg=plan[dt].find(g=>g.g==='Custom');
+        if(!cg){cg={g:'Custom',ex:[]};plan[dt].push(cg);}
+        toAdd.forEach(n=>{if(!cg.ex.includes(n))cg.ex.push(n);ensureInLibrary(n);});
+      }
+      if(custom)savePrograms();else saveMeta();
+    }
+  }
+  _closePlanChanges();
+}
+function skipPlanChanges(){_closePlanChanges();}
+function _closePlanChanges(){
+  _planDiff=null;
+  document.getElementById('planchg-modal').classList.remove('open');
+  if(pendingSession)openFeedback();else switchView('today');
 }
 
 function closeWk(){document.getElementById('workout-view').classList.remove('open');hidePill();activeWorkout=null;clearInterval(wkInterval);persistWorkout();}
