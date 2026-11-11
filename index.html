@@ -405,6 +405,14 @@ body{font-family:var(--fb);background:var(--bg);color:var(--text);font-size:14px
 .pg-life{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-top:10px;text-align:center}
 .pg-life .v{font-family:var(--fm);font-size:18px;font-weight:600}
 .pg-life sub{font-size:11px;color:var(--text3);margin-left:1px}
+.pg-tile-btn{cursor:pointer;border:1px solid #f8717140}
+.pg-tile-btn:active{background:var(--bg4)}
+.pg-missed{margin-top:12px;border-top:1px solid var(--border);padding-top:10px}
+.pg-x{position:absolute;top:6px;right:6px;width:26px;height:26px;border-radius:13px;background:none;border:none;color:inherit;opacity:.7;font-size:18px;line-height:1;cursor:pointer}
+.pg-x:hover{opacity:1;background:#ffffff14}
+.log-older-btn{display:block;width:calc(100% - 32px);margin:4px 16px 12px;padding:11px;background:var(--bg2);border:1px dashed var(--border2);border-radius:12px;color:var(--text2);font-family:var(--fb);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
+.log-month-head{margin:14px 16px 6px;color:var(--text2)}
+.log-month-day.missed,.cyc-day.missed{opacity:.4;background-image:repeating-linear-gradient(135deg,transparent 0 5px,#ffffff0d 5px 7px)}
 /* CYCLE SUMMARY CARD */
 .cycle-sum-card{background:var(--bg2);border:1.5px solid var(--green);border-radius:16px;padding:16px;margin-bottom:14px;position:relative}
 .cycle-sum-dismiss{position:absolute;top:12px;right:12px;background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer;padding:2px 6px;border-radius:6px;line-height:1}
@@ -2329,7 +2337,10 @@ function renderToday() {
 
   // Phase banner (deload / test week)
   const _ph=!info.isVacation?phaseOn(today):null;
-  if(_ph) heroEl.insertAdjacentHTML('afterbegin',`<div class="pg-banner ${_ph.type==='deload'?'deload-b':'test-b'}" style="margin-bottom:10px"><strong>${_esc(_ph.label||_ph.type)}</strong> · ${_ph.type==='deload'?'same weights, 2 sets per exercise':'go for your best top sets'} · until ${_fmtShort(_ph.end)}</div>`);
+  if(_ph) heroEl.insertAdjacentHTML('afterbegin',phaseBannerHtml(_ph,'margin-bottom:10px'));
+  // Fatigue warning on Today too (dismissible)
+  const _fat=fatigueAlert();
+  if(_fat) heroEl.insertAdjacentHTML('afterbegin',`<div class="pg-banner warn-b" style="position:relative;padding-right:34px;margin-bottom:10px">⚠️ <strong>Deload suggested.</strong> ${_fat}${_xBtn('fatigue','1')}</div>`);
 
   // ── Cycle progress strip (just under hero) ──
   const kpisEl=document.getElementById('today-kpis');
@@ -3403,7 +3414,8 @@ function setLogTab(tab){
 
 function renderCalendar() {
   const sessions=all();
-  document.getElementById('log-session-count').textContent=`By cycle · ${sessions.length} session${sessions.length!==1?'s':''} logged.`;
+  const _wk=sessions.filter(s=>s.date>=_mondayOf(todayStr())&&s.date<=todayStr()&&s.dayType!=='REST').length;
+  document.getElementById('log-session-count').textContent=`${sessions.length} session${sessions.length!==1?'s':''} logged · ${_wk} this week`;
   if(logTab==='cycle')renderCycleTab();
   else if(logTab==='month')renderMonthTab();
   else renderListTab();
@@ -3448,18 +3460,20 @@ function _fmtRange(a,b){
 }
 function _fmtLong(ds){return new Date(ds+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'long'});}
 
+let _logShowOlder=false;
 function renderCycleTab(){
   const sessions=all(), today=todayStr(), cycle=activeCycle(), cycleLen=cycle.length;
   const anchor=new Date('2026-04-03T00:00:00');
   const el=document.getElementById('log-cycle-view');
   if(!el)return;
   let html='';
+  const cards=[];
 
   // PREP card
   const prepSessions=sessions.filter(s=>getCycleInfo(s.date).isPre).sort((a,b)=>a.date.localeCompare(b.date));
   if(prepSessions.length){
     const pDates=prepSessions.map(s=>s.date);
-    html+=`<div class="cyc-card">
+    cards.push({d:pDates[0],h:`<div class="cyc-card">
       <div class="cyc-hd"><div><div class="cyc-title">PREP</div><div class="cyc-dates">${_fmtRange(pDates[0],pDates[pDates.length-1])}</div></div></div>
       <div style="display:flex;flex-wrap:wrap;gap:6px">${prepSessions.map(s=>`
         <div onclick="showDetail('${s.id}')" style="background:var(--bg3);border-radius:8px;padding:7px 10px;cursor:pointer;min-width:60px;text-align:center">
@@ -3467,7 +3481,7 @@ function renderCycleTab(){
           <div style="font-size:12px;font-weight:600;color:var(--text);margin-top:2px">${s.label}</div>
         </div>`).join('')}
       </div>
-    </div>`;
+    </div>`});
   }
 
   // Cycle cards — Normal Training cycles until a program starts, then the program's own cycles
@@ -3492,6 +3506,7 @@ function renderCycleTab(){
         clsList.push('day-'+tcf);
         if(isToday)clsList.push('day-today');
         else if(isFuture)clsList.push('day-future');
+        else if(!sess)clsList.push('missed');
         if(hasPR)clsList.push('cyc-day-pr');
       }
       const onclick=isRest&&!sess?'':` onclick="showLogDay('${ds}')"`;
@@ -3529,7 +3544,7 @@ function renderCycleTab(){
     if(normalUntil&&cs>=normalUntil)break;
     let _nd=_daysFrom(cs,cycleLen); if(normalUntil)_nd=_nd.filter(d=>d.ds<normalUntil);
     const card=_cycleCard(_nd);
-    html+=card.html;
+    if(_nd.some(d=>d.sess)||_nd.some(d=>d.isToday)||!card.allFuture&&_nd.some(d=>d.ds>=_addDays(today,-56)))cards.push({d:cs,h:card.html});
     if(card.allFuture&&cn>currentCycleNum)break;
   }
   if(_cp){
@@ -3537,7 +3552,7 @@ function renderCycleTab(){
     for(let k=0;k<200;k++){
       const cs=_addDays(_cp.entry.startDate,k*plen);
       if(cs>today)break;
-      html+=_cycleCard(_daysFrom(cs,plen)).html;
+      cards.push({d:cs,h:_cycleCard(_daysFrom(cs,plen)).html});
     }
   }
 
@@ -3556,7 +3571,7 @@ function renderCycleTab(){
       const dates=sessGroup.map(s=>s.date);
       const prog=PROGRAMS.find(p=>sessGroup[0].cycle===p.name||label.toLowerCase().includes(p.name.toLowerCase()));
       const progColor=prog?.color||'var(--amber)';
-      const cards=sessGroup.map(s=>{
+      const sCards=sessGroup.map(s=>{
         const tc=v4TypeClass(s.dayType);
         const hasPR=sessionHasPR(s);
         const durMin=s.duration?Math.round(s.duration/60):null;
@@ -3569,15 +3584,23 @@ function renderCycleTab(){
           <div style="font-size:10px;color:var(--text3);margin-top:2px;font-family:var(--fm)">${s.exercises.length} ex${durMin?` · ${durMin}m`:''}</div>
         </div>`;
       }).join('');
-      html+=`<div class="cyc-card" style="border-left-color:${progColor}">
+      cards.push({d:dates[0],h:`<div class="cyc-card" style="border-left-color:${progColor}">
         <div class="cyc-hd">
           <div><div class="cyc-title">${label.toUpperCase()}</div><div class="cyc-dates">${_fmtRange(dates[0],dates[dates.length-1])}</div></div>
         </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">${cards}</div>
-      </div>`;
+        <div style="display:flex;gap:8px;flex-wrap:wrap">${sCards}</div>
+      </div>`});
     });
   }
 
+  // Newest first: current + 2 previous cycles, the rest behind a toggle
+  cards.sort((a,b)=>b.d.localeCompare(a.d));
+  const shown=cards.slice(0,3), older=cards.slice(3);
+  html=shown.map(c=>c.h).join('');
+  if(older.length){
+    html+=`<button class="log-older-btn" onclick="_logShowOlder=!_logShowOlder;renderCycleTab()">${_logShowOlder?'Hide older cycles ▴':`Show ${older.length} older cycle${older.length!==1?'s':''} ▾`}</button>`;
+    if(_logShowOlder)html+=older.map(c=>c.h).join('');
+  }
   el.innerHTML=html||'<div style="padding:32px 16px;text-align:center;font-size:13px;color:var(--text3)">No sessions yet.</div>';
 }
 
@@ -3598,7 +3621,7 @@ function showLogDay(ds){
 function _renderAddDaySheet(){
   const ds=_addDayDs;
   const info=getCycleInfo(ds);
-  const allTypes=activeCycle().map(d=>d.dayType).filter(dt=>dt&&dt!=='REST');
+  const allTypes=cycleFor(ds).map(d=>d.dayType).filter(dt=>dt&&dt!=='REST');
   const uniqueTypes=[...new Set(allTypes)];
   const selType=_addDaySelType;
   const planEx=selType?getActivePlanEx(selType,ds).flatMap(g=>g.ex):[];
@@ -3616,7 +3639,7 @@ function _renderAddDaySheet(){
   document.getElementById('add-day-inner').innerHTML=`
     <div style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.12em;text-transform:uppercase;font-family:var(--fb);margin-bottom:4px">${info.label||ds}</div>
     <div style="font-size:20px;font-weight:700;margin-bottom:16px">${_fmtLong(ds)}</div>
-    <div style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;font-family:var(--fb);margin-bottom:8px">Choose program</div>
+    <div style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;font-family:var(--fb);margin-bottom:8px">Choose workout</div>
     <div class="day-type-pills">${typePills}</div>
     ${selType&&planEx.length?`
       <div style="background:var(--bg3);border-radius:10px;padding:10px 12px;margin-bottom:14px">
@@ -3658,14 +3681,11 @@ function renderMonthTab(){
   const firstDay=new Date(y,m,1), lastDay=new Date(y,m+1,0);
   const startDow=(firstDay.getDay()+6)%7;
   const dows=['MO','TU','WE','TH','FR','SA','SU'];
-  const legend=[
-    {cls:'push',  label:'Push Hyp', color:'rgba(96,165,250,1)'},
-    {cls:'legs',  label:'Legs Str', color:'rgba(251,146,60,1)'},
-    {cls:'pull',  label:'Pull',     color:'rgba(74,222,128,1)'},
-    {cls:'push-s',label:'Push Str', color:'rgba(167,139,250,1)'},
-    {cls:'legs-h',label:'Legs Hyp', color:'rgba(251,191,36,1)'},
-    {cls:'rest',  label:'Rest',     color:'var(--text4)'},
-  ];
+  const _lc={push:'rgba(96,165,250,1)',legs:'rgba(251,146,60,1)',pull:'rgba(74,222,128,1)','push-s':'rgba(167,139,250,1)','legs-h':'rgba(251,191,36,1)'};
+  const _mid=`${y}-${String(m+1).padStart(2,'0')}-15`;
+  const legend=[...new Set([...cycleFor(_mid),...cycleFor(today)].map(c=>c.dayType).filter(dt=>dt&&dt!=='REST'))]
+    .map(dt=>({label:DAY_FULL_NAMES[dt]||dt,color:_lc[v4TypeClassFull(dt)]||'var(--text3)'}))
+    .concat([{label:'Rest',color:'var(--text4)'}]);
   let cells='';
   for(let i=0;i<startDow;i++)cells+=`<div class="log-month-day empty"></div>`;
   for(let day=1;day<=lastDay.getDate();day++){
@@ -3680,6 +3700,7 @@ function renderMonthTab(){
     const onclick=(info.isPre&&!sess)?'':` onclick="showLogDay('${ds}')"`;
     const clsList=['log-month-day'];
     if(isToday)clsList.push('today');
+    if(!sess&&!isRest&&ds<today&&!info.isPre&&!info.isVacation&&dt&&dt!=='NONE')clsList.push('missed');
     if(isRest)clsList.push('day-rest');
     else if(tcf!=='rest')clsList.push(tcf);
     const abbr=dayAbbr(dt);
@@ -3695,7 +3716,7 @@ function renderMonthTab(){
       <div class="log-month-title">${monthName}</div>
       <button class="log-month-btn" onclick="logMonthDate.setMonth(logMonthDate.getMonth()+1);renderMonthTab()"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></button>
     </div>
-    <div class="log-legend">${legend.map(l=>`<span class="log-legend-item"><span class="log-legend-dot" style="background:${l.color}"></span>${l.label}</span>`).join('')}</div>
+    <div class="log-legend">${legend.map(l=>`<span class="log-legend-item"><span class="log-legend-dot" style="background:${l.color}"></span>${l.label}</span>`).join('')}<span class="log-legend-item" style="opacity:.6">▨ Missed</span></div>
     <div class="log-month-grid">${dows.map(d=>`<div class="log-month-dow">${d}</div>`).join('')}${cells}</div>`;
 }
 
@@ -3704,23 +3725,27 @@ function renderListTab(){
   const el=document.getElementById('log-list-view');if(!el)return;
   if(!sessions.length){el.innerHTML='<div style="padding:32px 16px;text-align:center;font-size:13px;color:var(--text3)">No sessions logged yet.</div>';return;}
   const diffColor={'Very Easy':'var(--green)','Easy':'var(--green)','Moderate':'var(--amber)','Difficult':'var(--orange)','Very Difficult':'var(--red)'};
+  let _lastMonth='';
   el.innerHTML=sessions.map(s=>{
+    const mk=s.date.slice(0,7);
+    const mHead=mk!==_lastMonth?`<div class="eyebrow log-month-head">${new Date(s.date+'T00:00:00').toLocaleDateString('en-GB',{month:'long',year:'numeric'})}</div>`:'';
+    _lastMonth=mk;
     const tc=v4TypeClass(s.dayType);
     const hasPR=sessionHasPR(s);
     const vol=calcVolume(s);
     const volStr=vol>0?`${Math.round(vol/100)/10}t`:'';
     const durMin=s.duration?Math.round(s.duration/60):null;
     const fb=s.feedback;
-    return `<div class="log-list-item" onclick="showDetail('${s.id}')">
+    return `${mHead}<div class="log-list-item" onclick="showDetail('${s.id}')">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px">
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
           <span class="v4pill ${tc}">${dayFullLabel(s.dayType)}</span>
           ${hasPR?`<span class="v4pill amber">★ PR</span>`:''}
           ${fb?.difficulty?`<span class="eyebrow" style="color:${diffColor[fb.difficulty]||'var(--text3)'};">${fb.difficulty.toUpperCase()}</span>`:''}
         </div>
-        <span class="eyebrow" style="color:var(--text3);white-space:nowrap;flex-shrink:0">${s.date}</span>
+        <span class="eyebrow" style="color:var(--text3);white-space:nowrap;flex-shrink:0">${_fmtLong(s.date)}</span>
       </div>
-      <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:3px">${s.label}</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:3px;font-family:var(--fm)">${_esc(s.label||'')}</div>
       <div style="font-size:11px;color:var(--text3);font-family:var(--fm)">${s.exercises.length} ex · ${s.exercises.reduce((a,e)=>a+e.sets.length,0)} sets${volStr?` · ${volStr}`:''}${durMin?` · ${durMin}m`:''}</div>
     </div>`;
   }).join('');
@@ -4163,58 +4188,58 @@ function showDetail(id) {
   const isEditable=US.some(x=>x.id===id);
   document.getElementById('detail-edit-btn').style.display=isEditable?'':'none';
   const col=TYPE_COLOR[s.dayType]||'#666';
-  document.getElementById('detail-title').textContent=s.label;
-  const totalSets=s.exercises.reduce((a,e)=>a+e.sets.length,0);
-  const totalVol=s.exercises.reduce((a,e)=>a+e.sets.reduce((b,st)=>b+(st.r||0)*(st.w||0),0),0);
+  const dayName=DAY_FULL_NAMES[s.dayType]||s.dayType||'Session';
+  document.getElementById('detail-title').textContent=dayName;
+  const totalSets=s.exercises.reduce((a,e)=>a+e.sets.filter(st=>!st.wu).length,0);
+  const totalVol=calcVolume(s);
   const durMin=s.duration?Math.round(s.duration/60):null;
   const diffColor={'Very Easy':'var(--green)','Easy':'var(--green)','Moderate':'var(--amber)','Difficult':'var(--orange)','Very Difficult':'var(--red)'};
   const fb=s.feedback;
   const fbHtml=fb?`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px">
     ${fb.difficulty?`<span style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;background:${diffColor[fb.difficulty]||'#666'}18;color:${diffColor[fb.difficulty]||'#666'};border:1px solid ${diffColor[fb.difficulty]||'#666'}33">${fb.difficulty}</span>`:''}
-    ${fb.comment?`<span style="font-size:13px;color:var(--text2)">${fb.comment}</span>`:''}
+    ${fb.comment?`<span style="font-size:13px;color:var(--text2)">${_esc(fb.comment)}</span>`:''}
   </div>`:'';
-  let html=`<div style="margin-bottom:20px">
-    <div style="font-size:22px;font-weight:700;margin-bottom:4px">${s.label}</div>
-    <div style="font-size:13px;color:${col};margin-bottom:4px">${DAY_FULL_NAMES[s.dayType]||s.dayType}</div>
-    <div style="font-size:12px;color:var(--text3);margin-bottom:12px">${s.date}</div>
-    <div style="display:flex;gap:16px;flex-wrap:wrap">
-      <span style="font-size:12px;color:var(--text3)"><strong style="color:var(--text2)">${s.exercises.length}</strong> exercises</span>
-      <span style="font-size:12px;color:var(--text3)"><strong style="color:var(--text2)">${totalSets}</strong> sets</span>
-      ${totalVol>0?`<span style="font-size:12px;color:var(--text3)"><strong style="color:var(--text2)">${(totalVol/1000).toFixed(1)}k</strong> kg vol</span>`:''}
-      ${durMin?`<span style="font-size:12px;color:var(--text3)"><strong style="color:var(--text2)">${durMin}</strong> min</span>`:''}
+  const prCount=s.exercises.filter(ex=>exSessions(ex.name).some(e=>e.id===s.id&&e.isPR)).length;
+  let html=`<div style="margin-bottom:18px">
+    <div style="font-size:22px;font-weight:700;margin-bottom:4px;color:${col}">${_esc(dayName)}</div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:2px">${_fmtLong(s.date)}</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:12px;font-family:var(--fm)">${_esc(s.label||'')}</div>
+    <div class="pg-tiles" style="grid-template-columns:repeat(4,minmax(0,1fr));margin-top:0">
+      <div class="pg-tile"><div class="v" style="font-size:15px">${s.exercises.length}</div><div class="eyebrow">Exercises</div></div>
+      <div class="pg-tile"><div class="v" style="font-size:15px">${totalSets}</div><div class="eyebrow">Sets</div></div>
+      <div class="pg-tile"><div class="v" style="font-size:15px">${totalVol>0?(totalVol/1000).toFixed(1)+'t':'—'}</div><div class="eyebrow">Volume</div></div>
+      <div class="pg-tile"><div class="v" style="font-size:15px;color:${prCount?'var(--amber)':'var(--text)'}">${durMin?durMin+'m':prCount?'★'+prCount:'—'}</div><div class="eyebrow">${durMin?'Duration':'PRs'}</div></div>
     </div>
     ${fbHtml}
-    ${s.notes?`<div class="warn" style="margin-top:12px">${s.notes}</div>`:''}
+    ${s.notes?`<div style="margin-top:12px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:13px;color:var(--text2)">📝 ${_esc(s.notes)}</div>`:''}
   </div>`;
   if(s.dayType&&s.dayType!=='REST'){
-    const planned=getPlanEx(s.dayType).flatMap(g=>g.ex);
-    const loggedNames=new Set(s.exercises.map(e=>e.name));
-    const missed=planned.filter(n=>!loggedNames.has(n));
-    const added=s.exercises.map(e=>e.name).filter(n=>!planned.includes(n));
-    if(missed.length||added.length){
-      html+=`<div style="background:var(--bg2);border-radius:12px;border:1px solid var(--border);padding:12px 14px;margin-bottom:12px;font-size:12px">
-        <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Planned vs Actual</div>
-        ${missed.length?`<div style="color:var(--text3);margin-bottom:4px">⏭ Skipped: <span style="color:var(--text2)">${missed.map(n=>n.split(' (')[0]).join(', ')}</span></div>`:''}
-        ${added.length?`<div style="color:var(--text3)">➕ Added: <span style="color:var(--green)">${added.map(n=>n.split(' (')[0]).join(', ')}</span></div>`:''}
-      </div>`;
+    const planned=[...new Set(getActivePlanEx(s.dayType,s.date).flatMap(g=>g.ex))];
+    if(planned.length){
+      const loggedNames=new Set(s.exercises.map(e=>e.name));
+      const missed=planned.filter(n=>!loggedNames.has(n));
+      const added=s.exercises.map(e=>e.name).filter(n=>!planned.includes(n));
+      if(missed.length||added.length){
+        html+=`<div style="background:var(--bg2);border-radius:12px;border:1px solid var(--border);padding:12px 14px;margin-bottom:12px;font-size:12px">
+          <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Planned vs actual</div>
+          ${missed.length?`<div style="color:var(--text3);margin-bottom:4px">⏭ Skipped: <span style="color:var(--text2)">${missed.map(n=>_esc(_shortName(n))).join(', ')}</span></div>`:''}
+          ${added.length?`<div style="color:var(--text3)">➕ Added: <span style="color:var(--green)">${added.map(n=>_esc(_shortName(n))).join(', ')}</span></div>`:''}
+        </div>`;
+      }
     }
   }
-  const allSess=all();
   s.exercises.forEach(ex=>{
-    const bw=ex.sets.every(st=>!st.w||st.w===0);
-    const tb=isTimeBased(ex.name);
-    const prev=allSess.filter(s2=>s2.date<s.date);
-    const prevBest=prev.reduce((best,s2)=>{
-      const e=s2.exercises.find(e=>e.name===ex.name);
-      if(!e||!e.sets.length)return best;
-      const val=(bw||tb)?Math.max(...e.sets.map(st=>st.r||0)):Math.max(0,...e.sets.filter(st=>st.w>0).map(st=>st.w||0));
-      return Math.max(best,val);
-    },0);
-    const sessVal=(bw||tb)?Math.max(...ex.sets.map(st=>st.r||0)):Math.max(0,...ex.sets.filter(st=>st.w>0).map(st=>st.w||0));
-    const isPR=prevBest>0&&sessVal>prevBest;
-    const prBadge=isPR?` <span style="font-size:11px;color:var(--amber);font-weight:700">🏆 ${tb?sessVal+'s':bw?sessVal+'r':sessVal+'kg'}</span>`:'';
-    html+=`<div class="dex"><div class="dex-name">${ex.name}${ex.note?' ⚠️':''}${prBadge}</div>
-      <div class="dsets">${ex.sets.map((st,i)=>`<div class="dset" style="${st.wu?'opacity:.5;font-style:italic':''}">${st.wu?'W':''}${i+1}: ${st.r}${tb?'s':bw?'r':'×'+st.w+'kg'}</div>`).join('')}</div></div>`;
+    const kind=exKind(ex.name);
+    const hist=exSessions(ex.name);
+    const idx=hist.findIndex(e=>e.id===s.id);
+    const me=idx>=0?hist[idx]:null, prev=idx>0?hist[idx-1]:null;
+    const prBadge=me&&me.isPR?` <span style="font-size:11px;color:var(--amber);font-weight:700">★ PR</span>`:'';
+    const cmp=prev?(me.score>prev.score+1e-9?'var(--green)':me.score<prev.score-1e-9?'var(--red)':'var(--text3)'):'var(--text3)';
+    html+=`<div class="dex" onclick="closeDetail();openLift('${_jsq(ex.name)}')" style="cursor:pointer">
+      <div class="dex-name">${_esc(ex.name)}${ex.note?' ⚠️':''}${prBadge}</div>
+      <div class="dsets">${ex.sets.map((st,i)=>`<div class="dset" style="${st.wu?'opacity:.5;font-style:italic':''}">${st.wu?'W':i+1-ex.sets.slice(0,i).filter(x=>x.wu).length}: ${_esc(setText(kind,st))}</div>`).join('')}</div>
+      ${prev?`<div style="font-size:11px;color:${cmp};margin-top:6px;font-family:var(--fm)">last time (${_fmtShort(prev.date)}): ${_esc(prev.txt)}</div>`:''}
+    </div>`;
   });
   document.getElementById('detail-inner').innerHTML=html;
   document.getElementById('detail-sheet').classList.add('open');
@@ -4231,10 +4256,10 @@ function repeatSession(id) {
   activeWorkout={
     date,label:info.label||s.label||'Custom',cycle:info.cycleLabel||'Custom',
     dayType:s.dayType,startedAt:Date.now(),
-    exercises:s.exercises.map(ex=>({name:ex.name,sets:buildSets(ex.name,date)}))
+    exercises:s.exercises.map(ex=>({name:ex.name,sets:buildSets(ex.name,date,s.dayType)}))
   };
   persistWorkout();
-  document.getElementById('wk-title').textContent=s.dayType;
+  document.getElementById('wk-title').textContent=DAY_FULL_NAMES[s.dayType]||s.dayType;
   document.getElementById('wk-sub').textContent=info.label||date;
   renderWkEx();
   document.getElementById('workout-view').classList.add('open');
@@ -4398,7 +4423,30 @@ function _spark(vals,color){
 function _shortName(n){ return n.replace(/\s*\([^)]+\)\s*$/,''); }
 function _tool(n){ return n.match(/\(([^)]+)\)\s*$/)?.[1]||''; }
 
+
+// ── DISMISSIBLE ALERTS (synced with profile) ───────────────────────────────
+function isDismissed(key,sig){ return !!(PROFILE.dismissed&&PROFILE.dismissed[key]===sig); }
+function dismissAlert(key,sig){
+  PROFILE.dismissed=PROFILE.dismissed||{}; PROFILE.dismissed[key]=sig;
+  saveProfileData(); refreshActiveView();
+}
+function _xBtn(key,sig){ return `<button class="pg-x" aria-label="Dismiss" onclick="event.stopPropagation();dismissAlert('${_jsq(key)}','${_jsq(sig)}')">×</button>`; }
+// Fatigue warning: once dismissed it stays hidden until fatigue drops and rises again
+function fatigueAlert(){
+  const msg=getDeloadBanner();
+  if(!msg){ if(PROFILE.dismissed&&PROFILE.dismissed.fatigue){ delete PROFILE.dismissed.fatigue; saveProfileData(); } return null; }
+  if(PROFILE.dismissed&&PROFILE.dismissed.fatigue) return null;
+  return msg;
+}
+function phaseBannerHtml(ph,extraStyle){
+  if(!ph) return '';
+  const sig=ph.type+'|'+ph.start;
+  if(isDismissed('phase',sig)) return '';
+  return `<div class="pg-banner ${ph.type==='deload'?'deload-b':'test-b'}" style="position:relative;padding-right:34px;${extraStyle||''}"><strong>${_esc(ph.label||ph.type)}</strong> · ${ph.type==='deload'?'same weights, 2 sets per exercise':'go for your best top sets'} · until ${_fmtShort(ph.end)}${_xBtn('phase',sig)}</div>`;
+}
+
 // ── PROGRESS VIEW ─────────────────────────────────────────────────────────────
+let _missedOpen=false;
 let progTab='block', _liftOpen=null, _showOlder=false, _olderQ='', _kpiFiltersOpen=false;
 try{ const t=localStorage.getItem('tr-prog-tab-v1'); if(t==='block'||t==='lifts'||t==='body') progTab=t; }catch(e){}
 
@@ -4422,13 +4470,13 @@ function renderBlockTab(){
   let html='';
 
   // Fatigue / deload warning (single rule, single place)
-  const fat=getDeloadBanner();
-  if(fat) html+=`<div class="pg-banner warn-b">⚠️ <strong>Deload suggested.</strong> ${fat}</div>`;
+  const fat=fatigueAlert();
+  if(fat) html+=`<div class="pg-banner warn-b" style="position:relative;padding-right:34px">⚠️ <strong>Deload suggested.</strong> ${fat}${_xBtn('fatigue','1')}</div>`;
 
   if(b){
     const {prog,entry}=b;
     const ph=phaseOn(today);
-    if(ph) html+=`<div class="pg-banner ${ph.type==='deload'?'deload-b':'test-b'}"><strong>${_esc(ph.label||ph.type)}</strong> · ${ph.type==='deload'?'same weights, 2 sets per exercise':'go for your best top sets'} · until ${_fmtShort(ph.end)}</div>`;
+    html+=phaseBannerHtml(ph);
 
     // Weeks timeline
     const startMon=_mondayOf(b.start), endMon=b.end?_mondayOf(b.end):_mondayOf(today);
@@ -4455,7 +4503,14 @@ function renderBlockTab(){
       if(d<today||logged){ if(_isTrainingDay(d,prog,entry)) planned++; }
     }
     const done=sess.filter(s=>s.date<=today).length;
-    const missed=Math.max(0,planned-done);
+    // Missed days: past training days with nothing logged. A workout logged on a rest day "makes up" the oldest open miss.
+    const missedDays=[];
+    for(let d=b.start; d<today; d=_addDays(d,1)){
+      const logged=sess.some(s=>s.date===d);
+      if(_isTrainingDay(d,prog,entry)){ if(!logged) missedDays.push(d); }
+      else if(logged){ const n=sess.filter(s=>s.date===d).length; for(let k=0;k<n&&missedDays.length;k++) missedDays.shift(); }
+    }
+    const missed=missedDays.length;
     let nextDt=null,nextDs=null;
     const loggedToday=sess.some(s=>s.date===today);
     for(let i=loggedToday?1:0;i<=21;i++){ const ds=_addDays(today,i); const t=getDayType(ds); if(t&&t!=='REST'&&t!=='NONE'){nextDt=t;nextDs=ds;break;} }
@@ -4473,9 +4528,17 @@ function renderBlockTab(){
       <div style="display:flex;justify-content:space-between;gap:8px;font-size:10px;margin-top:5px;font-weight:600">${labels||'<span></span>'}</div>
       <div class="pg-tiles">
         <div class="pg-tile"><div class="v">${done}<span style="color:var(--text3);font-size:12px">/${planned}</span></div><div class="eyebrow">Done</div></div>
-        <div class="pg-tile"><div class="v" style="color:${missed?'var(--red)':'var(--text)'}">${missed}</div><div class="eyebrow">Missed</div></div>
+        <div class="pg-tile${missed?' pg-tile-btn':''}" ${missed?`onclick="_missedOpen=!_missedOpen;renderBlockTab()"`:''}><div class="v" style="color:${missed?'var(--red)':'var(--text)'}">${missed}${missed?`<span style="font-size:11px;color:var(--text3);margin-left:4px">${_missedOpen?'▴':'▾'}</span>`:''}</div><div class="eyebrow">Missed</div></div>
         <div class="pg-tile"><div class="v" style="color:var(--accent)">${_esc(nextLbl)}</div><div class="eyebrow">Next ${nextWhen}</div></div>
       </div>
+      ${missed&&_missedOpen?`<div class="pg-missed">
+        <div class="eyebrow" style="margin-bottom:2px">Missed days · tap to log or mark as rest</div>
+        <div class="pg-rows">${[...missedDays].reverse().map(d=>{
+          const t=_progPatternType(d,prog,entry);
+          return `<div class="pg-row" onclick="showLogDay('${d}')">
+            <div><div class="pg-n" style="font-size:13px">${_fmtLong(d)}</div><div class="pg-s">calendar: ${_esc(DAY_FULL_NAMES[t]||t||'')}</div></div>
+            <div class="pg-v" style="color:var(--text3)">Log ›</div></div>`;}).join('')}</div>
+      </div>`:''}
     </div>`;
 
     // Ready to add weight + stalled
@@ -4728,7 +4791,7 @@ function getDeloadBanner() {
   const avg=recent.reduce((a,s)=>a+(diffMap[s.feedback.difficulty]||3),0)/recent.length;
   const last3=sessions.slice(-3).filter(s=>s.feedback?.difficulty);
   const last3High=last3.length===3&&last3.every(s=>(diffMap[s.feedback.difficulty]||0)>=4);
-  if(avg>=3.8||last3High)return'Avg fatigue is high over recent sessions. Consider a deload week: reduce weights by 40–50% and cut sets to 2 per exercise.';
+  if(avg>=3.8||last3High)return'Your recent sessions were rated hard. Consider a lighter week: keep the weights, do 2 sets per exercise.';
   return null;
 }
 
@@ -5463,8 +5526,35 @@ window.addEventListener('online',()=>{
   });
   localStorage.setItem('tr-exlib-v1',JSON.stringify(EX_LIBRARY));
   PROGRAMS.push({id:abId,name:AB_PROG_NAME,emoji:'🏋️',color:'#3b82f6',cyclePattern,plan,planMeta,nextInOrder:true,endDate:'2026-12-20',phases:[{type:'deload',label:'Deload',start:'2026-11-23',end:'2026-11-29'},{type:'test',label:'Test week',start:'2026-12-14',end:'2026-12-20'}],blockMetaV1:true});
+  try{ const _p=PROGRAMS.find(p=>p.id===abId); if(_p&&typeof _applyABSpec==='function') _applyABSpec(_p); }catch(e){}
   localStorage.setItem('tr-programs-v1',JSON.stringify(PROGRAMS));
 })();
+
+
+const AB_SPEC={
+  'WORKOUT A':[
+    ['Back Squat (BB)',3,6,8],['Romanian Deadlift (BB)',3,8,10],['Bench Press (BB)',3,6,8],['Pull-Ups (Bodyweight)',3,6,12],
+    ['Overhead Press (BB)',3,8,12],['Bent Over Row (BB)',3,8,12],['Bicep Curl (BB)',3,8,12],['Lateral Raises (DB)',3,12,20],
+    ['Single-Arm Overhead Triceps (DB)',3,12,15],['Hanging Knee Raise (Bodyweight)',3,10,15]],
+  'WORKOUT B':[
+    ['Bulgarian Split Squat (DB)',3,10,12],['Chin-Ups (Bodyweight)',3,6,12],['Incline Press (DB)',3,10,15],['Leg Curl (Bench Attachment)',3,10,15],
+    ['Dips (Bodyweight)',3,8,12],['Single-Arm Row (DB)',3,10,15],['Rear-Delt Raises (DB)',3,12,20],['Standing Calf Raises (DB)',3,12,15],
+    ['Hanging Knee Raise (Bodyweight)',3,10,15],['Ab Rollout (Ab Wheel)',2,8,15]]
+};
+// Apply the program sheet: order, sets and rep ranges. Extra exercises you added yourself are kept at the end.
+function _applyABSpec(prog){
+  if(!prog.plan) prog.plan={}; if(!prog.planMeta) prog.planMeta={};
+  Object.entries(AB_SPEC).forEach(([dt,list])=>{
+    const groups=prog.plan[dt]&&prog.plan[dt].length?prog.plan[dt]:[{g:DAY_FULL_NAMES[dt]||dt,ex:[]}];
+    const existing=[...new Set(groups.flatMap(g=>g.ex||[]))];
+    const specNames=list.map(x=>x[0]);
+    const extras=existing.filter(n=>!specNames.includes(n));
+    prog.plan[dt]=[{g:groups[0].g||DAY_FULL_NAMES[dt]||dt,ex:[...specNames,...extras]}];
+    if(!prog.planMeta[dt]) prog.planMeta[dt]={};
+    list.forEach(([n,sets,mn,mx])=>{ prog.planMeta[dt][n]={...(prog.planMeta[dt][n]||{}),sets,minReps:mn,maxReps:mx}; });
+  });
+  prog.repsV1=true;
+}
 
 // ── ONE-TIME NAME MIGRATION (idempotent; safe to run on every load/snapshot) ──
 const EX_RENAME = {"Back squat (BB)": "Back Squat (BB)","Romanian deadlift (BB)": "Romanian Deadlift (BB)","Bench press (BB)": "Bench Press (BB)","Pull-ups": "Pull-Ups (Bodyweight)","Overhead press (BB)": "Overhead Press (BB)","Bent-over row (BB)": "Bent Over Row (BB)","Barbell curl": "Bicep Curl (BB)","Lateral raises (DB)": "Lateral Raises (DB)","Single-arm overhead triceps (DB)": "Single-Arm Overhead Triceps (DB)","Bulgarian split squat (DB)": "Bulgarian Split Squat (DB)","Chin-ups": "Chin-Ups (Bodyweight)","Incline press (DB)": "Incline Press (DB)","Leg curl (bench attachment)": "Leg Curl (Bench Attachment)","Weighted dips": "Dips (Bodyweight)","Single-arm row (DB)": "Single-Arm Row (DB)","Rear-delt raises (DB)": "Rear-Delt Raises (DB)","Standing calf raises (DB)": "Standing Calf Raises (DB)","Hanging knee raise": "Hanging Knee Raise (Bodyweight)","Ab wheel": "Ab Rollout (Ab Wheel)","Weighted Pull-Ups (Bodyweight/Plate)": "Pull-Ups (Bodyweight)","Weighted Dips (Bodyweight/Plate)": "Dips (Bodyweight)","Dip (Bodyweight)": "Dips (Bodyweight)","Goblet Squat": "Goblet Squat (DB)","Incline Hammer Strength Press": "Incline Press (Machine)","Machine Chest Press": "Chest Press (Machine)","Cable Fly - High to Low (Cable)": "High-to-Low Fly (Cable)","Bodyweight Squat (Bodyweight)": "Air Squat (Bodyweight)"};
@@ -5517,6 +5607,8 @@ function migrateMetaNames(){
       const pm=prog.planMeta[dt]; if(!pm) return;
       Object.keys(pm).forEach(k=>{ const nk=_renEx(k); if(nk!==k){ if(!pm[nk]) pm[nk]=pm[k]; delete pm[k]; progCh=true; } });
     });
+    // Rep ranges, sets and order from the program sheet (runs once)
+    if((prog.id==='prog_ab_v1'||prog.name===AB_PROG_NAME)&&!prog.repsV1){ _applyABSpec(prog); progCh=true; }
     // Block dates for the Full Body home block (runs once)
     if((prog.id==='prog_ab_v1'||prog.name===AB_PROG_NAME||prog.name==='A/B Training')&&!prog.blockMetaV1){
       if(!prog.endDate) prog.endDate='2026-12-20';
