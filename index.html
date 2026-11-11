@@ -406,6 +406,45 @@ body{font-family:var(--fb);background:var(--bg);color:var(--text);font-size:14px
 .pg-life .v{font-family:var(--fm);font-size:18px;font-weight:600}
 .pg-life sub{font-size:11px;color:var(--text3);margin-left:1px}
 .pg-tile-btn{cursor:pointer;border:1px solid #f8717140}
+.pg-missed-btn{display:block;width:100%;margin-top:10px;padding:10px;background:#f8717112;border:1px solid #f8717140;border-radius:10px;color:var(--red);font-family:var(--fb);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
+/* LOG v2 timeline */
+.lg-wrap{padding:0 16px 24px;max-width:500px;margin:0 auto}
+.lg-sum{display:flex;gap:8px;margin-bottom:12px}
+.lg-sum-cell{flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:10px 12px}
+.lg-sum-btn{cursor:pointer;border-color:#f8717140}
+.lg-sum-v{font-family:var(--fm);font-size:20px;font-weight:600;margin-top:4px}
+.lg-sum-v span{font-size:12px;color:var(--text3)}
+.lg-chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:12px;scrollbar-width:none}
+.lg-chips::-webkit-scrollbar{display:none}
+.lg-chip{flex-shrink:0;padding:7px 12px;border-radius:20px;border:1px solid var(--border);background:var(--bg2);color:var(--text2);font-family:var(--fb);font-size:11px;font-weight:700;letter-spacing:.04em;cursor:pointer}
+.lg-chip.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.lg-week{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:12px 12px 4px;margin-bottom:12px}
+.lg-week-hd{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:10px}
+.lg-week-t{font-family:var(--fd);font-size:22px;line-height:1;letter-spacing:.02em}
+.lg-week-m{font-size:11px;color:var(--text3);font-family:var(--fm);margin-top:3px}
+.lg-strip{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;padding:8px 0 10px;border-bottom:1px solid var(--border);margin-bottom:2px}
+.lg-day{display:flex;flex-direction:column;align-items:center;gap:4px}
+.lg-dot{width:26px;height:26px;border-radius:50%;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#0a0a0a;border:2px solid transparent;box-sizing:border-box}
+.lg-dot.plan{background:transparent;border-style:dashed}
+.lg-dot.miss{background:#f8717118;border-color:#f8717166;color:var(--red)}
+.lg-dot.now{outline:2px solid var(--accent);outline-offset:2px}
+.lg-dl{font-size:9px;font-weight:700;color:var(--text3);font-family:var(--fb)}
+.lg-row{display:flex;align-items:center;gap:12px;padding:11px 2px;cursor:pointer}
+.lg-row+.lg-row{border-top:1px solid var(--border)}
+.lg-row:active{background:var(--bg3)}
+.lg-date{width:42px;flex-shrink:0;text-align:center;border-left:3px solid var(--border);padding-left:2px}
+.lg-dw{font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.08em}
+.lg-dn{font-family:var(--fd);font-size:24px;line-height:1}
+.lg-body{flex:1;min-width:0}
+.lg-name{font-size:14px;font-weight:700;display:flex;align-items:center;gap:6px}
+.lg-sub{font-size:11px;color:var(--text3);font-family:var(--fm);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lg-pr{font-size:9px;font-weight:800;color:var(--amber);background:#fbbf2418;border-radius:4px;padding:2px 5px;letter-spacing:.06em}
+.lg-diff{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.lg-meta{text-align:right;font-family:var(--fm);font-size:11px;color:var(--text3);flex-shrink:0;line-height:1.5}
+.lg-meta div:first-child{color:var(--text2)}
+.lg-missed .lg-date{border-left-color:#f8717166}
+.lg-missed{opacity:.85}
+.lg-empty{text-align:center;color:var(--text3);font-size:13px;padding:32px 0}
 .pg-tile-btn:active{background:var(--bg4)}
 .pg-missed{margin-top:12px;border-top:1px solid var(--border);padding-top:10px}
 .pg-x{position:absolute;top:6px;right:6px;width:26px;height:26px;border-radius:13px;background:none;border:none;color:inherit;opacity:.7;font-size:18px;line-height:1;cursor:pointer}
@@ -646,7 +685,7 @@ body{font-family:var(--fb);background:var(--bg);color:var(--text);font-size:14px
 
 /* ── LOG VIEW ── */
 /* Tabs */
-.log-tabs{display:flex;gap:6px;padding:0 16px 14px}
+.log-tabs{display:flex;gap:6px;padding:0 16px 14px;max-width:500px;margin:0 auto;box-sizing:border-box}
 .log-tab{flex:1;padding:9px 6px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;font-family:var(--fb);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);cursor:pointer;transition:background .15s,color .15s}
 .log-tab.active{background:var(--text);color:var(--bg);border-color:var(--text)}
 /* Cycle cards */
@@ -1084,15 +1123,15 @@ body{font-family:var(--fb);background:var(--bg);color:var(--text);font-size:14px
 <div class="view" id="view-calendar">
   <div class="v4h">
     <div class="v4h-eyebrow">History</div>
-    <div class="v4h-title">Calendar</div>
+    <div class="v4h-title">Log</div>
     <div id="log-session-count" class="v4h-sub" style="font-size:13px;color:var(--text3);margin-top:2px"></div>
   </div>
   <div class="log-tabs">
-    <button class="log-tab active" data-tab="cycle" onclick="setLogTab('cycle')">Cycle</button>
-    <button class="log-tab" data-tab="month" onclick="setLogTab('month')">Month</button>
-    <button class="log-tab" data-tab="list" onclick="setLogTab('list')">List</button>
+    <button class="log-tab active" data-tab="timeline" onclick="setLogTab('timeline')">Timeline</button>
+    <button class="log-tab" data-tab="month" onclick="setLogTab('month')">Calendar</button>
   </div>
-  <div id="log-cycle-view"></div>
+  <div id="log-timeline-view" class="lg-wrap"></div>
+  <div id="log-cycle-view" style="display:none"></div>
   <div id="log-month-view" style="display:none"></div>
   <div id="log-list-view" style="display:none"></div>
   <!-- Legacy nodes kept hidden -->
@@ -1230,6 +1269,12 @@ body{font-family:var(--fb);background:var(--bg);color:var(--text);font-size:14px
       <div class="lbl">Sync</div>
       <div class="val ok" id="profile-sync-short">—</div>
       <div class="arrow">›</div>
+    </div>
+    <div class="v4set-row" onclick="checkForUpdate()">
+      <svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
+      <div class="lbl">App version</div>
+      <div class="val" id="profile-version">—</div>
+      <div class="arrow">↻</div>
     </div>
     <div class="v4set-row" onclick="doExport()">
       <svg viewBox="0 0 24 24"><path d="M12 3v12M7 8l5-5 5 5M5 21h14"/></svg>
@@ -2184,7 +2229,9 @@ function v4TypeClass(dt){
   return 'rest';
 }
 function v4TypeColor(dt){
-  return ({push:'var(--push)',legs:'var(--legs)',pull:'var(--pull)',rest:'var(--rest)'})[v4TypeClass(dt)];
+  const c=v4TypeClass(dt);
+  if(c==='rest'&&dt&&dt!=='REST'&&TYPE_COLOR[dt]) return TYPE_COLOR[dt];
+  return ({push:'var(--push)',legs:'var(--legs)',pull:'var(--pull)',rest:'var(--rest)'})[c];
 }
 
 function renderToday() {
@@ -3395,7 +3442,7 @@ function showPill(){document.getElementById('wk-pill').classList.add('active');}
 function hidePill(){document.getElementById('wk-pill').classList.remove('active');}
 
 // ── LOG / CALENDAR ────────────────────────────────────────────────────────
-let logTab='cycle', logMonthDate=new Date();
+let logTab='timeline', logMonthDate=new Date();
 
 function prevMonth(){logMonthDate.setMonth(logMonthDate.getMonth()-1);renderMonthTab();}
 function nextMonth(){logMonthDate.setMonth(logMonthDate.getMonth()+1);renderMonthTab();}
@@ -3403,11 +3450,12 @@ function nextMonth(){logMonthDate.setMonth(logMonthDate.getMonth()+1);renderMont
 function setLogTab(tab){
   logTab=tab;
   document.querySelectorAll('.log-tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
-  ['cycle','month','list'].forEach(v=>{
+  ['timeline','cycle','month','list'].forEach(v=>{
     const el=document.getElementById('log-'+v+'-view');
     if(el)el.style.display=logTab===v?'':'none';
   });
-  if(tab==='cycle')renderCycleTab();
+  if(tab==='timeline')renderTimelineTab();
+  else if(tab==='cycle')renderCycleTab();
   else if(tab==='month')renderMonthTab();
   else renderListTab();
 }
@@ -3416,7 +3464,8 @@ function renderCalendar() {
   const sessions=all();
   const _wk=sessions.filter(s=>s.date>=_mondayOf(todayStr())&&s.date<=todayStr()&&s.dayType!=='REST').length;
   document.getElementById('log-session-count').textContent=`${sessions.length} session${sessions.length!==1?'s':''} logged · ${_wk} this week`;
-  if(logTab==='cycle')renderCycleTab();
+  if(logTab==='timeline')renderTimelineTab();
+  else if(logTab==='cycle')renderCycleTab();
   else if(logTab==='month')renderMonthTab();
   else renderListTab();
 }
@@ -4424,6 +4473,149 @@ function _shortName(n){ return n.replace(/\s*\([^)]+\)\s*$/,''); }
 function _tool(n){ return n.match(/\(([^)]+)\)\s*$/)?.[1]||''; }
 
 
+// ── LOG v2: weekly timeline, newest first ───────────────────────────────────
+let _logFilter='all', _logWeeks=6;
+const APP_VERSION='v82';
+
+// Shared missed-day logic (Progress → Block and Log use the same list)
+// Past training days with nothing logged; a workout on a rest day makes up the oldest open miss.
+function blockMissedDays(b){
+  if(!b) return [];
+  const today=todayStr();
+  const sess=all().filter(s=>s.date>=b.start&&s.dayType!=='REST');
+  const missed=[];
+  for(let d=b.start; d<today; d=_addDays(d,1)){
+    const n=sess.filter(s=>s.date===d).length;
+    if(_isTrainingDay(d,b.prog,b.entry)){ if(!n) missed.push(d); }
+    else for(let k=0;k<n&&missed.length;k++) missed.shift();
+  }
+  return missed;
+}
+function _typeColor(dt){ return TYPE_COLOR[dt]||v4TypeColor(dt)||'var(--text3)'; }
+function _dayAbbrOr(dt){ return DAY_DISPLAY[dt]?.abbr||dayAbbr(dt)||(dt?dt.slice(0,3).toUpperCase():''); }
+function setLogFilter(f){ _logFilter=f; renderTimelineTab(); }
+function moreLogWeeks(){ _logWeeks+=8; renderTimelineTab(); }
+
+function _sessSummary(s){
+  // first two exercises with their working sets, e.g. "Back Squat 62.5 × 8/8/8"
+  return (s.exercises||[]).slice(0,2).map(ex=>{
+    const e=exSessions(ex.name).find(x=>x.id===s.id);
+    return e?`${_shortName(ex.name)} ${e.txt}`:_shortName(ex.name);
+  }).join(' · ');
+}
+
+function renderTimelineTab(){
+  const el=document.getElementById('log-timeline-view'); if(!el) return;
+  const today=todayStr(), b=activeBlock(today);
+  const sessions=all().filter(s=>s.dayType!=='REST');
+  const missedAll=b?blockMissedDays(b):[];
+  let html='';
+
+  // ── Summary card: this week + next up ──
+  const wkStart=_mondayOf(today), wkEnd=_addDays(wkStart,6);
+  const wkSess=sessions.filter(s=>s.date>=wkStart&&s.date<=wkEnd);
+  let wkPlanned=0;
+  for(let d=wkStart; d<=wkEnd; d=_addDays(d,1)){ const t=getDayType(d); if(t&&t!=='REST'&&t!=='NONE') wkPlanned++; }
+  let nextDt=null,nextDs=null;
+  const loggedToday=sessions.some(s=>s.date===today);
+  for(let i=loggedToday?1:0;i<=21;i++){ const ds=_addDays(today,i); const t=getDayType(ds); if(t&&t!=='REST'&&t!=='NONE'){nextDt=t;nextDs=ds;break;} }
+  const nextWhen=nextDs?(nextDs===today?'Today':nextDs===_addDays(today,1)?'Tomorrow':_fmtLong(nextDs)):'';
+  html+=`<div class="lg-sum">
+    <div class="lg-sum-cell"><div class="eyebrow">This week</div><div class="lg-sum-v">${wkSess.length}<span>/${Math.max(wkPlanned,wkSess.length)}</span></div></div>
+    <div class="lg-sum-cell" style="flex:1.6;min-width:0"><div class="eyebrow">Next up</div>
+      <div class="lg-sum-v" style="font-size:15px;color:${nextDt?_typeColor(nextDt):'var(--text3)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${nextDt?_esc(DAY_FULL_NAMES[nextDt]||nextDt):'—'}</div>
+      <div class="pg-s" style="margin-top:1px">${_esc(nextWhen)}</div></div>
+    ${b?`<div class="lg-sum-cell ${missedAll.length?'lg-sum-btn':''}" ${missedAll.length?`onclick="setLogFilter('${_logFilter==='missed'?'all':'missed'}')"`:''}><div class="eyebrow">Missed</div><div class="lg-sum-v" style="color:${missedAll.length?'var(--red)':'var(--text)'}">${missedAll.length}</div>${missedAll.length?`<div class="pg-s" style="margin-top:1px;color:var(--text2)">${_logFilter==='missed'?'hide ▴':'show ▾'}</div>`:''}</div>`:''}
+  </div>`;
+
+  // ── Filter chips ──
+  const types=[...new Set(cycleFor(today).map(c=>c.dayType).filter(dt=>dt&&dt!=='REST'))];
+  const hasOther=sessions.some(s=>!types.includes(s.dayType));
+  const chips=[{k:'all',l:'All'},...types.map(dt=>({k:dt,l:DAY_FULL_NAMES[dt]||_dayAbbrOr(dt)})),{k:'pr',l:'★ PRs'}];
+  if(hasOther) chips.push({k:'other',l:'Other'});
+  if(b) chips.push({k:'missed',l:`Missed${missedAll.length?' '+missedAll.length:''}`});
+  html+=`<div class="lg-chips">${chips.map(c=>`<button class="lg-chip${_logFilter===c.k?' on':''}" onclick="setLogFilter('${_jsq(c.k)}')">${_esc(c.l)}</button>`).join('')}</div>`;
+
+  // ── Missed-only view ──
+  if(_logFilter==='missed'){
+    html+=missedAll.length?`<div class="lg-week"><div class="lg-week-hd"><div class="lg-week-t">Missed days</div><div class="lg-week-m">tap to log or mark as rest</div></div>
+      ${[...missedAll].reverse().map(d=>_missedRow(d,b)).join('')}</div>`
+      :`<div class="lg-empty">No missed days in this block. 👏</div>`;
+    el.innerHTML=html; return;
+  }
+
+  // ── Weekly groups, newest first ──
+  const filt=s=>_logFilter==='all'||(_logFilter==='pr'?sessionHasPR(s):_logFilter==='other'?!types.includes(s.dayType):s.dayType===_logFilter);
+  const shownSess=sessions.filter(filt);
+  const missedSet=new Set(_logFilter==='all'?missedAll:[]);
+  const weekKeys=[...new Set([...shownSess.map(s=>_mondayOf(s.date)),...[...missedSet].map(_mondayOf),...(_logFilter==='all'?[wkStart]:[])])].sort((a,c)=>c.localeCompare(a));
+  if(!weekKeys.length){ html+=`<div class="lg-empty">No sessions match this filter.</div>`; el.innerHTML=html; return; }
+  const lastWk=_addDays(wkStart,-7);
+  weekKeys.slice(0,_logWeeks).forEach(wk=>{
+    const we=_addDays(wk,6);
+    const ws=shownSess.filter(s=>s.date>=wk&&s.date<=we).sort((a,c)=>c.date.localeCompare(a.date)||(c.id>a.id?1:-1));
+    const wm=[...missedSet].filter(d=>d>=wk&&d<=we);
+    const vol=ws.reduce((a,s)=>a+calcVolume(s),0);
+    const title=wk===wkStart?'This week':wk===lastWk?'Last week':'Week of '+_fmtShort(wk)+(wk.slice(0,4)!==today.slice(0,4)?' '+wk.slice(0,4):'');
+    // 7-day strip Mon→Sun
+    let strip='';
+    for(let i=0;i<7;i++){
+      const d=_addDays(wk,i), ss=sessions.filter(s=>s.date===d), t=getDayType(d);
+      const isTr=t&&t!=='REST'&&t!=='NONE';
+      let cls='lg-dot', style='', inner='';
+      if(ss.length){ cls+=' done'; style=`background:${_typeColor(ss[0].dayType)}`; inner=sessionHasPR(ss[0])?'★':'✓'; }
+      else if(missedAll.includes(d)){ cls+=' miss'; inner='×'; }
+      else if(d>today&&isTr){ cls+=' plan'; style=`border-color:${_typeColor(t)}`; }
+      else if(d>=today&&isTr&&d===today){ cls+=' plan'; style=`border-color:${_typeColor(t)}`; }
+      if(d===today) cls+=' now';
+      strip+=`<div class="lg-day"><div class="${cls}" style="${style}">${inner}</div><div class="lg-dl">${'MTWTFSS'[i]}</div></div>`;
+    }
+    const rows=[...ws.map(s=>({d:s.date,h:_sessRow(s)})),...wm.map(d=>({d,h:_missedRow(d,b)}))].sort((a,c)=>c.d.localeCompare(a.d)).map(r=>r.h).join('');
+    html+=`<div class="lg-week">
+      <div class="lg-week-hd"><div><div class="lg-week-t">${title}</div><div class="lg-week-m">${_fmtShort(wk)} – ${_fmtShort(we)}</div></div>
+        <div class="lg-week-m" style="text-align:right"><span style="color:var(--text);font-weight:700">${ws.length}</span> session${ws.length!==1?'s':''}${vol>0?` · ${(vol/1000).toFixed(1)}t`:''}</div></div>
+      <div class="lg-strip">${strip}</div>
+      ${rows||`<div class="lg-week-m" style="padding:6px 2px 2px">Nothing logged yet this week.</div>`}
+    </div>`;
+  });
+  if(weekKeys.length>_logWeeks) html+=`<button class="log-older-btn" style="width:100%;margin:4px 0 12px" onclick="moreLogWeeks()">Show older weeks (${weekKeys.length-_logWeeks}) ▾</button>`;
+  el.innerHTML=html;
+}
+
+function _sessRow(s){
+  const col=_typeColor(s.dayType), pr=sessionHasPR(s);
+  const d=new Date(s.date+'T00:00:00');
+  const durMin=s.duration?Math.round(s.duration/60):null;
+  const vol=calcVolume(s);
+  const diffCol={'Very Easy':'var(--green)','Easy':'var(--green)','Moderate':'var(--amber)','Difficult':'var(--orange)','Very Difficult':'var(--red)'}[s.feedback?.difficulty];
+  const name=DAY_FULL_NAMES[s.dayType]||s.dayType||s.label||'Session';
+  return `<div class="lg-row" onclick="showDetail('${_jsq(s.id)}')">
+    <div class="lg-date" style="border-color:${col}"><div class="lg-dw">${d.toLocaleDateString('en-GB',{weekday:'short'}).toUpperCase()}</div><div class="lg-dn">${d.getDate()}</div></div>
+    <div class="lg-body">
+      <div class="lg-name"><span style="color:${col}">${_esc(name)}</span>${pr?'<span class="lg-pr">★ PR</span>':''}${diffCol?`<span class="lg-diff" style="background:${diffCol}" title="${_esc(s.feedback.difficulty)}"></span>`:''}</div>
+      <div class="lg-sub">${_esc(_sessSummary(s))}</div>
+    </div>
+    <div class="lg-meta">${vol>0?`<div>${(vol/1000).toFixed(1)}t</div>`:''}<div>${s.exercises.length} ex${durMin?` · ${durMin}m`:''}</div></div>
+  </div>`;
+}
+function _missedRow(d,b){
+  const t=b?_progPatternType(d,b.prog,b.entry):getDayType(d);
+  const dd=new Date(d+'T00:00:00');
+  return `<div class="lg-row lg-missed" onclick="showLogDay('${d}')">
+    <div class="lg-date"><div class="lg-dw">${dd.toLocaleDateString('en-GB',{weekday:'short'}).toUpperCase()}</div><div class="lg-dn">${dd.getDate()}</div></div>
+    <div class="lg-body"><div class="lg-name" style="color:var(--red)">Missed · <span style="color:var(--text2)">${_esc(DAY_FULL_NAMES[t]||t||'Training')}</span></div><div class="lg-sub">Tap to log it or mark as rest</div></div>
+    <div class="lg-meta" style="color:var(--accent)">Log ›</div>
+  </div>`;
+}
+
+function checkForUpdate(){
+  const done=()=>location.reload();
+  try{
+    if('serviceWorker' in navigator) navigator.serviceWorker.getRegistration().then(r=>{ if(r) r.update().finally(done); else done(); }).catch(done);
+    else done();
+  }catch(e){ done(); }
+}
+
 // ── DISMISSIBLE ALERTS (synced with profile) ───────────────────────────────
 function isDismissed(key,sig){ return !!(PROFILE.dismissed&&PROFILE.dismissed[key]===sig); }
 function dismissAlert(key,sig){
@@ -4447,6 +4639,7 @@ function phaseBannerHtml(ph,extraStyle){
 
 // ── PROGRESS VIEW ─────────────────────────────────────────────────────────────
 let _missedOpen=false;
+function toggleMissed(){ _missedOpen=!_missedOpen; renderBlockTab(); }
 let progTab='block', _liftOpen=null, _showOlder=false, _olderQ='', _kpiFiltersOpen=false;
 try{ const t=localStorage.getItem('tr-prog-tab-v1'); if(t==='block'||t==='lifts'||t==='body') progTab=t; }catch(e){}
 
@@ -4503,13 +4696,7 @@ function renderBlockTab(){
       if(d<today||logged){ if(_isTrainingDay(d,prog,entry)) planned++; }
     }
     const done=sess.filter(s=>s.date<=today).length;
-    // Missed days: past training days with nothing logged. A workout logged on a rest day "makes up" the oldest open miss.
-    const missedDays=[];
-    for(let d=b.start; d<today; d=_addDays(d,1)){
-      const logged=sess.some(s=>s.date===d);
-      if(_isTrainingDay(d,prog,entry)){ if(!logged) missedDays.push(d); }
-      else if(logged){ const n=sess.filter(s=>s.date===d).length; for(let k=0;k<n&&missedDays.length;k++) missedDays.shift(); }
-    }
+    const missedDays=blockMissedDays(b);
     const missed=missedDays.length;
     let nextDt=null,nextDs=null;
     const loggedToday=sess.some(s=>s.date===today);
@@ -4528,9 +4715,10 @@ function renderBlockTab(){
       <div style="display:flex;justify-content:space-between;gap:8px;font-size:10px;margin-top:5px;font-weight:600">${labels||'<span></span>'}</div>
       <div class="pg-tiles">
         <div class="pg-tile"><div class="v">${done}<span style="color:var(--text3);font-size:12px">/${planned}</span></div><div class="eyebrow">Done</div></div>
-        <div class="pg-tile${missed?' pg-tile-btn':''}" ${missed?`onclick="_missedOpen=!_missedOpen;renderBlockTab()"`:''}><div class="v" style="color:${missed?'var(--red)':'var(--text)'}">${missed}${missed?`<span style="font-size:11px;color:var(--text3);margin-left:4px">${_missedOpen?'▴':'▾'}</span>`:''}</div><div class="eyebrow">Missed</div></div>
+        <div class="pg-tile${missed?' pg-tile-btn':''}" ${missed?`onclick="toggleMissed()"`:''}><div class="v" style="color:${missed?'var(--red)':'var(--text)'}">${missed}${missed?`<span style="font-size:11px;color:var(--text3);margin-left:4px">${_missedOpen?'▴':'▾'}</span>`:''}</div><div class="eyebrow">Missed</div></div>
         <div class="pg-tile"><div class="v" style="color:var(--accent)">${_esc(nextLbl)}</div><div class="eyebrow">Next ${nextWhen}</div></div>
       </div>
+      ${missed?`<button class="pg-missed-btn" onclick="toggleMissed()">${_missedOpen?'Hide missed days ▴':`See ${missed} missed day${missed!==1?'s':''} ▾`}</button>`:''}
       ${missed&&_missedOpen?`<div class="pg-missed">
         <div class="eyebrow" style="margin-bottom:2px">Missed days · tap to log or mark as rest</div>
         <div class="pg-rows">${[...missedDays].reverse().map(d=>{
@@ -4901,6 +5089,7 @@ function renderProfile() {
   document.getElementById('profile-prog-short').textContent=b?_shortName(b.prog.name).split(' · ')[0]:'Normal';
   const vacEl=document.getElementById('profile-vacation-short');
   if(vacEl)vacEl.textContent=VACATION?`${VACATION.name} · ${_fmtRange(VACATION.start,VACATION.end)}`:'Not set';
+  const _pv=document.getElementById('profile-version'); if(_pv)_pv.textContent=APP_VERSION+' · check for update';
   document.getElementById('profile-lib-short').textContent=EX_LIBRARY.length?EX_LIBRARY.length+' exercises':'Default';
 }
 
