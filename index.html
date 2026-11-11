@@ -451,7 +451,7 @@ body{font-family:var(--fb);background:var(--bg);color:var(--text);font-size:14px
 .pg-x:hover{opacity:1;background:#ffffff14}
 .log-older-btn{display:block;width:calc(100% - 32px);margin:4px 16px 12px;padding:11px;background:var(--bg2);border:1px dashed var(--border2);border-radius:12px;color:var(--text2);font-family:var(--fb);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
 .log-month-head{margin:14px 16px 6px;color:var(--text2)}
-.log-month-day.missed,.cyc-day.missed{opacity:.4;background-image:repeating-linear-gradient(135deg,transparent 0 5px,#ffffff0d 5px 7px)}
+.log-month-day.missed,.cyc-day.missed{opacity:.55;background:#f871710d!important;border-color:#f8717140!important}
 /* CYCLE SUMMARY CARD */
 .cycle-sum-card{background:var(--bg2);border:1.5px solid var(--green);border-radius:16px;padding:16px;margin-bottom:14px;position:relative}
 .cycle-sum-dismiss{position:absolute;top:12px;right:12px;background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer;padding:2px 6px;border-radius:6px;line-height:1}
@@ -728,7 +728,23 @@ body{font-family:var(--fb);background:var(--bg);color:var(--text);font-size:14px
 .log-legend{display:flex;flex-wrap:wrap;gap:5px 10px;padding:0 16px 10px}
 .log-legend-item{display:flex;align-items:center;gap:5px;font-size:10px;font-weight:600;color:var(--text3);font-family:var(--fb)}
 .log-legend-dot{width:8px;height:8px;border-radius:3px;flex-shrink:0}
-.log-month-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;padding:0 16px}
+.log-month-grid{display:grid;grid-template-columns:24px repeat(7,1fr);gap:3px;padding:0 16px}
+.log-month-wk{display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--text4);font-family:var(--fm)}
+.log-month-wk.now{color:var(--accent)}
+.log-month-day.planned{background:transparent!important;border-style:dashed!important;opacity:.75}
+.log-month-day.planned .log-month-day-type{opacity:.8}
+.log-month-day.done.push{background:rgba(96,165,250,.28)}
+.log-month-day.done.legs{background:rgba(251,146,60,.28)}
+.log-month-day.done.pull{background:rgba(74,222,128,.28)}
+.log-month-day.done.push-s{background:rgba(167,139,250,.28)}
+.log-month-day.done.legs-h{background:rgba(251,191,36,.28)}
+.log-month-day.done .log-month-day-num{color:var(--text)!important}
+.log-month-day.done .log-month-day-check{font-size:11px}
+.lgk{display:inline-flex;width:12px;height:12px;border-radius:3px;align-items:center;justify-content:center;font-size:8px;font-weight:800;margin-right:4px;vertical-align:-2px}
+.lgk-done{background:rgba(96,165,250,.35);color:var(--green)}
+.lgk-plan{border:1px dashed var(--text3)}
+.lgk-miss{background:#f8717118;color:var(--red);border:1px solid #f8717155}
+.lg-tag{font-family:var(--fb);font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);border:1px solid #d4ff3a55;border-radius:4px;padding:2px 6px;margin-left:8px;vertical-align:4px}
 .log-month-dow{text-align:center;font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.06em;padding:4px 0;font-family:var(--fb)}
 .log-month-day{border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:5px 2px 4px;cursor:pointer;border:1px solid var(--bg3);background:var(--bg2);min-height:50px;gap:2px}
 .log-month-day:active{opacity:.7}
@@ -1654,7 +1670,7 @@ function _getCustomProgCycleInfo(dateStr, prog, entry) {
   // Missed-day rule: the calendar decides training vs rest, the last logged workout decides which one
   if (prog.nextInOrder && dayType !== 'REST') dayType = _nextInOrderType(dateStr, prog, entry);
   const dayName = 'D' + (idx + 1);
-  const cycleLabel = 'W' + cycleNum;
+  const cycleLabel = 'C' + cycleNum;
   const label = prog.name.slice(0,4).toUpperCase() + '·' + cycleLabel + '·' + dayName;
   return { isPre:false, isCustomProg:true, programId:prog.id, programName:prog.name, programColor:prog.color||'var(--accent)', cycleNum, cycleLabel, dayName, dayType, label, idx };
 }
@@ -2247,7 +2263,7 @@ function renderToday() {
   const metaEl=document.getElementById('today-meta');
   metaEl.innerHTML=`
     <div class="v4h" style="padding:8px 4px 12px">
-      <div class="v4h-eyebrow">${dateLong}${info.isPre?'':' · '+info.cycleLabel}</div>
+      <div class="v4h-eyebrow">${dateLong} · W${isoWeek(today)}${info.isPre||!info.cycleLabel?'':' · '+info.cycleLabel}</div>
       <div class="v4h-title" style="display:flex;justify-content:space-between;align-items:baseline">
         <span>Today</span>
         <span class="v4sync syncing" onclick="openSyncModal()" id="sync-pill"><span class="v4sync-dot" id="sync-dot"></span><span id="sync-label">Connecting…</span></span>
@@ -2582,7 +2598,7 @@ function _kpiLabelParts(s) {
 // Which program a session belongs to: label prefix first, then the schedule on that date
 function _kpiSessProg(s) {
   const parts = (s.label || '').split('·').map(p => p.trim());
-  if (parts.length >= 3 && /^W\d+$/i.test(parts[1])) {
+  if (parts.length >= 3 && /^[CW]\d+$/i.test(parts[1])) {
     const p = PROGRAMS.find(pr => (pr.name || '').slice(0,4).toUpperCase() === parts[0]);
     if (p) return p.id;
   }
@@ -2645,7 +2661,7 @@ function _kpiBucket(s, prefixProg) {
   }
   // cycle — always keyed per program so cycles of different programs never merge
   const pid = s._prog;
-  const c = _kpiLabelParts(s).cyc || s.cycle || '?';
+  const c = (pid !== 'normal' ? String(_kpiLabelParts(s).cyc || s.cycle || '?').replace(/^W/i, 'C') : (_kpiLabelParts(s).cyc || s.cycle || '?'));
   const pre = prefixProg && pid !== 'normal' ? _kpiProgInfo(pid).short + ' ' : '';
   return { key: pid + '|' + c, label: pre + c };
 }
@@ -3670,6 +3686,27 @@ function showLogDay(ds){
 function _renderAddDaySheet(){
   const ds=_addDayDs;
   const info=getCycleInfo(ds);
+  const _today=todayStr();
+  if(ds!==_today){
+    const t=getDayType(ds), isRestOv=DAY_OVERRIDES[ds]==='REST', isTr=t&&t!=='REST'&&t!=='NONE';
+    const past=ds<_today;
+    const btn=(label,js,primary)=>`<button onclick="${js}" style="width:100%;padding:13px;background:${primary?'var(--text)':'var(--bg3)'};color:${primary?'var(--bg)':'var(--text2)'};font-family:var(--fb);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;border:1px solid ${primary?'var(--text)':'var(--border)'};border-radius:12px;cursor:pointer;margin-bottom:10px">${label}</button>`;
+    let body='';
+    if(past){
+      body=isRestOv
+        ?`<div style="font-size:13px;color:var(--text2);margin-bottom:14px">Marked as rest. It doesn't count as missed.</div>${btn('Undo — count as missed',`closeAddDaySheet();clearDayOverride('${ds}')`)}`
+        :isTr?`<div style="font-size:13px;color:var(--text2);margin-bottom:14px"><span style="color:var(--red);font-weight:700">Missed</span> · ${_esc(DAY_FULL_NAMES[t]||t)} was planned. This day has passed, so it can't be logged anymore. If you were sick or away, mark it as rest so it doesn't count as missed.</div>${btn('😴 Mark as rest (sick / away)',`closeAddDaySheet();setDayOverride('${ds}','REST')`,true)}`
+        :`<div style="font-size:13px;color:var(--text2);margin-bottom:14px">Rest day. Nothing was logged.</div>`;
+    } else {
+      body=`<div style="font-size:13px;color:var(--text2);margin-bottom:14px">${isTr?`Planned: <strong style="color:${_typeColor(t)}">${_esc(DAY_FULL_NAMES[t]||t)}</strong>. You can start it on the day.`:'Rest day.'}</div>
+        ${isRestOv?btn('Undo rest',`closeAddDaySheet();clearDayOverride('${ds}')`):isTr?btn('😴 Mark as rest',`closeAddDaySheet();setDayOverride('${ds}','REST')`):''}
+        ${btn('Change plan for this day',`closeAddDaySheet();openDayOverrideSheet('${ds}')`)}`;
+    }
+    document.getElementById('add-day-inner').innerHTML=`
+      <div style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.12em;text-transform:uppercase;font-family:var(--fb);margin-bottom:4px">W${isoWeek(ds)} · ${_esc(info.label||ds)}</div>
+      <div style="font-size:20px;font-weight:700;margin-bottom:12px">${_fmtLong(ds)}</div>${body}`;
+    return;
+  }
   const allTypes=cycleFor(ds).map(d=>d.dayType).filter(dt=>dt&&dt!=='REST');
   const uniqueTypes=[...new Set(allTypes)];
   const selType=_addDaySelType;
@@ -3729,16 +3766,20 @@ function renderMonthTab(){
   const monthName=logMonthDate.toLocaleDateString('en-GB',{month:'long',year:'numeric'});
   const firstDay=new Date(y,m,1), lastDay=new Date(y,m+1,0);
   const startDow=(firstDay.getDay()+6)%7;
-  const dows=['MO','TU','WE','TH','FR','SA','SU'];
+  const dows=['WK','MO','TU','WE','TH','FR','SA','SU'];
   const _lc={push:'rgba(96,165,250,1)',legs:'rgba(251,146,60,1)',pull:'rgba(74,222,128,1)','push-s':'rgba(167,139,250,1)','legs-h':'rgba(251,191,36,1)'};
   const _mid=`${y}-${String(m+1).padStart(2,'0')}-15`;
   const legend=[...new Set([...cycleFor(_mid),...cycleFor(today)].map(c=>c.dayType).filter(dt=>dt&&dt!=='REST'))]
     .map(dt=>({label:DAY_FULL_NAMES[dt]||dt,color:_lc[v4TypeClassFull(dt)]||'var(--text3)'}))
     .concat([{label:'Rest',color:'var(--text4)'}]);
   let cells='';
+  const _wkCell=ds=>`<div class="log-month-wk${isoWeek(ds)===isoWeek(today)&&_mondayOf(ds)===_mondayOf(today)?' now':''}">${isoWeek(ds)}</div>`;
+  const _first=`${y}-${String(m+1).padStart(2,'0')}-01`;
+  cells+=_wkCell(_first);
   for(let i=0;i<startDow;i++)cells+=`<div class="log-month-day empty"></div>`;
   for(let day=1;day<=lastDay.getDate();day++){
     const ds=`${y}-${String(m+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    if(day>1&&new Date(ds+'T00:00:00').getDay()===1)cells+=_wkCell(ds);
     const sess=sessions.find(s=>s.date===ds);
     const info=getCycleInfo(ds);
     const dt=sess?sess.dayType:getDayType(ds);
@@ -3752,11 +3793,13 @@ function renderMonthTab(){
     if(!sess&&!isRest&&ds<today&&!info.isPre&&!info.isVacation&&dt&&dt!=='NONE')clsList.push('missed');
     if(isRest)clsList.push('day-rest');
     else if(tcf!=='rest')clsList.push(tcf);
+    if(sess)clsList.push('done');
+    else if(!isRest&&ds>=today&&!info.isPre)clsList.push('planned');
     const abbr=dayAbbr(dt);
     cells+=`<div class="${clsList.join(' ')}"${onclick}>
       <div class="log-month-day-num">${day}</div>
       ${abbr&&!isRest?`<div class="log-month-day-type">${abbr}</div>`:''}
-      ${sess?`<div class="log-month-day-check">${hasPR?'★':'✓'}</div>`:''}
+      ${sess?`<div class="log-month-day-check">${hasPR?'★':'✓'}</div>`:clsList.includes('missed')?`<div class="log-month-day-check" style="color:var(--red)">×</div>`:''}
     </div>`;
   }
   el.innerHTML=`
@@ -3765,7 +3808,8 @@ function renderMonthTab(){
       <div class="log-month-title">${monthName}</div>
       <button class="log-month-btn" onclick="logMonthDate.setMonth(logMonthDate.getMonth()+1);renderMonthTab()"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></button>
     </div>
-    <div class="log-legend">${legend.map(l=>`<span class="log-legend-item"><span class="log-legend-dot" style="background:${l.color}"></span>${l.label}</span>`).join('')}<span class="log-legend-item" style="opacity:.6">▨ Missed</span></div>
+    <div class="log-legend">${legend.map(l=>`<span class="log-legend-item"><span class="log-legend-dot" style="background:${l.color}"></span>${l.label}</span>`).join('')}</div>
+    <div class="log-legend" style="margin-top:-4px"><span class="log-legend-item"><span class="lgk lgk-done">✓</span>Done</span><span class="log-legend-item"><span class="lgk lgk-plan"></span>Planned</span><span class="log-legend-item"><span class="lgk lgk-miss">×</span>Missed</span></div>
     <div class="log-month-grid">${dows.map(d=>`<div class="log-month-dow">${d}</div>`).join('')}${cells}</div>`;
 }
 
@@ -4328,6 +4372,7 @@ function repeatSession(id) {
 function _ymd(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 function _addDays(ds,n){const d=new Date(ds+'T00:00:00');d.setDate(d.getDate()+n);return _ymd(d);}
 function _mondayOf(ds){const d=new Date(ds+'T00:00:00');d.setDate(d.getDate()-((d.getDay()+6)%7));return _ymd(d);}
+function isoWeek(ds){const d=new Date(ds+'T00:00:00');const t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));const dn=t.getUTCDay()||7;t.setUTCDate(t.getUTCDate()+4-dn);const y=t.getUTCFullYear();return Math.ceil(((t-Date.UTC(y,0,1))/86400000+1)/7);}
 function _fmtShort(ds){const d=new Date(ds+'T00:00:00');return d.getDate()+' '+_MON[d.getMonth()];}
 function _esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function _jsq(s){return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'");}
@@ -4475,7 +4520,7 @@ function _tool(n){ return n.match(/\(([^)]+)\)\s*$/)?.[1]||''; }
 
 // ── LOG v2: weekly timeline, newest first ───────────────────────────────────
 let _logFilter='all', _logWeeks=6;
-const APP_VERSION='v82';
+const APP_VERSION='v83';
 
 // Shared missed-day logic (Progress → Block and Log use the same list)
 // Past training days with nothing logged; a workout on a rest day makes up the oldest open miss.
@@ -4538,7 +4583,7 @@ function renderTimelineTab(){
 
   // ── Missed-only view ──
   if(_logFilter==='missed'){
-    html+=missedAll.length?`<div class="lg-week"><div class="lg-week-hd"><div class="lg-week-t">Missed days</div><div class="lg-week-m">tap to log or mark as rest</div></div>
+    html+=missedAll.length?`<div class="lg-week"><div class="lg-week-hd"><div class="lg-week-t">Missed days</div><div class="lg-week-m">sick or away? tap to mark as rest</div></div>
       ${[...missedAll].reverse().map(d=>_missedRow(d,b)).join('')}</div>`
       :`<div class="lg-empty">No missed days in this block. 👏</div>`;
     el.innerHTML=html; return;
@@ -4556,7 +4601,8 @@ function renderTimelineTab(){
     const ws=shownSess.filter(s=>s.date>=wk&&s.date<=we).sort((a,c)=>c.date.localeCompare(a.date)||(c.id>a.id?1:-1));
     const wm=[...missedSet].filter(d=>d>=wk&&d<=we);
     const vol=ws.reduce((a,s)=>a+calcVolume(s),0);
-    const title=wk===wkStart?'This week':wk===lastWk?'Last week':'Week of '+_fmtShort(wk)+(wk.slice(0,4)!==today.slice(0,4)?' '+wk.slice(0,4):'');
+    const wn=isoWeek(wk), tag=wk===wkStart?'This week':wk===lastWk?'Last week':'';
+    const title=`W${wn}`+(_addDays(wk,3).slice(0,4)!==today.slice(0,4)?` <span style="font-size:14px;color:var(--text3)">${_addDays(wk,3).slice(0,4)}</span>`:'');
     // 7-day strip Mon→Sun
     let strip='';
     for(let i=0;i<7;i++){
@@ -4572,7 +4618,7 @@ function renderTimelineTab(){
     }
     const rows=[...ws.map(s=>({d:s.date,h:_sessRow(s)})),...wm.map(d=>({d,h:_missedRow(d,b)}))].sort((a,c)=>c.d.localeCompare(a.d)).map(r=>r.h).join('');
     html+=`<div class="lg-week">
-      <div class="lg-week-hd"><div><div class="lg-week-t">${title}</div><div class="lg-week-m">${_fmtShort(wk)} – ${_fmtShort(we)}</div></div>
+      <div class="lg-week-hd"><div><div class="lg-week-t">${title}${tag?`<span class="lg-tag">${tag}</span>`:''}</div><div class="lg-week-m">${_fmtShort(wk)} – ${_fmtShort(we)}</div></div>
         <div class="lg-week-m" style="text-align:right"><span style="color:var(--text);font-weight:700">${ws.length}</span> session${ws.length!==1?'s':''}${vol>0?` · ${(vol/1000).toFixed(1)}t`:''}</div></div>
       <div class="lg-strip">${strip}</div>
       ${rows||`<div class="lg-week-m" style="padding:6px 2px 2px">Nothing logged yet this week.</div>`}
@@ -4599,12 +4645,12 @@ function _sessRow(s){
   </div>`;
 }
 function _missedRow(d,b){
-  const t=b?_progPatternType(d,b.prog,b.entry):getDayType(d);
+  const t=getDayType(d);
   const dd=new Date(d+'T00:00:00');
   return `<div class="lg-row lg-missed" onclick="showLogDay('${d}')">
     <div class="lg-date"><div class="lg-dw">${dd.toLocaleDateString('en-GB',{weekday:'short'}).toUpperCase()}</div><div class="lg-dn">${dd.getDate()}</div></div>
-    <div class="lg-body"><div class="lg-name" style="color:var(--red)">Missed · <span style="color:var(--text2)">${_esc(DAY_FULL_NAMES[t]||t||'Training')}</span></div><div class="lg-sub">Tap to log it or mark as rest</div></div>
-    <div class="lg-meta" style="color:var(--accent)">Log ›</div>
+    <div class="lg-body"><div class="lg-name" style="color:var(--red)">Missed · <span style="color:var(--text2)">${_esc(DAY_FULL_NAMES[t]||t||'Training')}</span></div><div class="lg-sub">Sick or away? Tap to mark as rest</div></div>
+    <div class="lg-meta" style="font-size:16px">⋯</div>
   </div>`;
 }
 
@@ -4708,7 +4754,7 @@ function renderBlockTab(){
     html+=`<div class="pg-card">
       <div class="eyebrow" style="color:${_kpiColor(prog.color)}">${_esc(prog.name)}</div>
       <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:6px">
-        <div class="pg-big">${ended?'Block finished':curIdx>=0?`Week ${curIdx+1} of ${totalW}`:`Week ${totalW}`}</div>
+        <div class="pg-big">${ended?'Block finished':curIdx>=0?`Week ${curIdx+1} of ${totalW}`:`Week ${totalW}`}<span style="font-size:16px;color:var(--text3);margin-left:8px">W${isoWeek(today)}</span></div>
         <div class="tnum" style="font-size:11px;color:var(--text3)">${b.end?'ends '+_fmtShort(b.end):'no end date'}</div>
       </div>
       <div class="pg-tl">${tl}</div>
@@ -4720,12 +4766,12 @@ function renderBlockTab(){
       </div>
       ${missed?`<button class="pg-missed-btn" onclick="toggleMissed()">${_missedOpen?'Hide missed days ▴':`See ${missed} missed day${missed!==1?'s':''} ▾`}</button>`:''}
       ${missed&&_missedOpen?`<div class="pg-missed">
-        <div class="eyebrow" style="margin-bottom:2px">Missed days · tap to log or mark as rest</div>
+        <div class="eyebrow" style="margin-bottom:2px">Missed days · tap to mark as rest if you were sick or away</div>
         <div class="pg-rows">${[...missedDays].reverse().map(d=>{
-          const t=_progPatternType(d,prog,entry);
+          const t=getDayType(d);
           return `<div class="pg-row" onclick="showLogDay('${d}')">
-            <div><div class="pg-n" style="font-size:13px">${_fmtLong(d)}</div><div class="pg-s">calendar: ${_esc(DAY_FULL_NAMES[t]||t||'')}</div></div>
-            <div class="pg-v" style="color:var(--text3)">Log ›</div></div>`;}).join('')}</div>
+            <div><div class="pg-n" style="font-size:13px">${_fmtLong(d)}</div><div class="pg-s">planned: ${_esc(DAY_FULL_NAMES[t]||t||'')}</div></div>
+            <div class="pg-v" style="color:var(--text3)">W${isoWeek(d)}</div></div>`;}).join('')}</div>
       </div>`:''}
     </div>`;
 
@@ -4941,7 +4987,8 @@ function checkCycleComplete(sess) {
   const info=getCycleInfo(sess.date);
   if(!info||info.isPre)return;
   const cycleLen=cycleFor(sess.date).filter(d=>d.dayType!=='REST').length;
-  const cycleSessions=all().filter(s=>s.cycle===info.cycleLabel&&s.dayType!=='REST');
+  const _cStart=_addDays(sess.date,-(info.idx||0)), _cEnd=_addDays(_cStart,cycleFor(sess.date).length-1);
+  const cycleSessions=all().filter(s=>s.date>=_cStart&&s.date<=_cEnd&&s.dayType!=='REST');
   if(cycleSessions.length<cycleLen)return;
   const diffMap={'Very Easy':1,'Easy':2,'Moderate':3,'Difficult':4,'Very Difficult':5};
   const withDiff=cycleSessions.filter(s=>s.feedback?.difficulty);
