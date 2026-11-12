@@ -843,6 +843,37 @@ body{font-family:var(--fb);background:var(--bg);color:var(--text);font-size:14px
 
 /* HR utility */
 .v4hr{height:1px;background:var(--border)}
+/* ── BODY MAP ── */
+.bm-figs{display:flex;justify-content:center;gap:4px;margin-top:10px}
+.bm-figs figure{flex:1;text-align:center;margin:0}
+.bm-figs figcaption{font-size:9px;color:var(--text3);letter-spacing:.12em;font-weight:700;margin-top:2px}
+svg.bm-body{width:100%;max-width:150px;height:auto;display:block;margin:0 auto}
+svg.bm-body .m{stroke:var(--bg2);stroke-width:1.1;transition:fill .25s,opacity .25s}
+svg.bm-body.tap .m{cursor:pointer}
+svg.bm-body .m.sel{stroke:var(--text);stroke-width:1.6}
+svg.bm-body .n{fill:#1f1f1f;stroke:var(--bg2);stroke-width:1.1}
+.bm-seg{display:flex;background:var(--bg3);border-radius:10px;padding:3px;gap:3px;margin-top:10px}
+.bm-seg button{flex:1;background:none;border:none;color:var(--text3);font:600 11px var(--fb);padding:6px 4px;border-radius:7px;cursor:pointer;white-space:nowrap}
+.bm-seg button.on{background:var(--bg4);color:var(--text)}
+.bm-legend{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:8px;font-size:10px;color:var(--text2)}
+.bm-legend i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+.bm-det{background:var(--bg3);border-radius:10px;padding:12px;margin-top:12px}
+.bm-det-nm{font-size:15px;font-weight:700}
+.bm-bar{height:6px;background:var(--bg4);border-radius:4px;position:relative;margin:10px 0 4px;overflow:hidden}
+.bm-bar .z{position:absolute;top:0;bottom:0;background:#4ade8026}
+.bm-bar .f{position:absolute;top:0;bottom:0;left:0;border-radius:4px}
+.bm-row{display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:6px 0;border-top:1px solid var(--border);color:var(--text2)}
+.bm-row b{color:var(--text);font-weight:600}
+.bm-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.bm-chip{font-size:11px;font-weight:600;padding:4px 9px;border-radius:20px;background:var(--bg3);border:1px solid var(--border);cursor:pointer;color:var(--text2);font-family:var(--fb)}
+.bm-chip.warn{border-color:#fbbf2455;color:var(--amber)}
+.bm-chip.hot{border-color:#f8717155;color:var(--red)}
+.bm-chip.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.bm-tip{font-size:12px;color:var(--text2);margin-top:8px;line-height:1.45}
+.bm-tip b{color:var(--accent)}
+.bm-mini{display:flex;gap:10px;align-items:center}
+.bm-mini svg.bm-body{max-width:54px;margin:0}
+.bm-hdr{display:flex;justify-content:space-between;align-items:center;cursor:pointer}
 </style>
 </head>
 <body>
@@ -1230,6 +1261,7 @@ body{font-family:var(--fb);background:var(--bg);color:var(--text);font-size:14px
     <div class="v4h-title">Program</div>
     <div id="prog-subtitle" class="v4h-sub" style="font-size:13px;color:var(--text3);margin-top:2px"></div>
   </div>
+  <div class="vi" style="padding-bottom:0"><div class="pg-card" id="program-bodymap"></div></div>
   <div class="vi" id="program-inner"></div>
 </div>
 
@@ -2389,6 +2421,7 @@ function renderToday() {
         </div>
       </div>
       <div class="v4hero-info">${exList.length} exercises · ${info.dayName}</div>
+      ${bmTodayHtml(exList,info.dayType,today)}
       ${exRows?`<div class="v4hero-list">${exRows}${more}</div>`:''}
       <div class="v4hero-cta">${logged
         ?`<div class="v4btn done-state"><svg viewBox="0 0 24 24" width="14" height="14" style="vertical-align:-2px;margin-right:6px" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> SESSION LOGGED</div>`
@@ -4037,6 +4070,7 @@ function renderProgram() {
   const inner=document.getElementById('program-inner');
   const sub=document.getElementById('prog-subtitle');
   if(sub)sub.textContent=cycle.length+'-day cycle'+(customProg?' · '+customProg.name+' exercises':' · tap to expand & edit');
+  try{ bmRefreshProgram(); }catch(e){ console.warn('body map',e); }
   // Sort by day number (D1 first, then D2…D8) for display
   const displayCycle=isCustomProg?cycle:[...cycle].sort((a,b)=>parseInt(a.idx.slice(1))-parseInt(b.idx.slice(1)));
   inner.innerHTML=displayCycle.map(({idx,dayType,label},di)=>{
@@ -4471,6 +4505,241 @@ function stalledInfo(name, prog){
   const last3=h.slice(-3), before=Math.max(...h.slice(0,-3).map(e=>e.score));
   return Math.max(...last3.map(e=>e.score))<=before+1e-9 ? h[h.length-1] : null;
 }
+// ── BODY MAP: exercise → primary / secondary muscles ───────────────────────
+// A primary muscle counts 1 set, a secondary muscle counts ½ set.
+const BM_M={chest:'Chest',frontDelt:'Front delts',sideDelt:'Side delts',rearDelt:'Rear delts',
+  biceps:'Biceps',triceps:'Triceps',forearms:'Forearms',traps:'Traps / upper back',lats:'Lats',lowerBack:'Lower back',
+  abs:'Abs',obliques:'Obliques',glutes:'Glutes',quads:'Quads',hamstrings:'Hamstrings',calves:'Calves'};
+const BM_KEYS=Object.keys(BM_M);
+// Weekly set targets (typical hypertrophy ranges; smaller muscles need less direct work)
+const BM_TARGET={forearms:[4,12],obliques:[4,12],lowerBack:[4,12],calves:[8,16],abs:[6,16]};
+const bmTgt=k=>BM_TARGET[k]||[10,20];
+const BM_TIP={chest:'Push-Ups or Cable Fly',frontDelt:'Overhead Press',sideDelt:'Lateral Raises',rearDelt:'Face Pulls or Rear-Delt Raises',
+  biceps:'Bicep Curl',triceps:'Triceps Pushdown',forearms:'Hammer Curl or Dead Hang',traps:'Chest-Supported Row',lats:'Lat Pulldown or Pull-Ups',
+  lowerBack:'Back Extension',abs:'Hanging Knee Raise or Crunch',obliques:'Side Plank or Cable Woodchop',glutes:'Hip Thrust',
+  quads:'Leg Extension or Leg Press',hamstrings:'Leg Curl',calves:'Calf Raises'};
+// First matching rule wins (order matters)
+const BM_RULES=[
+  [/rear.?delt|reverse fly|face pull/, ['rearDelt'],['traps']],
+  [/upright row/, ['sideDelt','traps'],['biceps']],
+  [/lateral raise|side raise|y.raise/, ['sideDelt'],[]],
+  [/front raise/, ['frontDelt'],[]],
+  [/shrug/, ['traps'],['forearms']],
+  [/close.?grip (bench|press)|jm press/, ['triceps','chest'],['frontDelt']],
+  [/chair dip|bench dip/, ['triceps'],['chest','frontDelt']],
+  [/skull|pushdown|push-down|tricep|kickback/, ['triceps'],[]],
+  [/arnold|overhead press|shoulder press|military|pike|landmine press/, ['frontDelt'],['sideDelt','triceps']],
+  [/hammer curl|reverse curl/, ['biceps','forearms'],[]],
+  [/wrist curl|forearm|farmer|grip/, ['forearms'],[]],
+  [/leg curl|hamstring curl|nordic/, ['hamstrings'],[]],
+  [/curl/, ['biceps'],['forearms']],
+  [/leg extension/, ['quads'],[]],
+  [/calf/, ['calves'],[]],
+  [/hip thrust|glute bridge|glute kickback|abduct|clamshell/, ['glutes'],['hamstrings']],
+  [/adduct/, ['quads'],[]],
+  [/romanian|rdl|stiff.?leg|good morning/, ['hamstrings','glutes'],['lowerBack','forearms']],
+  [/deadlift/, ['glutes','hamstrings','lowerBack'],['quads','traps','forearms']],
+  [/back extension|hyperextension|superman/, ['lowerBack'],['glutes','hamstrings']],
+  [/bulgarian|split squat|lunge|step.?up/, ['quads','glutes'],['hamstrings']],
+  [/wall sit|sissy/, ['quads'],[]],
+  [/front squat|goblet|hack|leg press|air squat|bodyweight squat/, ['quads'],['glutes']],
+  [/squat/, ['quads','glutes'],['lowerBack']],
+  [/woodchop|russian twist|side plank|oblique|pallof/, ['obliques'],['abs']],
+  [/plank|crunch|sit.?up|ab wheel|rollout|leg raise|knee raise|l-sit|hollow|dead bug|v-up|toes to bar/, ['abs'],['obliques']],
+  [/dead hang/, ['forearms'],['lats']],
+  [/chin.?up/, ['lats','biceps'],['traps','forearms']],
+  [/pull.?up|pulldown|pull-down|pullover|straight.?arm/, ['lats'],['biceps','traps']],
+  [/bent.?over row|t-bar|pendlay|barbell row/, ['traps','lats'],['biceps','rearDelt','lowerBack']],
+  [/row/, ['traps','lats'],['biceps','rearDelt']],
+  [/dip/, ['chest','triceps'],['frontDelt']],
+  [/fly|flye|pec deck|crossover/, ['chest'],['frontDelt']],
+  [/incline/, ['chest','frontDelt'],['triceps']],
+  [/bench|chest press|push.?up|decline|floor press|press/, ['chest'],['frontDelt','triceps']],
+];
+// Fallback for custom exercises: use the library "Group / Muscle" text
+const BM_GROUP=[
+  [/hamstring/,['hamstrings'],[]],[/quad/,['quads'],[]],[/glute/,['glutes'],[]],[/calf|calves/,['calves'],[]],
+  [/lat/,['lats'],[]],[/trap/,['traps'],[]],[/rear/,['rearDelt'],[]],[/bicep/,['biceps'],[]],[/tricep/,['triceps'],[]],[/forearm/,['forearms'],[]],
+  [/oblique/,['obliques'],[]],[/chest|pec/,['chest'],[]],[/shoulder|delt/,['sideDelt','frontDelt'],[]],[/arm/,['biceps','triceps'],[]],
+  [/back/,['lats','traps'],[]],[/leg/,['quads','hamstrings'],['glutes']],[/core|abs/,['abs'],['obliques']],
+];
+const _bmCache={};
+function bmMuscles(name){
+  if(_bmCache[name]) return _bmCache[name];
+  const n=String(name).toLowerCase().replace(/\s*\([^)]*\)\s*$/,'');
+  let r=null;
+  for(const [re,p,s] of BM_RULES) if(re.test(n)){ r={p,s}; break; }
+  if(!r){
+    const g=((typeof EX_LIBRARY!=='undefined'&&EX_LIBRARY.find(e=>e.name===name)?.group)||'').toLowerCase();
+    for(const [re,p,s] of BM_GROUP) if(re.test(g)){ r={p,s}; break; }
+  }
+  return _bmCache[name]=r||{p:[],s:[]};
+}
+// list: [[exerciseName, sets], ...] → {sets:{muscle:n}, from:{muscle:{exName:{v,sec}}}}
+function bmFromList(list, factor=1){
+  const sets={}, from={}; BM_KEYS.forEach(k=>{sets[k]=0;from[k]={};});
+  list.forEach(([nm,n])=>{
+    if(!n) return; const m=bmMuscles(nm);
+    const add=(k,v,sec)=>{ sets[k]+=v*factor; const f=from[k][nm]||(from[k][nm]={v:0,sec}); f.v+=v*factor; };
+    m.p.forEach(k=>add(k,n,false)); m.s.forEach(k=>add(k,n*.5,true));
+  });
+  return {sets,from};
+}
+// Actually logged: average sets per week over the last `days` (shorter if history is younger)
+function bmActual(days=28){
+  const today=todayStr(), from=_addDays(today,-(days-1)), list=[];
+  let first=today;
+  all().filter(s=>s.date>=from&&s.date<=today&&s.dayType!=='REST').forEach(s=>{
+    if(s.date<first) first=s.date;
+    (s.exercises||[]).forEach(ex=>{ const n=(ex.sets||[]).filter(st=>!st.wu).length; if(n) list.push([ex.name,n]); });
+  });
+  const span=Math.max(7,Math.round((new Date(today+'T00:00:00')-new Date(first+'T00:00:00'))/86400000)+1);
+  const allHist=all().some(s=>s.date<from);
+  return bmFromList(list, 7/(allHist?days:Math.min(days,span)));
+}
+// Planned: any cycle length → sets per week
+function bmPlanned(dayTypes, groupsOf, setsOf){
+  const list=[];
+  dayTypes.forEach(dt=>{ if(!dt||dt==='REST') return;
+    [...new Set((groupsOf(dt)||[]).flatMap(g=>g.ex||[]))].forEach(nm=>list.push([nm,setsOf(dt,nm)||3])); });
+  return bmFromList(list, dayTypes.length?7/dayTypes.length:1);
+}
+function bmPlanCurrent(){
+  const b=activeBlock(todayStr());
+  if(b) return bmPlanned(b.prog.cyclePattern||[], dt=>b.prog.plan?.[dt], (dt,nm)=>b.prog.planMeta?.[dt]?.[nm]?.sets);
+  return bmPlanned(activeCycle().map(c=>c.dayType), getPlanEx, ()=>3);
+}
+function bmZoneColor(k,v){ const [lo,hi]=bmTgt(k); if(v<=0.01) return '#2a2a2a'; if(v<lo) return v<lo/2?'#b45309':'#fbbf24'; if(v<=hi) return '#4ade80'; return '#f87171'; }
+function bmZoneName(k,v){ const [lo,hi]=bmTgt(k); return v<=0.01?'Not trained':v<lo?'Below target':v<=hi?'On target':'Above target'; }
+function bmFmt(v){ const r=Math.round(v*2)/2; return (Math.floor(r)||(r%1?'':'0'))+(r%1?'½':''); }
+const BM_LEGEND_ZONE=`<div class="bm-legend"><span><i style="background:#2a2a2a"></i>None</span><span><i style="background:#b45309"></i>Low</span><span><i style="background:#fbbf24"></i>Below</span><span><i style="background:#4ade80"></i>On target</span><span><i style="background:#f87171"></i>High</span></div>`;
+const BM_FRONT=`<circle class="n" cx="60" cy="17" r="11"/><rect class="n" x="55" y="27" width="10" height="9" rx="2"/>
+<path class="m" data-m="traps" d="M55 31 L43 38 L55 39 Z M65 31 L77 38 L65 39 Z"/>
+<ellipse class="m" data-m="sideDelt" cx="33" cy="46" rx="5" ry="9"/><ellipse class="m" data-m="sideDelt" cx="87" cy="46" rx="5" ry="9"/>
+<ellipse class="m" data-m="frontDelt" cx="40" cy="44" rx="6.5" ry="8"/><ellipse class="m" data-m="frontDelt" cx="80" cy="44" rx="6.5" ry="8"/>
+<path class="m" data-m="chest" d="M59 39 L47 38 Q40 42 41.5 52 Q46 60 59 58 Z M61 39 L73 38 Q80 42 78.5 52 Q74 60 61 58 Z"/>
+<ellipse class="m" data-m="biceps" cx="33.5" cy="65" rx="5.2" ry="11"/><ellipse class="m" data-m="biceps" cx="86.5" cy="65" rx="5.2" ry="11"/>
+<path class="m" data-m="forearms" d="M29 78 Q24 91 26.5 106 L33 106 Q37.5 91 38 78 Z M91 78 Q96 91 93.5 106 L87 106 Q82.5 91 82 78 Z"/>
+<rect class="m" data-m="abs" x="52" y="60" width="7.5" height="11" rx="2.5"/><rect class="m" data-m="abs" x="60.5" y="60" width="7.5" height="11" rx="2.5"/>
+<rect class="m" data-m="abs" x="52" y="72" width="7.5" height="11" rx="2.5"/><rect class="m" data-m="abs" x="60.5" y="72" width="7.5" height="11" rx="2.5"/>
+<rect class="m" data-m="abs" x="52" y="84" width="7.5" height="13" rx="2.5"/><rect class="m" data-m="abs" x="60.5" y="84" width="7.5" height="13" rx="2.5"/>
+<path class="m" data-m="obliques" d="M51 62 L44 60 Q41.5 78 46 96 L51 98 Z M69 62 L76 60 Q78.5 78 74 96 L69 98 Z"/>
+<path class="n" d="M46 98 L74 98 L68 110 L52 110 Z"/>
+<path class="m" data-m="quads" d="M45 102 Q39 126 46 152 L56.5 152 Q59.5 126 58.5 109 Z M75 102 Q81 126 74 152 L63.5 152 Q60.5 126 61.5 109 Z"/>
+<ellipse class="n" cx="51" cy="156" rx="5" ry="3.5"/><ellipse class="n" cx="69" cy="156" rx="5" ry="3.5"/>
+<path class="m" data-m="calves" d="M46 161 Q43 178 48 199 L54 199 Q57 178 56 161 Z M74 161 Q77 178 72 199 L66 199 Q63 178 64 161 Z"/>
+<path class="n" d="M46 201 L55 201 L56 208 L44 208 Z M74 201 L65 201 L64 208 L76 208 Z"/>`;
+const BM_BACK=`<circle class="n" cx="60" cy="17" r="11"/><rect class="n" x="55" y="27" width="10" height="9" rx="2"/>
+<path class="m" data-m="traps" d="M60 29 L44 39 L52 47 L60 66 L68 47 L76 39 Z"/>
+<ellipse class="m" data-m="sideDelt" cx="33" cy="46" rx="5" ry="9"/><ellipse class="m" data-m="sideDelt" cx="87" cy="46" rx="5" ry="9"/>
+<ellipse class="m" data-m="rearDelt" cx="40" cy="44" rx="6.5" ry="8"/><ellipse class="m" data-m="rearDelt" cx="80" cy="44" rx="6.5" ry="8"/>
+<ellipse class="m" data-m="triceps" cx="33.5" cy="65" rx="5.2" ry="11"/><ellipse class="m" data-m="triceps" cx="86.5" cy="65" rx="5.2" ry="11"/>
+<path class="m" data-m="forearms" d="M29 78 Q24 91 26.5 106 L33 106 Q37.5 91 38 78 Z M91 78 Q96 91 93.5 106 L87 106 Q82.5 91 82 78 Z"/>
+<path class="m" data-m="lats" d="M51 49 L42 53 Q41 71 47.5 86 L58 77 L58 66 Z M69 49 L78 53 Q79 71 72.5 86 L62 77 L62 66 Z"/>
+<path class="m" data-m="lowerBack" d="M58.5 79 L61.5 79 L71 86 L71 98 L49 98 L49 86 Z"/>
+<path class="m" data-m="glutes" d="M49.5 99 L59.5 99 L59.5 119 Q50 123 45 114 Q44 105 49.5 99 Z M70.5 99 L60.5 99 L60.5 119 Q70 123 75 114 Q76 105 70.5 99 Z"/>
+<path class="m" data-m="hamstrings" d="M45 119 Q41.5 136 46.5 154 L56.5 154 Q59.5 136 58.5 122 Z M75 119 Q78.5 136 73.5 154 L63.5 154 Q60.5 136 61.5 122 Z"/>
+<path class="m" data-m="calves" d="M46 158 Q40.5 173 46 190 L55.5 190 Q58.5 173 56.5 158 Z M74 158 Q79.5 173 74 190 L64.5 190 Q61.5 173 63.5 158 Z"/>
+<path class="n" d="M47 192 L55 192 L54.5 201 L48 201 Z M73 192 L65 192 L65.5 201 L72 201 Z"/>
+<path class="n" d="M46 202 L55 202 L56 208 L44 208 Z M74 202 L65 202 L64 208 L76 208 Z"/>`;
+// fill(k) → [color, opacity]; onTap = JS function name taking the muscle key
+function bmSvg(side, fill, sel, onTap){
+  const src=side==='back'?BM_BACK:BM_FRONT;
+  const body=src.replace(/class="m" data-m="(\w+)"/g,(_,k)=>{ const [c,o]=fill(k);
+    return `class="m${k===sel?' sel':''}" data-m="${k}" style="fill:${c};opacity:${o??1}"${onTap?` onclick="${onTap}('${k}')"`:''}`; });
+  return `<svg class="bm-body${onTap?' tap':''}" viewBox="20 2 80 210" aria-label="${side} body">${body}</svg>`;
+}
+function bmPair(fill, sel, onTap){
+  return `<div class="bm-figs"><figure>${bmSvg('front',fill,sel,onTap)}<figcaption>FRONT</figcaption></figure><figure>${bmSvg('back',fill,sel,onTap)}<figcaption>BACK</figcaption></figure></div>`;
+}
+function bmDetail(r,k,perWeek){
+  const v=r.sets[k],[lo,hi]=bmTgt(k),mx=Math.max(hi*1.4,v);
+  const src=Object.entries(r.from[k]).sort((a,b)=>b[1].v-a[1].v);
+  return `<div class="bm-det">
+    <div style="display:flex;justify-content:space-between;align-items:baseline"><div class="bm-det-nm">${BM_M[k]}</div>
+      <div class="tnum" style="font-size:17px;font-weight:700;color:${perWeek?bmZoneColor(k,v):'var(--text)'}">${bmFmt(v)}<span style="font-size:11px;color:var(--text3)"> sets${perWeek?'/wk':''}</span></div></div>
+    ${perWeek?`<div class="bm-bar"><div class="z" style="left:${lo/mx*100}%;width:${(hi-lo)/mx*100}%"></div><div class="f" style="width:${Math.min(100,v/mx*100)}%;background:${bmZoneColor(k,v)}"></div></div>
+    <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3)"><span>${bmZoneName(k,v)}</span><span>target ${lo}–${hi}</span></div>`:''}
+    <div style="margin-top:8px">${src.length?src.map(([n,o])=>`<div class="bm-row"><span><b>${_esc(_shortName(n))}</b> <span style="color:var(--text3)">${_esc(_tool(n))}${o.sec?' · ½':''}</span></span><span class="tnum">${bmFmt(o.v)}</span></div>`).join('')
+      :'<div class="bm-row">No exercises hit this muscle.</div>'}</div>
+    ${perWeek&&v<lo?`<div class="bm-tip">Tip: add about <b>${Math.ceil(lo-v)} sets/week</b>, for example ${BM_TIP[k]}.</div>`:''}
+  </div>`;
+}
+
+// Progress → Overview card
+let _bmPeriod='4w', _bmSel=null;
+function bmProgressInner(){
+  const r=_bmPeriod==='plan'?bmPlanCurrent():bmActual(28);
+  const low=BM_KEYS.filter(k=>r.sets[k]<bmTgt(k)[0]).sort((a,b)=>r.sets[a]/bmTgt(a)[0]-r.sets[b]/bmTgt(b)[0]);
+  const hi=BM_KEYS.filter(k=>r.sets[k]>bmTgt(k)[1]);
+  const any=BM_KEYS.some(k=>r.sets[k]>0);
+  const sel=_bmSel||low[0]||'chest';
+  return `<div class="eyebrow">Muscle balance · sets per week</div>
+    <div class="bm-seg"><button class="${_bmPeriod==='4w'?'on':''}" onclick="bmSetPeriod('4w')">Last 4 weeks</button><button class="${_bmPeriod==='plan'?'on':''}" onclick="bmSetPeriod('plan')">My plan</button></div>
+    ${any?bmPair(k=>[bmZoneColor(k,r.sets[k]),1],sel,'bmPick')+BM_LEGEND_ZONE+bmDetail(r,sel,true)
+      :`<div style="font-size:12px;color:var(--text3);margin-top:12px">${_bmPeriod==='plan'?'No exercises in your plan yet.':'No sessions in the last 4 weeks.'}</div>`}
+    ${any&&(low.length||hi.length)?`<div class="eyebrow" style="margin-top:14px;color:var(--amber)">Needs attention</div>
+    <div class="bm-chips">${low.map(k=>`<button class="bm-chip warn" onclick="bmPick('${k}')">${BM_M[k]} · ${bmFmt(r.sets[k])}</button>`).join('')}${hi.map(k=>`<button class="bm-chip hot" onclick="bmPick('${k}')">${BM_M[k]} · ${bmFmt(r.sets[k])}</button>`).join('')}</div>`:''}`;
+}
+function bmRefreshProgress(){ const el=document.getElementById('bm-progress'); if(el) el.innerHTML=bmProgressInner(); }
+function bmSetPeriod(p){ _bmPeriod=p; bmRefreshProgress(); }
+function bmPick(k){ _bmSel=k; bmRefreshProgress(); }
+
+// Program → coverage check (works for the plan being edited, any cycle length)
+let _bmProgDay='all', _bmProgSel=null, _bmProgOpen=true;
+try{ _bmProgOpen=localStorage.getItem('tr-bm-prog-open')!=='0'; }catch(e){}
+function bmProgramInner(){
+  const cycle=_getEditCycle(), plan=_getEditPlan();
+  const prog=_editProgId?PROGRAMS.find(p=>p.id===_editProgId):null;
+  const setsOf=(dt,nm)=>prog?.planMeta?.[dt]?.[nm]?.sets||3;
+  const dts=cycle.map(c=>c.dayType);
+  const days=[...new Set(dts.filter(d=>d&&d!=='REST'))];
+  if(_bmProgDay!=='all'&&!days.includes(_bmProgDay)) _bmProgDay='all';
+  const whole=bmPlanned(dts,dt=>plan[dt],setsOf);
+  const onT=BM_KEYS.filter(k=>{const v=whole.sets[k],[lo,hi]=bmTgt(k);return v>=lo&&v<=hi;}).length;
+  const head=`<div class="bm-hdr" onclick="bmToggleProg()"><div><div class="eyebrow">Coverage check</div>
+    <div style="font-size:13px;color:var(--text2);margin-top:3px"><b style="color:var(--text)">${onT}/${BM_KEYS.length}</b> muscles on target per week</div></div>
+    <div class="arrow" style="transform:rotate(${_bmProgOpen?90:0}deg);transition:transform .2s;color:var(--text3)">›</div></div>`;
+  if(!_bmProgOpen) return head;
+  const isAll=_bmProgDay==='all';
+  const r=isAll?whole:bmPlanned([_bmProgDay],dt=>plan[dt],setsOf);
+  const mx=Math.max(1,...Object.values(r.sets));
+  const fill=isAll?k=>[bmZoneColor(k,r.sets[k]),1]:k=>r.sets[k]>0.01?['#d4ff3a',.25+.75*Math.min(1,r.sets[k]/mx)]:['#2a2a2a',1];
+  const low=BM_KEYS.filter(k=>whole.sets[k]<bmTgt(k)[0]), hi=BM_KEYS.filter(k=>whole.sets[k]>bmTgt(k)[1]);
+  const sel=_bmProgSel||(isAll?low[0]:BM_KEYS.slice().sort((a,b)=>r.sets[b]-r.sets[a])[0])||'chest';
+  return head+`<div class="bm-chips" style="margin-top:10px"><button class="bm-chip ${isAll?'on':''}" onclick="bmProgDay('all')">Whole cycle / wk</button>${days.map(d=>`<button class="bm-chip ${_bmProgDay===d?'on':''}" onclick="bmProgDay('${_jsq(d)}')">${_esc(dayAbbr(d)||d)}</button>`).join('')}</div>
+    ${bmPair(fill,sel,'bmProgPick')}
+    ${isAll?BM_LEGEND_ZONE:`<div class="bm-legend"><span><i style="background:#2a2a2a"></i>Not hit</span><span><i style="background:#d4ff3a;opacity:.4"></i>Few sets</span><span><i style="background:#d4ff3a"></i>Most sets</span></div>`}
+    ${bmDetail(r,sel,isAll)}
+    ${isAll&&(low.length||hi.length)?`<div class="bm-tip">${low.length?`Light: ${low.map(k=>BM_M[k]).join(', ')}.`:''}${hi.length?` High: ${hi.map(k=>BM_M[k]).join(', ')}.`:''}</div>`:''}`;
+}
+function bmRefreshProgram(){ const el=document.getElementById('program-bodymap'); if(el) el.innerHTML=bmProgramInner(); }
+function bmToggleProg(){ _bmProgOpen=!_bmProgOpen; try{localStorage.setItem('tr-bm-prog-open',_bmProgOpen?'1':'0');}catch(e){} bmRefreshProgram(); }
+function bmProgDay(d){ _bmProgDay=d; _bmProgSel=null; bmRefreshProgram(); }
+function bmProgPick(k){ _bmProgSel=k; bmRefreshProgram(); }
+
+// Lift detail → which muscles this exercise works
+function bmLiftHtml(name){
+  const m=bmMuscles(name); if(!m.p.length) return '';
+  const fill=k=>m.p.includes(k)?['#d4ff3a',1]:m.s.includes(k)?['#d4ff3a',.35]:['#2a2a2a',1];
+  return `<div class="pg-card"><div class="bm-mini">${bmSvg('front',fill)}${bmSvg('back',fill)}
+    <div style="font-size:12px;line-height:1.6;min-width:0">
+      <div><span style="color:var(--accent)">●</span> <b>Primary</b><br><span style="color:var(--text2)">${m.p.map(k=>BM_M[k]).join(', ')}</span></div>
+      ${m.s.length?`<div style="margin-top:4px"><span style="color:var(--accent);opacity:.4">●</span> <b>Secondary</b><br><span style="color:var(--text2)">${m.s.map(k=>BM_M[k]).join(', ')}</span></div>`:''}
+    </div></div></div>`;
+}
+// Today → what today's session hits
+function bmTodayHtml(exList, dayType, dateStr){
+  const cp=_getActiveCustomProgram(dateStr);
+  const r=bmFromList(exList.map(nm=>[nm,cp?.prog?.planMeta?.[dayType]?.[nm]?.sets||3]));
+  const top=BM_KEYS.filter(k=>r.sets[k]>0).sort((a,b)=>r.sets[b]-r.sets[a]);
+  if(!top.length) return '';
+  const mx=Math.max(...top.map(k=>r.sets[k]));
+  const fill=k=>r.sets[k]>0.01?['#d4ff3a',.25+.75*Math.min(1,r.sets[k]/mx)]:['#2a2a2a',1];
+  return `<div class="bm-mini" style="margin:10px 0 2px">${bmSvg('front',fill)}${bmSvg('back',fill)}
+    <div style="min-width:0"><div class="eyebrow">Muscles today</div><div style="font-size:12px;color:var(--text2);margin-top:4px;line-height:1.5">${top.slice(0,5).map(k=>BM_M[k]).join(' · ')}</div></div></div>`;
+}
+
 function muscleOf(name){
   const n=name.toLowerCase();
   if(/wall sit|squat|lunge|leg press|leg curl|leg extension|deadlift|rdl|calf|hip thrust|step-up/.test(n)) return 'Legs';
@@ -4520,7 +4789,7 @@ function _tool(n){ return n.match(/\(([^)]+)\)\s*$/)?.[1]||''; }
 
 // ── LOG v2: weekly timeline, newest first ───────────────────────────────────
 let _logFilter='all', _logWeeks=6;
-const APP_VERSION='v83';
+const APP_VERSION='v84';
 
 // Shared missed-day logic (Progress → Block and Log use the same list)
 // Past training days with nothing logged; a workout on a rest day makes up the oldest open miss.
@@ -4811,16 +5080,8 @@ function renderBlockTab(){
     </div>`;
   }
 
-  // Weekly sets per muscle (avg of last 4 weeks)
-  const ms=weeklySetsByMuscle(28);
-  const order=['Legs','Back','Chest','Shoulders','Arms','Core','Other'].filter(k=>ms[k]>0);
-  const mx=Math.max(1,...order.map(k=>ms[k]));
-  const mcol={Legs:'var(--legs)',Back:'var(--pull)',Chest:'var(--push)',Shoulders:'var(--purple)',Arms:'var(--text2)',Core:'var(--amber)',Other:'var(--text4)'};
-  html+=`<div class="pg-card">
-    <div class="eyebrow">Sets per week · last 4 weeks</div>
-    ${order.length?`<div class="pg-mus">${order.map(k=>`<span>${k}</span><div class="pg-bar" style="width:${(ms[k]/mx*100).toFixed(0)}%;background:${mcol[k]}"></div><span class="tnum">${Math.round(ms[k])}</span>`).join('')}</div>`
-      :`<div style="font-size:12px;color:var(--text3);margin-top:8px">No sessions in the last 4 weeks.</div>`}
-  </div>`;
+  // Muscle balance body map (sets per week, last 4 weeks or planned)
+  html+=`<div class="pg-card" id="bm-progress">${bmProgressInner()}</div>`;
 
   // Recent PRs (same rule as Profile and the Log)
   const from=b?b.start:_addDays(today,-29);
@@ -4891,7 +5152,7 @@ function renderProgressFor(name){
   const content=document.getElementById('progress-content'); if(!content) return;
   const h=exSessions(name), kind=exKind(name);
   const head=`<button class="pg-back" onclick="closeLift()">‹ All lifts</button>
-    <div style="margin:6px 0 12px"><div class="pg-big">${_esc(_shortName(name))}</div><div class="eyebrow" style="margin-top:4px">${_esc(_tool(name))} · ${muscleOf(name)}</div></div>`;
+    <div style="margin:6px 0 12px"><div class="pg-big">${_esc(_shortName(name))}</div><div class="eyebrow" style="margin-top:4px">${_esc(_tool(name))} · ${bmMuscles(name).p.length?BM_M[bmMuscles(name).p[0]]:muscleOf(name)}</div></div>`+bmLiftHtml(name);
   if(!h.length){ content.innerHTML=head+`<div class="pg-card" style="text-align:center;color:var(--text3);font-size:13px">No sets logged yet.</div>`; return; }
   const best=exBest(name), last=h[h.length-1], prev=h.length>1?h[h.length-2]:null;
   const pureBW=kind==='bw'&&h.every(e=>e.sets.every(s=>!(+s.w>0)));

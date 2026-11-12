@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Body Map Mockup</title>
+<style>
+:root{
+  --bg:#0a0a0a;--bg2:#141414;--bg3:#1c1c1c;--bg4:#252525;
+  --border:#2a2a2a;--border2:#3a3a3a;
+  --text:#fafafa;--text2:#a3a3a3;--text3:#666;--text4:#404040;
+  --green:#4ade80;--blue:#60a5fa;--orange:#fb923c;--red:#f87171;--purple:#a78bfa;--amber:#fbbf24;
+  --accent:#d4ff3a;--accent-ink:#0a0a0a;
+  --fb:'Inter',-apple-system,system-ui,sans-serif;--fm:'JetBrains Mono',ui-monospace,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--fb);background:#000;color:var(--text);font-size:14px;-webkit-font-smoothing:antialiased;padding:16px}
+.tnum{font-family:var(--fm)}
+.eyebrow{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text3)}
+.top{max-width:400px;margin:0 auto 12px}
+.top h1{font-size:15px;font-weight:700;margin-bottom:4px}
+.top p{font-size:12px;color:var(--text2);line-height:1.45}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.tab{background:var(--bg3);border:1px solid var(--border);color:var(--text2);border-radius:20px;padding:6px 11px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
+.tab.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.phone{max-width:400px;margin:0 auto;background:var(--bg);border:1px solid var(--border);border-radius:28px;padding:18px 14px 22px;min-height:640px}
+.hdr{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px}
+.hdr .t{font-size:24px;font-weight:800;letter-spacing:-.02em}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:14px;margin-bottom:10px}
+.seg{display:flex;background:var(--bg3);border-radius:10px;padding:3px;gap:3px;margin-top:10px}
+.seg button{flex:1;background:none;border:none;color:var(--text3);font:600 11px var(--fb);padding:6px 4px;border-radius:7px;cursor:pointer;white-space:nowrap}
+.seg button.on{background:var(--bg4);color:var(--text)}
+.figs{display:flex;justify-content:center;gap:4px;margin-top:10px}
+.figs figure{flex:1;text-align:center}
+.figs figcaption{font-size:9px;color:var(--text3);letter-spacing:.12em;font-weight:700;margin-top:2px}
+svg.body{width:100%;max-width:160px;height:auto;display:block;margin:0 auto}
+svg.body .m{stroke:var(--bg2);stroke-width:1.1;cursor:pointer;transition:fill .25s,opacity .25s}
+svg.body .m:hover{stroke:var(--text)}
+svg.body .m.sel{stroke:var(--text);stroke-width:1.6}
+svg.body .n{fill:#1f1f1f;stroke:var(--bg2);stroke-width:1.1}
+.legend{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:8px;font-size:10px;color:var(--text2)}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+.detail{background:var(--bg3);border-radius:12px;padding:12px;margin-top:12px}
+.detail .nm{font-size:16px;font-weight:700}
+.bar{height:6px;background:var(--bg4);border-radius:4px;position:relative;margin:10px 0 4px;overflow:hidden}
+.bar .zone{position:absolute;top:0;bottom:0;background:#4ade8026}
+.bar .fill{position:absolute;top:0;bottom:0;left:0;border-radius:4px}
+.rows{margin-top:8px}
+.row{display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-top:1px solid var(--border);color:var(--text2)}
+.row b{color:var(--text);font-weight:600}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.chip{font-size:11px;font-weight:600;padding:4px 9px;border-radius:20px;background:var(--bg3);border:1px solid var(--border);cursor:pointer;color:var(--text2)}
+.chip.warn{border-color:#fbbf2455;color:var(--amber)}
+.chip.hot{border-color:#f8717155;color:var(--red)}
+.chip.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.tip{font-size:12px;color:var(--text2);margin-top:8px;line-height:1.45}
+.tip b{color:var(--accent)}
+.note{max-width:400px;margin:12px auto 0;font-size:11px;color:var(--text3);line-height:1.5}
+.big{font-size:26px;font-weight:800;letter-spacing:-.02em}
+.mini{display:flex;gap:12px;align-items:center}
+.mini svg.body{max-width:58px}
+.ex{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-top:1px solid var(--border);font-size:13px}
+.ex span{color:var(--text3);font-size:11px}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <h1>Body map: mockup</h1>
+  <p>Sample data from your 8-day plan (3 sets per exercise). A primary muscle counts 1 set and a secondary muscle counts ½. Tap any muscle.</p>
+  <div class="tabs">
+    <button class="tab on" data-v="progress">1 · Progress</button>
+    <button class="tab" data-v="program">2 · Program</button>
+    <button class="tab" data-v="lift">3 · Lift detail</button>
+    <button class="tab" data-v="today">4 · Today</button>
+  </div>
+</div>
+
+<div class="phone" id="phone"></div>
+<div class="note" id="note"></div>
+
+<script>
+// ---------- Muscle list ----------
+const M = {
+  chest:'Chest', frontDelt:'Front delts', sideDelt:'Side delts', rearDelt:'Rear delts',
+  biceps:'Biceps', triceps:'Triceps', forearms:'Forearms',
+  traps:'Traps / upper back', lats:'Lats', lowerBack:'Lower back',
+  abs:'Abs', obliques:'Obliques', glutes:'Glutes', quads:'Quads', hamstrings:'Hamstrings', calves:'Calves'
+};
+// Target weekly sets (customisable per user later)
+const TARGET = {default:[10,20], forearms:[4,12], obliques:[4,12], lowerBack:[4,12], calves:[8,16], abs:[6,16]};
+const tgt = k => TARGET[k]||TARGET.default;
+
+// ---------- Exercise → muscles (p = primary, s = secondary) ----------
+const EX = {
+ 'Incline Press (DB)':{p:['chest','frontDelt'],s:['triceps']},
+ 'Bench Press (DB)':{p:['chest'],s:['frontDelt','triceps']},
+ 'High-to-Low Fly (Cable)':{p:['chest'],s:[]},
+ 'Deficit Push-Ups (Bodyweight)':{p:['chest'],s:['triceps','frontDelt','abs']},
+ 'Lateral Raises (DB)':{p:['sideDelt'],s:[]},
+ 'Triceps Pushdown (Rope)':{p:['triceps'],s:[]},
+ 'Plank (Bodyweight)':{p:['abs'],s:['obliques']},
+ 'Back Squat (BB)':{p:['quads','glutes'],s:['lowerBack']},
+ 'Romanian Deadlift (BB)':{p:['hamstrings','glutes'],s:['lowerBack','forearms']},
+ 'Leg Press (Machine)':{p:['quads'],s:['glutes']},
+ 'Walking Lunges (BB)':{p:['quads','glutes'],s:['hamstrings']},
+ 'Standing Calf Raises (Machine)':{p:['calves'],s:[]},
+ 'Hanging Knee Raise (Bodyweight)':{p:['abs'],s:['forearms']},
+ 'Pull-Ups (Bodyweight)':{p:['lats'],s:['biceps','traps','forearms']},
+ 'Bent Over Row (BB)':{p:['traps','lats'],s:['biceps','rearDelt','lowerBack']},
+ 'Chest-Supported Row (Machine)':{p:['traps'],s:['lats','rearDelt','biceps']},
+ 'Lat Pulldown (Machine)':{p:['lats'],s:['biceps']},
+ 'Face Pulls (Rope)':{p:['rearDelt'],s:['traps']},
+ 'Bicep Curl (BB)':{p:['biceps'],s:['forearms']},
+ 'Hammer Curl (DB)':{p:['biceps','forearms'],s:[]},
+ 'Crunch (Machine)':{p:['abs'],s:[]},
+ 'Incline Press (BB)':{p:['chest'],s:['frontDelt','triceps']},
+ 'Bench Press (BB)':{p:['chest'],s:['frontDelt','triceps']},
+ 'Dips (Bodyweight)':{p:['chest','triceps'],s:['frontDelt']},
+ 'Overhead Press (BB)':{p:['frontDelt'],s:['sideDelt','triceps']},
+ 'Hack Squat (Machine)':{p:['quads'],s:['glutes']},
+ 'Bulgarian Split Squat (DB)':{p:['quads','glutes'],s:['hamstrings']},
+ 'Seated Calf Raises (Machine)':{p:['calves'],s:[]},
+ 'Leg Curl (Machine)':{p:['hamstrings'],s:[]},
+ 'Leg Extension (Machine)':{p:['quads'],s:[]},
+ 'Leg Press Burnout (Machine)':{p:['quads'],s:['glutes']},
+};
+const PLAN = {
+ 'PUSH (Hypertrophy)':['Incline Press (DB)','Bench Press (DB)','High-to-Low Fly (Cable)','Deficit Push-Ups (Bodyweight)','Lateral Raises (DB)','Triceps Pushdown (Rope)','Plank (Bodyweight)'],
+ 'LEGS (Strength)':['Back Squat (BB)','Romanian Deadlift (BB)','Leg Press (Machine)','Walking Lunges (BB)','Standing Calf Raises (Machine)','Hanging Knee Raise (Bodyweight)'],
+ 'PULL':['Pull-Ups (Bodyweight)','Bent Over Row (BB)','Chest-Supported Row (Machine)','Lat Pulldown (Machine)','Face Pulls (Rope)','Bicep Curl (BB)','Hammer Curl (DB)','Crunch (Machine)'],
+ 'PUSH (Strength)':['Incline Press (BB)','Bench Press (BB)','Dips (Bodyweight)','Overhead Press (BB)','Lateral Raises (DB)','Plank (Bodyweight)'],
+ 'LEGS (Hypertrophy)':['Hack Squat (Machine)','Bulgarian Split Squat (DB)','Seated Calf Raises (Machine)','Leg Curl (Machine)','Leg Extension (Machine)','Leg Press Burnout (Machine)','Hanging Knee Raise (Bodyweight)'],
+};
+// Assumed 8-day cycle (example)
+const CYCLE = ['PUSH (Hypertrophy)','LEGS (Strength)','PULL','REST','PUSH (Strength)','LEGS (Hypertrophy)','PULL','REST'];
+const SHORT = {'PUSH (Hypertrophy)':'Push H','LEGS (Strength)':'Legs S','PULL':'Pull','PUSH (Strength)':'Push S','LEGS (Hypertrophy)':'Legs H','REST':'Rest'};
+
+function setsFor(exList, setsEach=3){
+  const out={}, from={};
+  Object.keys(M).forEach(k=>{out[k]=0;from[k]=[]});
+  exList.forEach(([name,n])=>{
+    const e=EX[name]; if(!e) return;
+    e.p.forEach(k=>{out[k]+=n; from[k].push([name,n,'primary'])});
+    e.s.forEach(k=>{out[k]+=n*.5; from[k].push([name,n*.5,'secondary'])});
+  });
+  return {sets:out, from};
+}
+// Planned: whole cycle → per week (normalise by cycle length so any program works)
+function planned(){
+  const list=[]; CYCLE.forEach(d=>(PLAN[d]||[]).forEach(x=>list.push([x,3])));
+  const r=setsFor(list), f=7/CYCLE.length;
+  Object.keys(r.sets).forEach(k=>r.sets[k]*=f);
+  Object.keys(r.from).forEach(k=>{
+    const agg={}; r.from[k].forEach(([n,v,t])=>{agg[n]=agg[n]||{v:0,t}; agg[n].v+=v*f});
+    r.from[k]=Object.entries(agg).map(([n,o])=>[n,o.v,o.t]);
+  });
+  return r;
+}
+// "Actual" = planned with some sample variation (as if a few sets were skipped)
+function actual(){
+  const r=planned(), skew={hamstrings:.7,lowerBack:.6,calves:.85,abs:.8,chest:1.05,sideDelt:1.1};
+  Object.keys(r.sets).forEach(k=>r.sets[k]*=(skew[k]||.95));
+  return r;
+}
+
+// ---------- SVG body ----------
+const FRONT = `
+<circle class="n" cx="60" cy="17" r="11"/><rect class="n" x="55" y="27" width="10" height="9" rx="2"/>
+<path class="m" data-m="traps" d="M55 31 L43 38 L55 39 Z M65 31 L77 38 L65 39 Z"/>
+<ellipse class="m" data-m="sideDelt" cx="33" cy="46" rx="5" ry="9"/><ellipse class="m" data-m="sideDelt" cx="87" cy="46" rx="5" ry="9"/>
+<ellipse class="m" data-m="frontDelt" cx="40" cy="44" rx="6.5" ry="8"/><ellipse class="m" data-m="frontDelt" cx="80" cy="44" rx="6.5" ry="8"/>
+<path class="m" data-m="chest" d="M59 39 L47 38 Q40 42 41.5 52 Q46 60 59 58 Z M61 39 L73 38 Q80 42 78.5 52 Q74 60 61 58 Z"/>
+<ellipse class="m" data-m="biceps" cx="33.5" cy="65" rx="5.2" ry="11"/><ellipse class="m" data-m="biceps" cx="86.5" cy="65" rx="5.2" ry="11"/>
+<path class="m" data-m="forearms" d="M29 78 Q24 91 26.5 106 L33 106 Q37.5 91 38 78 Z M91 78 Q96 91 93.5 106 L87 106 Q82.5 91 82 78 Z"/>
+<g><rect class="m" data-m="abs" x="52" y="60" width="7.5" height="11" rx="2.5"/><rect class="m" data-m="abs" x="60.5" y="60" width="7.5" height="11" rx="2.5"/>
+<rect class="m" data-m="abs" x="52" y="72" width="7.5" height="11" rx="2.5"/><rect class="m" data-m="abs" x="60.5" y="72" width="7.5" height="11" rx="2.5"/>
+<rect class="m" data-m="abs" x="52" y="84" width="7.5" height="13" rx="2.5"/><rect class="m" data-m="abs" x="60.5" y="84" width="7.5" height="13" rx="2.5"/></g>
+<path class="m" data-m="obliques" d="M51 62 L44 60 Q41.5 78 46 96 L51 98 Z M69 62 L76 60 Q78.5 78 74 96 L69 98 Z"/>
+<path class="n" d="M46 98 L74 98 L68 110 L52 110 Z"/>
+<path class="m" data-m="quads" d="M45 102 Q39 126 46 152 L56.5 152 Q59.5 126 58.5 109 Z M75 102 Q81 126 74 152 L63.5 152 Q60.5 126 61.5 109 Z"/>
+<ellipse class="n" cx="51" cy="156" rx="5" ry="3.5"/><ellipse class="n" cx="69" cy="156" rx="5" ry="3.5"/>
+<path class="m" data-m="calves" d="M46 161 Q43 178 48 199 L54 199 Q57 178 56 161 Z M74 161 Q77 178 72 199 L66 199 Q63 178 64 161 Z"/>
+<path class="n" d="M46 201 L55 201 L56 208 L44 208 Z M74 201 L65 201 L64 208 L76 208 Z"/>`;
+const BACK = `
+<circle class="n" cx="60" cy="17" r="11"/><rect class="n" x="55" y="27" width="10" height="9" rx="2"/>
+<path class="m" data-m="traps" d="M60 29 L44 39 L52 47 L60 66 L68 47 L76 39 Z"/>
+<ellipse class="m" data-m="sideDelt" cx="33" cy="46" rx="5" ry="9"/><ellipse class="m" data-m="sideDelt" cx="87" cy="46" rx="5" ry="9"/>
+<ellipse class="m" data-m="rearDelt" cx="40" cy="44" rx="6.5" ry="8"/><ellipse class="m" data-m="rearDelt" cx="80" cy="44" rx="6.5" ry="8"/>
+<ellipse class="m" data-m="triceps" cx="33.5" cy="65" rx="5.2" ry="11"/><ellipse class="m" data-m="triceps" cx="86.5" cy="65" rx="5.2" ry="11"/>
+<path class="m" data-m="forearms" d="M29 78 Q24 91 26.5 106 L33 106 Q37.5 91 38 78 Z M91 78 Q96 91 93.5 106 L87 106 Q82.5 91 82 78 Z"/>
+<path class="m" data-m="lats" d="M51 49 L42 53 Q41 71 47.5 86 L58 77 L58 66 Z M69 49 L78 53 Q79 71 72.5 86 L62 77 L62 66 Z"/>
+<path class="m" data-m="lowerBack" d="M58.5 79 L61.5 79 L71 86 L71 98 L49 98 L49 86 Z"/>
+<path class="m" data-m="glutes" d="M49.5 99 L59.5 99 L59.5 119 Q50 123 45 114 Q44 105 49.5 99 Z M70.5 99 L60.5 99 L60.5 119 Q70 123 75 114 Q76 105 70.5 99 Z"/>
+<path class="m" data-m="hamstrings" d="M45 119 Q41.5 136 46.5 154 L56.5 154 Q59.5 136 58.5 122 Z M75 119 Q78.5 136 73.5 154 L63.5 154 Q60.5 136 61.5 122 Z"/>
+<path class="m" data-m="calves" d="M46 158 Q40.5 173 46 190 L55.5 190 Q58.5 173 56.5 158 Z M74 158 Q79.5 173 74 190 L64.5 190 Q61.5 173 63.5 158 Z"/>
+<path class="n" d="M47 192 L55 192 L54.5 201 L48 201 Z M73 192 L65 192 L65.5 201 L72 201 Z"/>
+<path class="n" d="M46 202 L55 202 L56 208 L44 208 Z M74 202 L65 202 L64 208 L76 208 Z"/>`;
+const svg = (inner,id) => `<svg class="body" id="${id}" viewBox="20 2 80 210">${inner}</svg>`;
+
+// ---------- Colour scales ----------
+function zoneColor(k,v){
+  const [lo,hi]=tgt(k);
+  if(v<=0.01) return '#2a2a2a';
+  if(v<lo) return v<lo/2 ? '#b45309' : '#fbbf24';
+  if(v<=hi) return '#4ade80';
+  return '#f87171';
+}
+function zoneName(k,v){const [lo,hi]=tgt(k); return v<=0.01?'Not trained':v<lo?'Below target':v<=hi?'On target':'Above target';}
+function heat(v,max){ if(v<=0.01) return ['#2a2a2a',1]; return ['#d4ff3a', .25+.75*Math.min(1,v/max)]; }
+
+function paint(root, fn){
+  root.querySelectorAll('.m').forEach(el=>{
+    const [c,o]=fn(el.dataset.m); el.style.fill=c; el.style.opacity=o??1;
+  });
+}
+function bindTap(root, cb){
+  root.querySelectorAll('.m').forEach(el=>el.addEventListener('click',()=>{
+    root.querySelectorAll('.m').forEach(x=>x.classList.toggle('sel',x.dataset.m===el.dataset.m));
+    cb(el.dataset.m);
+  }));
+}
+const fmt = v => (Math.round(v*2)/2).toString().replace('.5','½').replace(/^0½/,'½');
+const legendZones = `<div class="legend"><span><i style="background:#2a2a2a"></i>None</span><span><i style="background:#b45309"></i>Low</span><span><i style="background:#fbbf24"></i>Below</span><span><i style="background:#4ade80"></i>On target</span><span><i style="background:#f87171"></i>High</span></div>`;
+
+// ---------- Views ----------
+let progPeriod='4w';
+function vProgress(){
+  const r = progPeriod==='4w' ? actual() : planned();
+  const lowList = Object.keys(M).filter(k=>r.sets[k]<tgt(k)[0]).sort((a,b)=>r.sets[a]/tgt(a)[0]-r.sets[b]/tgt(b)[0]);
+  const hiList = Object.keys(M).filter(k=>r.sets[k]>tgt(k)[1]);
+  phone.innerHTML = `
+  <div class="hdr"><div class="t">Progress</div><div class="eyebrow">Overview</div></div>
+  <div class="card">
+    <div class="eyebrow">Muscle balance · sets per week</div>
+    <div class="seg" id="per"><button data-p="4w" class="${progPeriod==='4w'?'on':''}">Last 4 weeks</button><button data-p="plan" class="${progPeriod==='plan'?'on':''}">My plan</button></div>
+    <div class="figs"><figure>${svg(FRONT,'f')}<figcaption>FRONT</figcaption></figure><figure>${svg(BACK,'b')}<figcaption>BACK</figcaption></figure></div>
+    ${legendZones}
+    <div id="det"></div>
+  </div>
+  <div class="card">
+    <div class="eyebrow" style="color:var(--amber)">Needs attention</div>
+    <div class="chips">${lowList.map(k=>`<span class="chip warn" data-k="${k}">${M[k]} · ${fmt(r.sets[k])}</span>`).join('')}${hiList.map(k=>`<span class="chip hot" data-k="${k}">${M[k]} · ${fmt(r.sets[k])}</span>`).join('')||''}</div>
+  </div>`;
+  const det=document.getElementById('det');
+  const show=k=>{
+    const v=r.sets[k],[lo,hi]=tgt(k),max=Math.max(hi*1.4,v);
+    const src=r.from[k].sort((a,b)=>b[1]-a[1]);
+    det.innerHTML=`<div class="detail">
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><div class="nm">${M[k]}</div><div class="tnum" style="font-size:18px;font-weight:700;color:${zoneColor(k,v)}">${fmt(v)}<span style="font-size:11px;color:var(--text3)"> sets/wk</span></div></div>
+      <div class="bar"><div class="zone" style="left:${lo/max*100}%;width:${(hi-lo)/max*100}%"></div><div class="fill" style="width:${v/max*100}%;background:${zoneColor(k,v)}"></div></div>
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3)"><span>${zoneName(k,v)}</span><span>target ${lo}–${hi}</span></div>
+      <div class="rows">${src.length?src.map(([n,s,t])=>`<div class="row"><span><b>${n}</b> ${t==='secondary'?'· ½':''}</span><span class="tnum">${fmt(s)}</span></div>`).join(''):'<div class="row">No exercises hit this muscle.</div>'}</div>
+      ${v<lo?`<div class="tip">Tip: add <b>${Math.ceil(lo-v)} sets/week</b>, for example an extra ${k==='hamstrings'?'Leg Curl':k==='rearDelt'?'Reverse Fly':k==='calves'?'Calf Raise':k==='lowerBack'?'Back Extension':k==='obliques'?'Cable Woodchop':k==='forearms'?'Wrist Curl':'exercise'} set or exercise.</div>`:''}
+    </div>`;
+  };
+  ['f','b'].forEach(id=>{const s=document.getElementById(id); paint(s,k=>[zoneColor(k,r.sets[k]),1]); bindTap(s,k=>{document.querySelectorAll('svg.body .m').forEach(x=>x.classList.toggle('sel',x.dataset.m===k)); show(k)});});
+  document.querySelectorAll('#per button').forEach(b=>b.onclick=()=>{progPeriod=b.dataset.p; vProgress();});
+  document.querySelectorAll('.chip[data-k]').forEach(c=>c.onclick=()=>{const k=c.dataset.k; document.querySelectorAll('svg.body .m').forEach(x=>x.classList.toggle('sel',x.dataset.m===k)); show(k)});
+  show(lowList[0]||'chest');
+  document.querySelectorAll('svg.body .m').forEach(x=>x.classList.toggle('sel',x.dataset.m===(lowList[0]||'chest')));
+  note.innerHTML='<b>Where:</b> Progress tab, replacing the "Sets per week" bars. <b>Why:</b> works for every user and every program, because it reads what was actually logged. "My plan" shows what the program should give, so the gap between plan and reality becomes visible.';
+}
+
+let progDay='all';
+function vProgram(){
+  const days=[...new Set(CYCLE.filter(d=>d!=='REST'))];
+  let r, mode;
+  if(progDay==='all'){ r=planned(); mode='zone'; }
+  else { r=setsFor((PLAN[progDay]||[]).map(x=>[x,3])); mode='heat'; }
+  const max=Math.max(...Object.values(r.sets));
+  phone.innerHTML=`
+  <div class="hdr"><div class="t">Program</div><div class="eyebrow">8-day cycle</div></div>
+  <div class="card">
+    <div class="eyebrow">Coverage check</div>
+    <div class="chips" id="dsel"><span class="chip ${progDay==='all'?'on':''}" data-d="all">Whole cycle / wk</span>${days.map(d=>`<span class="chip ${progDay===d?'on':''}" data-d="${d}">${SHORT[d]}</span>`).join('')}</div>
+    <div class="figs"><figure>${svg(FRONT,'f')}<figcaption>FRONT</figcaption></figure><figure>${svg(BACK,'b')}<figcaption>BACK</figcaption></figure></div>
+    ${mode==='zone'?legendZones:`<div class="legend"><span><i style="background:#2a2a2a"></i>Not hit</span><span><i style="background:#d4ff3a;opacity:.35"></i>Few sets</span><span><i style="background:#d4ff3a"></i>Most sets</span></div>`}
+    <div id="det"></div>
+  </div>
+  ${mode==='zone'?`<div class="card"><div class="eyebrow">Plan verdict</div><div class="tip" style="margin-top:6px">${(()=>{const low=Object.keys(M).filter(k=>r.sets[k]<tgt(k)[0]);const hi=Object.keys(M).filter(k=>r.sets[k]>tgt(k)[1]);return `<b>${16-low.length-hi.length}/16</b> muscles on target.`+(low.length?` Light: ${low.map(k=>M[k]).join(', ')}.`:'')+(hi.length?` High: ${hi.map(k=>M[k]).join(', ')}.`:'')})()}</div></div>`:''}`;
+  const det=document.getElementById('det');
+  const show=k=>{const v=r.sets[k]; det.innerHTML=`<div class="detail"><div style="display:flex;justify-content:space-between"><div class="nm">${M[k]}</div><div class="tnum" style="font-weight:700">${fmt(v)} sets${mode==='zone'?'/wk':''}</div></div><div class="rows">${r.from[k].map(([n,s,t])=>`<div class="row"><span><b>${n}</b> ${t==='secondary'?'· ½':''}</span><span class="tnum">${fmt(s)}</span></div>`).join('')||'<div class="row">Not trained on this day.</div>'}</div></div>`;};
+  ['f','b'].forEach(id=>{const s=document.getElementById(id); paint(s,k=>mode==='zone'?[zoneColor(k,r.sets[k]),1]:heat(r.sets[k],max)); bindTap(s,k=>{document.querySelectorAll('svg.body .m').forEach(x=>x.classList.toggle('sel',x.dataset.m===k)); show(k)});});
+  document.querySelectorAll('#dsel .chip').forEach(c=>c.onclick=()=>{progDay=c.dataset.d; vProgram();});
+  note.innerHTML='<b>Where:</b> Program tab, and inside the program builder when someone creates or edits a program. <b>Why:</b> any cycle length (4, 7, 8 or 10 days) is converted to sets per week, so programs can be compared. New users see right away if their plan skips a muscle.';
+}
+
+let liftEx='Overhead Press (BB)';
+function vLift(){
+  const e=EX[liftEx];
+  phone.innerHTML=`
+  <div class="hdr"><div class="t" style="font-size:18px">‹ Lifts</div></div>
+  <div class="card">
+    <div class="big">${liftEx.replace(/ \(.*\)/,'')}</div>
+    <div class="eyebrow" style="margin-top:4px">${liftEx.match(/\((.*)\)/)[1]} · ${M[e.p[0]]}</div>
+    <div class="mini" style="margin-top:12px">
+      ${svg(FRONT,'f')}${svg(BACK,'b')}
+      <div style="font-size:12px;line-height:1.7">
+        <div><span style="color:var(--accent)">●</span> <b>Primary</b><br><span style="color:var(--text2)">${e.p.map(k=>M[k]).join(', ')}</span></div>
+        ${e.s.length?`<div style="margin-top:4px"><span style="color:var(--accent);opacity:.4">●</span> <b>Secondary</b><br><span style="color:var(--text2)">${e.s.map(k=>M[k]).join(', ')}</span></div>`:''}
+      </div>
+    </div>
+  </div>
+  <div class="card" style="opacity:.55"><div class="eyebrow">e1RM chart · history · (existing content)</div><div style="height:120px"></div></div>
+  <div class="card"><div class="eyebrow">Try another exercise</div><div class="chips">${['Overhead Press (BB)','Romanian Deadlift (BB)','Pull-Ups (Bodyweight)','Dips (Bodyweight)','Bulgarian Split Squat (DB)','Face Pulls (Rope)'].map(n=>`<span class="chip ${n===liftEx?'on':''}" data-n="${n}">${n.replace(/ \(.*\)/,'')}</span>`).join('')}</div></div>`;
+  ['f','b'].forEach(id=>paint(document.getElementById(id),k=>e.p.includes(k)?['#d4ff3a',1]:e.s.includes(k)?['#d4ff3a',.35]:['#2a2a2a',1]));
+  document.querySelectorAll('.chip[data-n]').forEach(c=>c.onclick=()=>{liftEx=c.dataset.n; vLift();});
+  note.innerHTML='<b>Where:</b> the lift detail page, under the name. <b>Why:</b> new users learn what each exercise works. The same primary/secondary data drives every other map, so this costs almost nothing once the data exists.';
+}
+
+function vToday(){
+  const day='PULL', list=PLAN[day], r=setsFor(list.map(x=>[x,3])), max=Math.max(...Object.values(r.sets));
+  const hit=Object.keys(M).filter(k=>r.sets[k]>0).sort((a,b)=>r.sets[b]-r.sets[a]);
+  phone.innerHTML=`
+  <div class="hdr"><div class="t">Today</div><div class="eyebrow">Day 3 / 8</div></div>
+  <div class="card">
+    <div class="mini">
+      ${svg(FRONT,'f')}${svg(BACK,'b')}
+      <div><div style="font-size:22px;font-weight:800;color:var(--green)">PULL</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:4px">${hit.slice(0,4).map(k=>M[k]).join(' · ')}</div>
+      <div class="tnum" style="font-size:11px;color:var(--text3);margin-top:6px">${list.length} exercises · ${list.length*3} sets</div></div>
+    </div>
+  </div>
+  <div class="card">${list.map(n=>`<div class="ex"><div>${n.replace(/ \(.*\)/,'')} <span>${n.match(/\((.*)\)/)[1]}</span></div><span>${M[EX[n].p[0]]}</span></div>`).join('')}</div>`;
+  ['f','b'].forEach(id=>paint(document.getElementById(id),k=>heat(r.sets[k],max)));
+  note.innerHTML='<b>Where:</b> top of the Today tab. <b>Why:</b> a quick "this is what today hits" before you start. Nice to have, lowest priority. For users <i>without</i> a fixed program, this spot could later suggest which muscles have not been trained recently.';
+}
+
+const V={progress:vProgress,program:vProgram,lift:vLift,today:vToday};
+const phone=document.getElementById('phone'), note=document.getElementById('note');
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x===t)); V[t.dataset.v]();});
+vProgress();
+</script>
+</body>
+</html>
