@@ -874,6 +874,13 @@ svg.bm-body .n{fill:#1f1f1f;stroke:var(--bg2);stroke-width:1.1}
 .bm-mini{display:flex;gap:10px;align-items:center}
 .bm-mini svg.bm-body{max-width:54px;margin:0}
 .bm-hdr{display:flex;justify-content:space-between;align-items:center;cursor:pointer}
+.bm-pick{display:flex;gap:12px;align-items:flex-start;padding:4px 16px 10px}
+.bm-pick-figs{display:flex;gap:2px;flex-shrink:0}
+.bm-pick-figs svg.bm-body{width:62px;max-width:62px;margin:0}
+.bm-pick-side{flex:1;min-width:0;padding-top:4px}
+.bm-swap{width:32px;height:32px;flex-shrink:0;border:1px solid var(--border);background:var(--bg3);border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;color:var(--text3);margin-right:6px;font-size:15px;line-height:1}
+.bm-swap:active{color:var(--accent);border-color:var(--accent)}
+.bm-libtag{font-size:11px;color:var(--text3);margin-top:3px}
 </style>
 </head>
 <body>
@@ -882,7 +889,8 @@ svg.bm-body .n{fill:#1f1f1f;stroke:var(--bg2);stroke-width:1.1}
 <div class="fbg" id="feedback-modal">
   <div class="fsheet">
     <div style="font-size:20px;font-weight:700;margin-bottom:4px">Session complete! 💪</div>
-    <div style="font-size:13px;color:var(--text2);margin-bottom:20px">How did that feel?</div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:14px">How did that feel?</div>
+    <div id="fb-bm"></div>
     <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em">Difficulty</div>
     <div style="display:flex;gap:6px;margin-bottom:20px" id="diff-row">
       <button class="diff-btn" onclick="selectDiff(this,'Very Easy')">Very<br>Easy</button>
@@ -958,8 +966,8 @@ svg.bm-body .n{fill:#1f1f1f;stroke:var(--bg2);stroke-width:1.1}
     <div class="stitle">New Exercise</div>
     <div style="padding:0 16px 20px">
       <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px">Exercise Name</div>
-      <input id="newex-name" type="text" placeholder="e.g. Cable Row (Machine)" style="width:100%;padding:10px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:inherit;font-size:14px;outline:none;margin-bottom:14px;display:block">
-      <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px">Group / Muscle</div>
+      <input id="newex-name" type="text" oninput="bmEditGuess('add',this.value)" placeholder="e.g. Cable Row (Machine)" style="width:100%;padding:10px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:inherit;font-size:14px;outline:none;margin-bottom:14px;display:block">
+      <div id="newex-bm" style="margin:0 -16px 10px"></div><div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px">Group <span style="color:var(--text3);font-weight:400">(optional, for sorting)</span></div>
       <input id="newex-group" type="text" placeholder="e.g. Back, Core, Legs…" style="width:100%;padding:10px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:inherit;font-size:14px;outline:none;margin-bottom:14px;display:block">
       <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px">Tracking Type</div>
       <div style="display:flex;gap:8px;margin-bottom:20px">
@@ -980,7 +988,7 @@ svg.bm-body .n{fill:#1f1f1f;stroke:var(--bg2);stroke-width:1.1}
       <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px">Exercise Name</div>
       <div id="editex-name-display" style="padding:10px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text3);font-family:inherit;font-size:14px;margin-bottom:4px;word-break:break-word"></div>
       <div style="font-size:11px;color:var(--text3);margin-bottom:14px">Name cannot be changed — it would break session history.</div>
-      <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px">Group / Muscle</div>
+      <div id="editex-bm" style="margin:0 -16px 10px"></div><div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px">Group <span style="color:var(--text3);font-weight:400">(optional, for sorting)</span></div>
       <input id="editex-group" type="text" placeholder="e.g. Back, Core, Legs…" style="width:100%;padding:10px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:inherit;font-size:14px;outline:none;margin-bottom:14px;display:block">
       <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px">Tracking Type</div>
       <div style="display:flex;gap:8px;margin-bottom:20px">
@@ -1024,8 +1032,9 @@ svg.bm-body .n{fill:#1f1f1f;stroke:var(--bg2);stroke-width:1.1}
 <div class="soverlay" id="ex-sheet" onclick="if(event.target===this)closeSheet()">
   <div class="sheet">
     <div class="shandle"></div>
-    <div class="stitle">Add Exercise</div>
+    <div class="stitle" id="sheet-title">Add Exercise</div>
     <input class="ssearch" type="text" placeholder="Search or add custom…" oninput="filterSheet(this.value)" id="sheet-search">
+    <div id="sheet-bm"></div>
     <div id="sheet-list"></div>
   </div>
 </div>
@@ -1036,6 +1045,7 @@ svg.bm-body .n{fill:#1f1f1f;stroke:var(--bg2);stroke-width:1.1}
     <div class="shandle"></div>
     <div class="stitle" id="prog-sheet-title">Add to Day</div>
     <input class="ssearch" type="text" placeholder="Exercise name…" oninput="filterProgSheet(this.value)" id="prog-sheet-search">
+    <div id="prog-sheet-bm"></div>
     <div id="prog-sheet-list"></div>
   </div>
 </div>
@@ -1639,7 +1649,7 @@ const all = () => [...H, ...US].sort((a,b) => a.date.localeCompare(b.date));
 function isTimeBased(name) {
   const lib = EX_LIBRARY.find(e => e.name === name);
   if (lib) return lib.type === 'time';
-  return TIME_EX_DEFAULTS.has(name);
+  return TIME_EX_DEFAULTS.has(name)||(typeof BM_CAT_TIME!=='undefined'&&BM_CAT_TIME.has(name));
 }
 
 // ── CYCLE ──────────────────────────────────────────────────────────────────
@@ -2096,15 +2106,21 @@ function renderLibrary() {
     </div>`;
     return;
   }
-  // group by .group
+  // group by .group, or by main muscle
+  let _libBy='group'; try{_libBy=localStorage.getItem('tr-lib-by')||'group';}catch(e){}
   const grps={};
-  EX_LIBRARY.forEach(e=>{const g=e.group||'Custom';if(!grps[g])grps[g]=[];grps[g].push(e);});
-  el.innerHTML=Object.entries(grps).map(([g,exs])=>`
+  if(_libBy==='muscle'){
+    BM_KEYS.forEach(k=>grps[BM_M[k]]=[]); grps['Unknown']=[];
+    EX_LIBRARY.forEach(e=>{const p=bmMuscles(e.name).p[0]; grps[p?BM_M[p]:'Unknown'].push(e);});
+    Object.keys(grps).forEach(k=>{if(!grps[k].length)delete grps[k];});
+  } else EX_LIBRARY.forEach(e=>{const g=e.group||'Custom';if(!grps[g])grps[g]=[];grps[g].push(e);});
+  el.innerHTML=`<div class="bm-seg" style="margin:0 0 16px"><button class="${_libBy==='group'?'on':''}" onclick="setLibBy('group')">By group</button><button class="${_libBy==='muscle'?'on':''}" onclick="setLibBy('muscle')">By muscle</button></div>`+Object.entries(grps).map(([g,exs])=>`
     <div style="margin-bottom:20px">
       <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">${g}</div>
       ${exs.map(e=>`<div class="lex-row">
         <div>
           <div style="font-size:14px;font-weight:600">${e.name}</div>
+          ${bmMuscles(e.name).p.length?`<div class="bm-libtag">${bmMuscles(e.name).p.map(k=>BM_M[k]).join(' · ')}${bmMuscles(e.name).s.length?' <span style="color:var(--text4)">+ '+bmMuscles(e.name).s.map(k=>BM_M[k]).join(', ')+'</span>':''}</div>`:'<div class="bm-libtag" style="color:var(--amber)">No muscles set. Tap ✏ to pick them.</div>'}
           <div style="margin-top:4px"><span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;${e.type==='time'?'background:var(--purple)22;color:var(--purple)':'background:var(--blue)22;color:var(--blue)'}">${e.type==='time'?'⏱ TIME':'🔢 REPS'}</span></div>
         </div>
         <div style="display:flex;gap:6px;align-items:center">
@@ -2115,6 +2131,7 @@ function renderLibrary() {
     </div>`).join('');
 }
 
+function setLibBy(b){ try{localStorage.setItem('tr-lib-by',b);}catch(e){} renderLibrary(); }
 function deleteLibEx(name) {
   if(!confirm(`Remove "${name}" from library?`))return;
   EX_LIBRARY=EX_LIBRARY.filter(e=>e.name!==name);
@@ -2125,6 +2142,7 @@ function openAddLibEx() {
   newExType='reps';
   document.getElementById('newex-name').value='';
   document.getElementById('newex-group').value='';
+  _bmEdit.add={p:[],s:[],touched:false}; bmEditRender('add');
   document.getElementById('type-reps-btn').classList.add('active');
   document.getElementById('type-time-btn').classList.remove('active');
   document.getElementById('addex-sheet').classList.add('open');
@@ -2141,9 +2159,11 @@ function selectExType(type) {
 function confirmAddLibEx() {
   const name=document.getElementById('newex-name').value.trim();
   if(!name){document.getElementById('newex-name').focus();return;}
-  const group=document.getElementById('newex-group').value.trim()||'Custom';
+  const muscles=bmEditValue('add');
+  const group=document.getElementById('newex-group').value.trim()||(muscles?BM_REGION[muscles.p[0]]:'Custom');
   if(EX_LIBRARY.some(e=>e.name===name)){alert('Exercise already exists in library.');return;}
-  EX_LIBRARY.push({name,type:newExType,group});
+  const ne={name,type:newExType,group}; if(muscles) ne.muscles=muscles;
+  EX_LIBRARY.push(ne);
   saveLibrary();closeAddLibEx();renderLibrary();
 }
 
@@ -2180,7 +2200,7 @@ function ensureInLibrary(name) {
   if(EX_LIBRARY.some(e=>e.name===name))return;
   const groupMap={};
   Object.values(PLAN).forEach(gs=>gs.forEach(g=>g.ex.forEach(n=>{if(!groupMap[n])groupMap[n]=g.g;})));
-  EX_LIBRARY.push({name,type:isTimeBased(name)?'time':'reps',group:groupMap[name]||'Custom'});
+  EX_LIBRARY.push({name,type:isTimeBased(name)?'time':'reps',group:groupMap[name]||(BM_CATALOG.includes(name)?bmRegion(name):'Custom')});
   saveLibrary();
 }
 
@@ -2192,6 +2212,7 @@ function openEditLibEx(name) {
   _editLibExType=ex.type||'reps';
   document.getElementById('editex-name-display').textContent=name;
   document.getElementById('editex-group').value=ex.group||'';
+  { const g=bmMuscles(name); _bmEdit.edit={p:[...g.p],s:[...g.s],touched:false}; bmEditRender('edit'); }
   document.getElementById('editex-reps-btn').classList.toggle('active',_editLibExType==='reps');
   document.getElementById('editex-time-btn').classList.toggle('active',_editLibExType==='time');
   document.getElementById('editex-sheet').classList.add('open');
@@ -2209,6 +2230,7 @@ function confirmEditLibEx() {
   const ex=EX_LIBRARY.find(e=>e.name===_editLibExName);if(!ex)return;
   ex.group=document.getElementById('editex-group').value.trim()||ex.group||'Custom';
   ex.type=_editLibExType;
+  if(_bmEdit.edit.touched){ const mv=bmEditValue('edit'); if(mv) ex.muscles=mv; else delete ex.muscles; }
   saveLibrary();closeEditLibEx();renderLibrary();
 }
 
@@ -2217,6 +2239,7 @@ function openFeedback() {
   selectedDifficulty='Moderate';
   document.querySelectorAll('.diff-btn').forEach(b=>b.classList.toggle('active',b.textContent.trim()==='Moderate'));
   document.getElementById('fb-comment').value='';
+  try{ document.getElementById('fb-bm').innerHTML=bmSessionHtml(pendingSession?.exercises); }catch(e){}
   document.getElementById('feedback-modal').classList.add('open');
 }
 
@@ -3130,7 +3153,7 @@ function renderFocusExercise(ex,ei,total){
         <div class="fexb-name">${ex.name}${tb?'<span class="tbadge-ex">TIME</span>':''}</div>
         ${bestLine}
       </div>
-      <button class="fex-del" onclick="removeExWk(${ei})" title="Remove exercise from this workout"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
+      <button class="bm-swap" onclick="openSwapWk(${ei})" title="Swap for another exercise">⇄</button><button class="fex-del" onclick="removeExWk(${ei})" title="Remove exercise from this workout"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
       <div class="fexb-mv">
         <button class="fmv-btn" onclick="moveExWk(${ei},'up')" ${canUp?'':'disabled'}>▲</button>
         <button class="fmv-btn" onclick="moveExWk(${ei},'down')" ${canDown?'':'disabled'}>▼</button>
@@ -3188,7 +3211,7 @@ function renderTableExercise(ex,ei,total){
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
-        <button class="fex-del" onclick="removeExWk(${ei})" title="Remove exercise from this workout"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
+        <button class="bm-swap" onclick="openSwapWk(${ei})" title="Swap for another exercise">⇄</button><button class="fex-del" onclick="removeExWk(${ei})" title="Remove exercise from this workout"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
         <button class="addset" onclick="addSet(${ei})">+ Set</button>
       </div>
     </div>
@@ -3351,40 +3374,82 @@ function startRest(secs) {
 function skipRest(){clearInterval(restInterval);document.getElementById('rest-toast').classList.remove('show');}
 function adjustRest(delta){restSecs=Math.max(5,restSecs+delta);document.getElementById('rest-cnt').textContent=restSecs;}
 
+// Workout "Add exercise" / "Swap" sheet with body-map filter
+let _wkPick={muscle:null,swap:null};
 function openSheet() {
+  _wkPick={muscle:null,swap:null};
+  document.getElementById('sheet-title').textContent='Add Exercise';
   document.getElementById('ex-sheet').classList.add('open');
   document.getElementById('sheet-search').value='';filterSheet('');
-  setTimeout(()=>document.getElementById('sheet-search').focus(),100);
+}
+function openSwapWk(ei){
+  const ex=activeWorkout?.exercises[ei]; if(!ex) return;
+  _wkPick={muscle:null,swap:{ei,name:ex.name}};
+  document.getElementById('sheet-title').textContent='Swap '+_shortName(ex.name);
+  document.getElementById('ex-sheet').classList.add('open');
+  document.getElementById('sheet-search').value='';filterSheet('');
 }
 function closeSheet() {document.getElementById('ex-sheet').classList.remove('open');}
+function wkPickMuscle(k){ _wkPick.muscle=_wkPick.muscle===k?null:k; filterSheet(document.getElementById('sheet-search').value); }
+function wkPickEx(name, isCustom=false){ if(_wkPick.swap) doSwapWk(name); else addExWk(name,isCustom); }
 
 function filterSheet(v) {
   const added=new Set(activeWorkout?.exercises.map(e=>e.name)||[]);
   const dt=activeWorkout?.dayType;
   const groups=getPlanEx(dt);
+  const m=_wkPick.muscle, sw=_wkPick.swap;
+  // Figure: muscles already in this workout are lit
+  const cur=bmFromList((activeWorkout?.exercises||[]).map(e=>[e.name,Math.max(1,e.sets.filter(s=>!s.wu).length)]));
+  const fill=k=>k===m?['#d4ff3a',1]:cur.sets[k]>0?['#d4ff3a',.3]:['#2a2a2a',1];
+  document.getElementById('sheet-bm').innerHTML=bmPickerHead(fill,m,'wkPickMuscle',
+    `<span style="color:var(--accent);opacity:.6">●</span> already in this workout`);
+  const chk=n=>added.has(n)?'<div class="schk"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>':'';
+  const planNames=[...new Set(groups.flatMap(g=>g.ex))];
+  const libNames=bmUserExNames().filter(n=>!planNames.includes(n)).sort();
+  const catNames=bmCatalogNew([...planNames,...libNames]);
   let html='';
-  groups.forEach(g=>{
-    const f=g.ex.filter(n=>!v||n.toLowerCase().includes(v.toLowerCase()));
-    if(!f.length)return;
-    html+=`<div class="sglbl">${g.g}</div>`;
-    f.forEach(n=>{
-      const tb=isTimeBased(n);
-      html+=`<div class="sitem" onclick="addExWk('${n.replace(/'/g,"\\'")}')"><div><div class="sitem-name">${n}${tb?'<span class="tbadge-ex">TIME</span>':''}</div></div>${added.has(n)?'<div class="schk"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>':''}</div>`;
+  if(sw && !m){
+    // Swap: best alternatives for the same main muscles
+    const alts=bmFilter(bmAlternatives(sw.name,[...planNames,...libNames,...catNames]).filter(n=>!added.has(n)),v,null);
+    html+=`<div class="sglbl">Same muscles as ${_esc(_shortName(sw.name))}</div>`;
+    html+=alts.length?alts.slice(0,25).map(n=>bmItem(n,'wkPickEx',null)).join(''):`<div style="padding:12px 16px;color:var(--text3);font-size:13px">No close match. Tap a muscle above or search.</div>`;
+  } else {
+    groups.forEach(g=>{
+      const f=bmFilter(g.ex,v,m); if(!f.length) return;
+      html+=`<div class="sglbl">${_esc(g.g)}</div>`+f.map(n=>bmItem(n,'wkPickEx',m,chk(n))).join('');
     });
-  });
-  // Library exercises not already in plan groups
-  const planExNames=new Set(groups.flatMap(g=>g.ex));
-  const libEx=EX_LIBRARY.filter(e=>!planExNames.has(e.name)&&(!v||e.name.toLowerCase().includes(v.toLowerCase())));
-  if(libEx.length){
-    html+=`<div class="sglbl">Library</div>`;
-    libEx.forEach(e=>{
-      html+=`<div class="sitem" onclick="addExWk('${e.name.replace(/'/g,"\\'")}')"><div><div class="sitem-name">${e.name}${e.type==='time'?'<span class="tbadge-ex">TIME</span>':''}</div></div>${added.has(e.name)?'<div class="schk"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>':''}</div>`;
-    });
+    const lf=bmFilter(libNames,v,m);
+    if(lf.length) html+=`<div class="sglbl">Your exercises</div>`+lf.map(n=>bmItem(n,'wkPickEx',m,chk(n))).join('');
+    if(v||m){ const cf=bmFilter(catNames,v,m); if(cf.length) html+=`<div class="sglbl">All exercises</div>`+cf.map(n=>bmItem(n,'wkPickEx',m)).join(''); }
+    else if(catNames.length) html+=`<div class="sglbl">All exercises</div><div style="padding:8px 16px 14px;color:var(--text3);font-size:12px">${catNames.length} more exercises. Tap a muscle or search to see them.</div>`;
   }
-  const allKnown=new Set([...groups.flatMap(g=>g.ex),...EX_LIBRARY.map(e=>e.name)]);
+  const allKnown=new Set([...planNames,...libNames,...BM_CATALOG]);
   if(v&&![...allKnown].some(n=>n.toLowerCase()===v.toLowerCase()))
-    html+=`<div class="sglbl">Custom</div><div class="sitem" onclick="addExWk('${v.replace(/'/g,"\\'")}',true)"><div><div class="sitem-name">+ "${v}"</div><div class="sitem-sub">Add as custom</div></div></div>`;
+    html+=`<div class="sglbl">Custom</div><div class="sitem" onclick="wkPickEx('${_jsq(v)}',true)"><div><div class="sitem-name">+ "${_esc(v)}"</div><div class="sitem-sub">${sw?'Swap to custom exercise':'Add as custom'}</div></div></div>`;
   document.getElementById('sheet-list').innerHTML=html||`<div style="padding:20px;text-align:center;color:var(--text3)">No results</div>`;
+}
+
+// Swap during a workout: done sets stay on the old exercise, the new one starts fresh
+function doSwapWk(newName){
+  const sw=_wkPick.swap; _wkPick.swap=null;
+  closeSheet();
+  if(!activeWorkout||!sw) return;
+  const ei=sw.ei, ex=activeWorkout.exercises[ei];
+  if(!ex||ex.name!==sw.name) return;
+  if(activeWorkout.exercises.some(e=>e.name===newName)){ alert(`"${newName}" is already in this workout.`); return; }
+  ensureInLibrary(newName);
+  const neu={name:newName,sets:buildSets(newName,activeWorkout.date,activeWorkout.dayType)};
+  const hasDone=ex.sets.some(s=>s.done);
+  if(hasDone){
+    ex.sets=ex.sets.filter(s=>s.done);
+    activeWorkout.exercises.splice(ei+1,0,neu);
+    if(activeWorkout._activeSet){ const nx={}; Object.keys(activeWorkout._activeSet).forEach(k=>{const i=+k; nx[i>ei?i+1:i]=activeWorkout._activeSet[k];}); delete nx[ei]; activeWorkout._activeSet=nx; }
+  } else {
+    activeWorkout.exercises[ei]=neu;
+    if(activeWorkout._activeSet) delete activeWorkout._activeSet[ei];
+  }
+  renderWkEx();
+  persistWorkout();
 }
 
 function addExWk(name, isCustom=false) {
@@ -4130,10 +4195,11 @@ function renderProgGroups(dayType) {
           <button class="ex-mv" onclick="moveExInPlan('${dtSafe}','${safe}','down')" ${fi===flat.length-1?'style="opacity:.2;pointer-events:none"':''}>▼</button>
         </div>
         <div style="flex:1;min-width:0">
-          <div class="cd-ex-name">${nm}</div>
+          <div class="cd-ex-name">${nm}</div>${bmMuscles(nm).p.length?`<div class="bm-libtag">${bmMuscles(nm).p.map(k=>BM_M[k]).join(' · ')}</div>`:''}
         </div>
         <button onclick="editExTarget('${dtSafe}','${safe}')" style="font-size:11px;font-weight:700;color:var(--accent);background:rgba(212,255,58,.1);border:1px solid rgba(212,255,58,.25);border-radius:8px;padding:3px 8px;cursor:pointer;flex-shrink:0;font-family:var(--fm)">${setsLbl}</button>
       </div>
+      <button class="rmex-btn" onclick="openSwapProg('${dtSafe}','${safe}')" title="Swap for another exercise" style="font-size:15px">⇄</button>
       <button class="rmex-btn" onclick="removeExFromPlan('${dtSafe}','${safe}')">−</button>
     </div>`;
   }).join('');
@@ -4181,30 +4247,71 @@ function removeExFromPlan(dayType, exName) {
 }
 
 let progSheetDayType='';
+let _progPick={muscle:null,swap:null};
 function openProgSheet(dayType) {
   progSheetDayType=dayType;
+  _progPick={muscle:null,swap:null};
   document.getElementById('prog-sheet-title').textContent=`Add to ${dayType}`;
   document.getElementById('prog-sheet-search').value='';filterProgSheet('');
   document.getElementById('prog-sheet').classList.add('open');
-  setTimeout(()=>document.getElementById('prog-sheet-search').focus(),100);
+}
+function openSwapProg(dayType, name){
+  progSheetDayType=dayType;
+  _progPick={muscle:null,swap:{name}};
+  document.getElementById('prog-sheet-title').textContent=`Swap ${_shortName(name)}`;
+  document.getElementById('prog-sheet-search').value='';filterProgSheet('');
+  document.getElementById('prog-sheet').classList.add('open');
 }
 function closeProgSheet(){document.getElementById('prog-sheet').classList.remove('open');}
+function progPickMuscle(k){ _progPick.muscle=_progPick.muscle===k?null:k; filterProgSheet(document.getElementById('prog-sheet-search').value); }
+function progPickEx(name, isNew=false){ if(_progPick.swap) doSwapProg(name); else addExToPlan(name,isNew); }
 
 function filterProgSheet(v) {
-  const existing=new Set((_getEditPlan()[progSheetDayType]||[]).flatMap(g=>g.ex));
-  const allKnown=new Set([
-    ...Object.values(DEFAULT_PLAN).flatMap(gs=>gs.flatMap(g=>g.ex)),
-    ...EX_LIBRARY.map(e=>e.name)
-  ]);
-  const filtered=[...allKnown].filter(n=>(!v||n.toLowerCase().includes(v.toLowerCase()))&&!existing.has(n)).sort();
-  let html=filtered.map(n=>{
-    const tb=isTimeBased(n);
-    return `<div class="sitem" onclick="addExToPlan('${n.replace(/'/g,"\\'")}')"><div class="sitem-name">${n}${tb?'<span class="tbadge-ex">TIME</span>':''}</div></div>`;
-  }).join('');
-  if(v&&![...allKnown].some(n=>n.toLowerCase()===v.toLowerCase()&&!existing.has(n))){
-    html+=`<div class="sitem" onclick="addExToPlan('${v.replace(/'/g,"\\'")}',true)"><div><div class="sitem-name">+ "${v}"</div><div class="sitem-sub">Add new exercise</div></div></div>`;
+  const plan=_getEditPlan();
+  const existing=new Set((plan[progSheetDayType]||[]).flatMap(g=>g.ex));
+  const known=bmUserExNames().filter(n=>!existing.has(n)).sort();
+  const cat=bmCatalogNew([...known,...existing]);
+  const m=_progPick.muscle, sw=_progPick.swap;
+  // Figure coloured by weekly coverage of the plan being edited
+  const prog=_editProgId?PROGRAMS.find(p=>p.id===_editProgId):null;
+  const cov=bmPlanned(_getEditCycle().map(c=>c.dayType),dt=>plan[dt],(dt,nm)=>prog?.planMeta?.[dt]?.[nm]?.sets||3);
+  const low=BM_KEYS.filter(k=>cov.sets[k]<bmTgt(k)[0]).sort((a,b)=>cov.sets[a]/bmTgt(a)[0]-cov.sets[b]/bmTgt(b)[0]);
+  const fill=k=>[bmZoneColor(k,cov.sets[k]),k===m||!m?1:.45];
+  const chips=low.length&&!m?`<div class="eyebrow" style="margin-top:10px;color:var(--amber)">Light in this plan</div><div class="bm-chips" style="margin-top:4px">${low.slice(0,4).map(k=>`<button class="bm-chip warn" onclick="progPickMuscle('${k}')">${BM_M[k]}</button>`).join('')}</div>`:'';
+  document.getElementById('prog-sheet-bm').innerHTML=bmPickerHead(fill,m,'progPickMuscle','Colours = sets per week in this plan',chips);
+  let html='';
+  if(sw && !m){
+    const alts=bmFilter(bmAlternatives(sw.name,[...known,...cat]),v,null);
+    html+=`<div class="sglbl">Same muscles as ${_esc(_shortName(sw.name))}</div>`;
+    html+=alts.length?alts.slice(0,25).map(n=>bmItem(n,'progPickEx',null)).join(''):`<div style="padding:12px 16px;color:var(--text3);font-size:13px">No close match. Tap a muscle above or search.</div>`;
+  } else {
+    const kf=bmFilter(known,v,m);
+    if(kf.length) html+=`<div class="sglbl">Your exercises</div>`+kf.map(n=>bmItem(n,'progPickEx',m)).join('');
+    const cf=bmFilter(cat,v,m);
+    if(cf.length) html+=`<div class="sglbl">All exercises</div>`+cf.map(n=>bmItem(n,'progPickEx',m)).join('');
   }
-  document.getElementById('prog-sheet-list').innerHTML=html||`<div style="padding:20px;text-align:center;color:var(--text3)">All exercises already added</div>`;
+  const allN=[...known,...BM_CATALOG,...existing];
+  if(v&&!allN.some(n=>n.toLowerCase()===v.toLowerCase())){
+    html+=`<div class="sitem" onclick="progPickEx('${_jsq(v)}',true)"><div><div class="sitem-name">+ "${_esc(v)}"</div><div class="sitem-sub">${sw?'Swap to new exercise':'Add new exercise'}</div></div></div>`;
+  }
+  document.getElementById('prog-sheet-list').innerHTML=html||`<div style="padding:20px;text-align:center;color:var(--text3)">No results</div>`;
+}
+
+// Swap in the program editor: same position, sets/reps target carried over
+function doSwapProg(newName){
+  const sw=_progPick.swap; _progPick.swap=null;
+  closeProgSheet();
+  if(!sw) return;
+  const dt=progSheetDayType, plan=_getEditPlan(), groups=plan[dt]; if(!groups) return;
+  if(groups.some(g=>g.ex.includes(newName))){ alert(`"${newName}" is already in this day.`); return; }
+  groups.forEach(g=>{ g.ex=g.ex.map(n=>n===sw.name?newName:n); });
+  if(_editProgId){ const prog=PROGRAMS.find(p=>p.id===_editProgId); const pm=prog?.planMeta?.[dt];
+    if(pm&&pm[sw.name]){ pm[newName]=pm[sw.name]; delete pm[sw.name]; } }
+  ensureInLibrary(newName);
+  _saveEditPlan(); renderProgram();
+  const key=dt.replace(/[\s()]/g,'_');
+  document.getElementById(`prog-body-${key}`)?.classList.add('open');
+  if(document.getElementById(`prog-arrow-${key}`)) document.getElementById(`prog-arrow-${key}`).textContent='∨';
 }
 
 function addExToPlan(name, isNew=false) {
@@ -4564,16 +4671,26 @@ const BM_GROUP=[
   [/back/,['lats','traps'],[]],[/leg/,['quads','hamstrings'],['glutes']],[/core|abs/,['abs'],['obliques']],
 ];
 const _bmCache={};
+let _bmLibRef=null, _bmLibLen=-1, _bmLibMap=new Map();
+function _bmLibEntry(name){
+  if(typeof EX_LIBRARY==='undefined') return null;
+  if(EX_LIBRARY!==_bmLibRef||EX_LIBRARY.length!==_bmLibLen){ _bmLibRef=EX_LIBRARY; _bmLibLen=EX_LIBRARY.length; _bmLibMap=new Map(EX_LIBRARY.map(e=>[e.name,e])); }
+  return _bmLibMap.get(name)||null;
+}
 function bmMuscles(name){
+  // Muscles picked by the user in the library always win
+  const le=_bmLibEntry(name);
+  if(le&&le.muscles&&Array.isArray(le.muscles.p)&&le.muscles.p.length) return {p:le.muscles.p.filter(k=>BM_M[k]),s:(le.muscles.s||[]).filter(k=>BM_M[k])};
   if(_bmCache[name]) return _bmCache[name];
   const n=String(name).toLowerCase().replace(/\s*\([^)]*\)\s*$/,'');
   let r=null;
   for(const [re,p,s] of BM_RULES) if(re.test(n)){ r={p,s}; break; }
   if(!r){
-    const g=((typeof EX_LIBRARY!=='undefined'&&EX_LIBRARY.find(e=>e.name===name)?.group)||'').toLowerCase();
+    const g=(le?.group||'').toLowerCase();
     for(const [re,p,s] of BM_GROUP) if(re.test(g)){ r={p,s}; break; }
+    return r||{p:[],s:[]}; // not cached: depends on library group text, which can change
   }
-  return _bmCache[name]=r||{p:[],s:[]};
+  return _bmCache[name]=r;
 }
 // list: [[exerciseName, sets], ...] → {sets:{muscle:n}, from:{muscle:{exName:{v,sec}}}}
 function bmFromList(list, factor=1){
@@ -4740,6 +4857,131 @@ function bmTodayHtml(exList, dayType, dateStr){
     <div style="min-width:0"><div class="eyebrow">Muscles today</div><div style="font-size:12px;color:var(--text2);margin-top:4px;line-height:1.5">${top.slice(0,5).map(k=>BM_M[k]).join(' · ')}</div></div></div>`;
 }
 
+// ── STARTER EXERCISE CATALOGUE ─────────────────────────────────────────────
+// Shown in the "Add exercise" lists only. An exercise joins the library when it is used.
+const BM_CATALOG=[
+ 'Bench Press (BB)','Bench Press (DB)','Incline Press (BB)','Incline Press (DB)','Incline Press (Machine)','Chest Press (Machine)','Decline Press (BB)',
+ 'Chest Fly (DB)','Chest Fly (Cable)','High-to-Low Fly (Cable)','Pec Deck (Machine)','Push-Ups (Bodyweight)','Deficit Push-Ups (Bodyweight)','Dips (Bodyweight)',
+ 'Overhead Press (BB)','Overhead Press (DB)','Shoulder Press (Machine)','Arnold Press (DB)','Pike Push-Ups (Bodyweight)','Lateral Raises (DB)','Lateral Raise (Cable)',
+ 'Front Raise (DB)','Rear-Delt Raises (DB)','Reverse Fly (Machine)','Face Pulls (Rope)','Upright Row (BB)','Shrugs (DB)',
+ 'Pull-Ups (Bodyweight)','Chin-Ups (Bodyweight)','Lat Pulldown (Machine)','Straight-Arm Pulldown (Cable)','Bent Over Row (BB)','Bent Over Row (DB)','Single-Arm Row (DB)',
+ 'Chest-Supported Row (Machine)','Seated Row (Machine)','Cable Row (Cable)','T-Bar Row (BB)','Inverted Row (Bodyweight)','Deadlift (BB)','Back Extension (Bodyweight)','Dead Hang (Bodyweight)',
+ 'Bicep Curl (BB)','Bicep Curl (DB)','Hammer Curl (DB)','Preacher Curl (Machine)','Incline Curl (DB)','Cable Curl (Cable)','Triceps Pushdown (Rope)','Tricep Pushdown (Cable)',
+ 'Skull Crusher (BB)','Single-Arm Overhead Triceps (DB)','Overhead Tricep (Cable)','Close Grip Bench (BB)','Chair Dips (Bodyweight)','Wrist Curl (DB)','Farmer Carry (DB)',
+ 'Back Squat (BB)','Front Squat (BB)','Goblet Squat (DB)','Hack Squat (Machine)','Leg Press (Machine)','Bulgarian Split Squat (DB)','Walking Lunges (BB)','Reverse Lunges (Bodyweight)',
+ 'Lunge (DB)','Step-Up (DB)','Romanian Deadlift (BB)','Romanian Deadlift (DB)','Leg Curl (Machine)','Nordic Curl (Bodyweight)','Leg Extension (Machine)','Hip Thrust (BB)',
+ 'Glute Bridge (Bodyweight)','Hip Abduction (Machine)','Hip Adduction (Machine)','Standing Calf Raises (Machine)','Seated Calf Raises (Machine)','Air Squat (Bodyweight)','Wall Sit (Bodyweight)',
+ 'Plank (Bodyweight)','Side Plank (Bodyweight)','Crunch (Machine)','Cable Crunch (Cable)','Hanging Knee Raise (Bodyweight)','Hanging Leg Raise (Bodyweight)','Ab Wheel (Bodyweight)',
+ 'Russian Twist (Bodyweight)','Cable Woodchop (Cable)','Pallof Press (Cable)','Dead Bug (Bodyweight)','L-Sit (Bodyweight)'
+];
+const BM_CAT_TIME=new Set(['Plank (Bodyweight)','Side Plank (Bodyweight)','Dead Hang (Bodyweight)','Wall Sit (Bodyweight)','L-Sit (Bodyweight)','Farmer Carry (DB)']);
+const BM_REGION={chest:'Chest',frontDelt:'Shoulders',sideDelt:'Shoulders',rearDelt:'Shoulders',traps:'Back',lats:'Back',lowerBack:'Back',
+  biceps:'Arms',triceps:'Arms',forearms:'Arms',quads:'Legs',hamstrings:'Legs',glutes:'Legs',calves:'Legs',abs:'Core',obliques:'Core'};
+function bmRegion(name){ const p=bmMuscles(name).p[0]; return p?BM_REGION[p]:'Custom'; }
+// "Lateral Raise (DB)" and "Lateral Raises (DB)" count as the same exercise
+function bmNorm(n){ return String(n).toLowerCase().split(/[^a-z0-9]+/).filter(Boolean).map(w=>w.length>2?w.replace(/s$/,''):w).join(' '); }
+function bmKnownNorms(){
+  const s=new Set();
+  try{ EX_LIBRARY.forEach(e=>s.add(bmNorm(e.name))); }catch(e){}
+  try{ allExNames().forEach(n=>s.add(bmNorm(n))); }catch(e){}
+  try{ [PLAN,DEFAULT_PLAN].forEach(pl=>Object.values(pl).forEach(gs=>gs.forEach(g=>(g.ex||[]).forEach(n=>s.add(bmNorm(n)))))); }catch(e){}
+  try{ PROGRAMS.forEach(p=>Object.values(p.plan||{}).forEach(gs=>gs.forEach(g=>(g.ex||[]).forEach(n=>s.add(bmNorm(n)))))); }catch(e){}
+  return s;
+}
+// Every exercise the user already has: library, history and all plans
+function bmUserExNames(){
+  const s=new Set();
+  try{ EX_LIBRARY.forEach(e=>s.add(e.name)); }catch(e){}
+  try{ allExNames().forEach(n=>s.add(n)); }catch(e){}
+  try{ [PLAN,DEFAULT_PLAN].forEach(pl=>Object.values(pl).forEach(gs=>gs.forEach(g=>(g.ex||[]).forEach(n=>s.add(n))))); }catch(e){}
+  try{ PROGRAMS.forEach(p=>Object.values(p.plan||{}).forEach(gs=>gs.forEach(g=>(g.ex||[]).forEach(n=>s.add(n))))); }catch(e){}
+  return [...s];
+}
+// Catalogue entries the user does not have yet (under any spelling)
+function bmCatalogNew(exclude){ const k=bmKnownNorms(); (exclude||[]).forEach(n=>k.add(bmNorm(n))); return BM_CATALOG.filter(n=>!k.has(bmNorm(n))); }
+function bmTag(name, m){
+  const x=bmMuscles(name); if(!x.p.length) return '';
+  const part=m&&!x.p.includes(m);
+  return `<div class="sitem-sub">${x.p.map(k=>BM_M[k]).join(' · ')}${part?` <span style="color:var(--text4)">· partly ${BM_M[m]}</span>`:''}</div>`;
+}
+function bmFilter(names, q, m){
+  q=(q||'').toLowerCase().trim();
+  let out=names.filter(n=>!q||n.toLowerCase().includes(q));
+  if(m){ out=out.filter(n=>{const x=bmMuscles(n);return x.p.includes(m)||x.s.includes(m);});
+    out=[...out.filter(n=>bmMuscles(n).p.includes(m)),...out.filter(n=>!bmMuscles(n).p.includes(m))]; }
+  return out;
+}
+// Exercises that train the same main muscles (best first)
+function bmAlternatives(name, pool){
+  const a=bmMuscles(name); if(!a.p.length) return [];
+  const known=bmKnownNorms();
+  return [...new Set(pool)].filter(n=>n!==name).map(n=>{
+    const b=bmMuscles(n); let s=0;
+    a.p.forEach(k=>{ if(b.p.includes(k)) s+=2; else if(b.s.includes(k)) s+=.5; });
+    b.p.forEach(k=>{ if(!a.p.includes(k)&&!a.s.includes(k)) s-=.75; });
+    if(known.has(bmNorm(n))) s+=.3;
+    if(b.p.length===a.p.length&&b.p.every(k=>a.p.includes(k))) s+=.4;   // same main muscles exactly
+    if(_tool(n)===_tool(name)) s+=.15;                                    // same equipment
+    if(isTimeBased(n)!==isTimeBased(name)) s-=.6;                         // don't swap reps for a hold
+    if(/adduct|abduct/i.test(n)!==/adduct|abduct/i.test(name)) s-=1;      // hip machines are not real swaps
+    return [n,s];
+  }).filter(x=>x[1]>=1.25).sort((x,y)=>y[1]-x[1]).map(x=>x[0]);
+}
+// Compact tappable figure used at the top of the pickers
+function bmPickerHead(fill, sel, onTap, legend, chips){
+  return `<div class="bm-pick">
+    <div class="bm-pick-figs">${bmSvg('front',fill,sel,onTap)}${bmSvg('back',fill,sel,onTap)}</div>
+    <div class="bm-pick-side">
+      <div class="eyebrow">Filter by muscle</div>
+      ${sel?`<button class="bm-chip on" style="margin-top:6px" onclick="${onTap}('${sel}')">${BM_M[sel]} ✕</button>`:`<div style="font-size:11px;color:var(--text3);margin-top:4px;line-height:1.4">Tap a muscle on the body</div>`}
+      ${chips||''}
+      ${legend?`<div style="font-size:10px;color:var(--text3);margin-top:8px;line-height:1.4">${legend}</div>`:''}
+    </div>
+  </div>`;
+}
+function bmItem(name, onclick, m, right){
+  const tb=isTimeBased(name)||BM_CAT_TIME.has(name);
+  return `<div class="sitem" onclick="${onclick}('${_jsq(name)}')"><div style="min-width:0"><div class="sitem-name">${_esc(name)}${tb?'<span class="tbadge-ex">TIME</span>':''}</div>${bmTag(name,m)}</div>${right||''}</div>`;
+}
+
+// Muscle editor for the New / Edit exercise sheets (tap: main → secondary → off)
+const _bmEdit={add:{p:[],s:[],touched:false},edit:{p:[],s:[],touched:false}};
+function bmEditRender(which){
+  const st=_bmEdit[which], el=document.getElementById(which==='add'?'newex-bm':'editex-bm'); if(!el) return;
+  const fill=k=>st.p.includes(k)?['#d4ff3a',1]:st.s.includes(k)?['#d4ff3a',.38]:['#2a2a2a',1];
+  el.innerHTML=`<div class="bm-pick">
+    <div class="bm-pick-figs">${bmSvg('front',fill,null,which==='add'?'bmEditTapAdd':'bmEditTapEdit')}${bmSvg('back',fill,null,which==='add'?'bmEditTapAdd':'bmEditTapEdit')}</div>
+    <div class="bm-pick-side" style="font-size:12px;line-height:1.5">
+      <div class="eyebrow">Muscles</div>
+      <div style="font-size:11px;color:var(--text3);margin:4px 0 6px">Tap once = main, twice = secondary, again = off.</div>
+      <div><span style="color:var(--accent)">●</span> ${st.p.map(k=>BM_M[k]).join(', ')||'<span style="color:var(--text3)">none</span>'}</div>
+      <div><span style="color:var(--accent);opacity:.4">●</span> ${st.s.map(k=>BM_M[k]).join(', ')||'<span style="color:var(--text3)">none</span>'}</div>
+    </div></div>`;
+}
+function _bmEditTap(which,k){
+  const st=_bmEdit[which]; st.touched=true;
+  if(st.p.includes(k)){ st.p=st.p.filter(x=>x!==k); st.s.push(k); }
+  else if(st.s.includes(k)){ st.s=st.s.filter(x=>x!==k); }
+  else st.p.push(k);
+  bmEditRender(which);
+}
+function bmEditTapAdd(k){ _bmEdit.add.touched=true; _bmEditTap('add',k); }
+function bmEditTapEdit(k){ _bmEditTap('edit',k); }
+function bmEditGuess(which,name){ const st=_bmEdit[which]; if(st.touched) return; const m=bmMuscles(name||''); st.p=[...m.p]; st.s=[...m.s]; bmEditRender(which); }
+function bmEditValue(which){ const st=_bmEdit[which]; return st.p.length?{p:[...st.p],s:[...st.s]}:null; }
+
+// After a workout: what you trained
+function bmSessionHtml(exercises){
+  const r=bmFromList((exercises||[]).map(ex=>[ex.name,(ex.sets||[]).filter(s=>!s.wu).length]));
+  const top=BM_KEYS.filter(k=>r.sets[k]>0).sort((a,b)=>r.sets[b]-r.sets[a]);
+  if(!top.length) return '';
+  const mx=Math.max(...top.map(k=>r.sets[k]));
+  const fill=k=>r.sets[k]>0.01?['#d4ff3a',.25+.75*Math.min(1,r.sets[k]/mx)]:['#2a2a2a',1];
+  return `<div class="bm-mini" style="background:var(--bg3);border-radius:12px;padding:10px;margin-bottom:18px">${bmSvg('front',fill)}${bmSvg('back',fill)}
+    <div style="min-width:0"><div class="eyebrow">You trained</div>
+    <div style="font-size:12px;color:var(--text2);margin-top:4px;line-height:1.6">${top.slice(0,6).map(k=>`${BM_M[k]} <span class="tnum" style="color:var(--text3)">${bmFmt(r.sets[k])}</span>`).join('<br>')}</div></div></div>`;
+}
+
 function muscleOf(name){
   const n=name.toLowerCase();
   if(/wall sit|squat|lunge|leg press|leg curl|leg extension|deadlift|rdl|calf|hip thrust|step-up/.test(n)) return 'Legs';
@@ -4789,7 +5031,7 @@ function _tool(n){ return n.match(/\(([^)]+)\)\s*$/)?.[1]||''; }
 
 // ── LOG v2: weekly timeline, newest first ───────────────────────────────────
 let _logFilter='all', _logWeeks=6;
-const APP_VERSION='v84';
+const APP_VERSION='v85';
 
 // Shared missed-day logic (Progress → Block and Log use the same list)
 // Past training days with nothing logged; a workout on a rest day makes up the oldest open miss.
