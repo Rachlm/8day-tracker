@@ -612,6 +612,14 @@ body{font-family:var(--fb);background:var(--bg);color:var(--text);font-size:14px
 .v4hero-row-n{font-size:13px;color:var(--text);font-weight:600}
 .v4hero-row-s{font-size:9px;color:var(--text3);font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-top:2px;font-family:var(--fb)}
 .v4hero-row-r{font-family:var(--fm);font-size:11px;color:var(--text2)}
+.v4last{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:-6px 20px 14px;padding:8px 10px;background:var(--bg3);border-radius:8px;font-family:var(--fm);font-size:11px;color:var(--text2);cursor:pointer}
+.v4last b{color:var(--text3);font-family:var(--fb);font-size:9px;letter-spacing:.1em;text-transform:uppercase;font-weight:700}
+.v4last .pr{color:var(--amber)}
+.v4sub-eyebrow{font-size:9px;color:var(--text3);font-weight:700;letter-spacing:.1em;text-transform:uppercase;font-family:var(--fb);margin-bottom:2px}
+.v4done{padding:0 20px 14px}
+.v4done .v4-cycsum-grid{margin-top:0}
+.v4done-line{margin-top:10px;font-family:var(--fm);font-size:11px;color:var(--text2);line-height:1.5}
+.v4link{background:none;border:none;color:var(--text2);font-family:var(--fb);font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;padding:4px 0}
 .v4hero-more{font-size:9px;color:var(--text4);font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-top:6px;font-family:var(--fb)}
 .v4hero-cta{padding:14px}
 .v4btn{width:100%;padding:14px 16px;border-radius:10px;border:none;cursor:pointer;font-family:var(--fb);font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;transition:opacity .15s}
@@ -1897,13 +1905,20 @@ function startListeners() {
   const tid=trainerId();
   if(unsubS)unsubS();if(unsubM)unsubM();
   unsubS=db.collection(`trainers/${tid}/sessions`).onSnapshot(snap=>{
-    US=snap.docs.map(d=>d.data());
-    // Always ensure holiday sessions exist — add+save to Firebase if not present
+    const _docs=snap.docs.map(d=>d.data());
+    US=_docs.filter(s=>!s.deleted);
+    // Seed holiday sessions once. A deleted seed leaves a {deleted:true} tombstone
+    // doc so it is never re-added (on any device).
+    const _tombs=_seedTombs();
     _HOL_SESSIONS.forEach(sess=>{
-      if(!US.find(s=>s.id===sess.id)){
+      const doc=_docs.find(s=>s.id===sess.id);
+      if(_tombs.includes(sess.id)){
+        if(!doc||!doc.deleted) db.doc(`trainers/${tid}/sessions/${sess.id}`).set({id:sess.id,deleted:true}).catch(()=>{});
+        US=US.filter(s=>s.id!==sess.id);
+      } else if(!doc){
         US.push(sess);
         db.doc(`trainers/${tid}/sessions/${sess.id}`).set(sess).catch(()=>{});
-      }
+      } else if(doc.deleted){ _addSeedTomb(sess.id); }
     });
     localStorage.setItem('tr-sess-v4',JSON.stringify(US));
     try{ migrateSessionNames(); }catch(e){ console.error('name migration',e); }
@@ -1948,14 +1963,19 @@ async function updateSession(sess) {
   refreshActiveView();
 }
 
+function _seedTombs(){ try{return JSON.parse(localStorage.getItem('tr-seed-tomb-v1')||'[]');}catch(e){return [];} }
+function _addSeedTomb(id){ const t=_seedTombs(); if(!t.includes(id)){t.push(id);try{localStorage.setItem('tr-seed-tomb-v1',JSON.stringify(t));}catch(e){}} }
 async function deleteSession(id) {
   if(!confirm('Delete this session? This cannot be undone.'))return;
+  const isSeed=_HOL_SESSIONS.some(s=>s.id===id);
+  if(isSeed)_addSeedTomb(id);
   US=US.filter(s=>s.id!==id);
   localStorage.setItem('tr-sess-v4',JSON.stringify(US));_clearPrCache();
   if(fbReady&&db){
     setSyncUI('syncing','Deleting…');
     const tid=trainerId();
-    try{await db.doc(`trainers/${tid}/sessions/${id}`).delete();setSyncUI('ok','Synced');}
+    const ref=db.doc(`trainers/${tid}/sessions/${id}`);
+    try{await (isSeed?ref.set({id,deleted:true}):ref.delete());setSyncUI('ok','Synced');}
     catch(e){setSyncUI('err','Delete failed');}
   }
   closeEditSession();closeDetail();refreshActiveView();
@@ -2305,6 +2325,122 @@ function v4TypeColor(dt){
   return ({push:'var(--push)',legs:'var(--legs)',pull:'var(--pull)',rest:'var(--rest)'})[c];
 }
 
+
+// ── TODAY helpers ─────────────────────────────────────────────────────────
+function _byDateDesc(a,c){ return c.date.localeCompare(a.date)||(c.id>a.id?1:c.id<a.id?-1:0); }
+function _relDay(ds){
+  const n=Math.round((new Date(todayStr()+'T00:00:00')-new Date(ds+'T00:00:00'))/86400000);
+  if(n<=0)return 'Today'; if(n===1)return 'Yesterday'; if(n<7)return n+' days ago';
+  if(n<14)return '1 week ago'; if(n<60)return Math.floor(n/7)+' weeks ago';
+  return _fmtShort(ds);
+}
+function _sessPRNames(s){
+  return (s.exercises||[]).filter(ex=>exSessions(ex.name).some(e=>e.id===s.id&&e.isPR)).map(ex=>ex.name.replace(/\s*\([^)]+\)/,''));
+}
+function _isTrainType(t){ return !!t&&t!=='REST'&&t!=='NONE'; }
+// Training days hit in a row. Rest / holiday / marked-rest days don't break it;
+// a scheduled training day without a session does. Today only counts once logged.
+function _trainingStreak(){
+  const today=todayStr();
+  const done=new Set(all().filter(s=>s.dayType!=='REST'&&s.date<=today).map(s=>s.date));
+  let d=done.has(today)?today:_addDays(today,-1), n=0, guard=0;
+  while(guard++<730){
+    if(done.has(d)){ n++; d=_addDays(d,-1); continue; }
+    const ci=getCycleInfo(d);
+    if(ci.isPre)break;
+    if(ci.isVacation||!_isTrainType(getDayType(d))){ d=_addDays(d,-1); continue; }
+    break;
+  }
+  return n;
+}
+function _nextTraining(afterDate){
+  for(let i=1;i<=21;i++){ const ds=_addDays(afterDate,i); const ci=getCycleInfo(ds); if(ci.isVacation)continue; const t=getDayType(ds); if(_isTrainType(t))return {ds,dt:t,days:i}; }
+  return null;
+}
+function _whenTxt(days){ return days===1?'tomorrow':`in ${days} days`; }
+function _heroExRows(exList,dayType,dateStr,limit){
+  const _cp=_getActiveCustomProgram(dateStr);
+  const rows=exList.slice(0,limit).map(e=>{
+    const prev=getPrevPerf(e,dateStr);
+    const bw=isBW(e),tb=isTimeBased(e);
+    let targetHtml=`<span style="color:var(--text4)">—</span>`;
+    const _pr=_cp?progressionFor(e,_cp.prog,dayType):null;
+    if(_pr){
+      const wt=x=>_pr.kind==='bw'?(x>0?'+'+x+'kg':'BW'):x+'kg';
+      const dl=_inDeload(_cp.prog,dateStr);
+      targetHtml=_pr.ready&&!dl
+        ?`<div style="font-size:13px;font-weight:700;color:var(--green)">↑ ${wt(_pr.next)}</div><div style="font-size:9px;color:var(--text3);margin-top:1px;font-family:var(--fm)">all sets hit ${_pr.meta.maxReps}</div>`
+        :`<div style="font-size:13px;font-weight:700">${wt(_pr.w)}</div><div style="font-size:9px;color:var(--text3);margin-top:1px;font-family:var(--fm)">${dl?'deload · 2 sets':`aim ${_pr.meta.maxReps} reps`}</div>`;
+    } else if(prev){
+      if(!bw&&!tb&&prev.w>0){
+        const hist=getExHistory(e);
+        const bestW=hist.length?Math.max(...hist.map(h=>h.w)):0;
+        const next=prev.w>=bestW&&bestW>0?+(prev.w+2.5).toFixed(1):bestW;
+        const prevTxt=`${prev.r}×${prev.w}`;
+        targetHtml=next>0
+          ?`<div style="font-size:13px;font-weight:700;color:var(--green)">→ ${next}kg</div><div style="font-size:9px;color:var(--text3);margin-top:1px;font-family:var(--fm)">last ${prevTxt}</div>`
+          :`<span>${prevTxt}</span>`;
+      } else if(tb){ targetHtml=`<span>${prev.r}s</span>`; }
+      else { targetHtml=`<span>${prev.r}r</span>`; }
+    }
+    const shortName=e.replace(/\s*\([^)]+\)/,'');
+    const sub=e.match(/\(([^)]+)\)/)?.[1]||'';
+    return `<div class="v4hero-row">
+      <div>
+        <div class="v4hero-row-n">${_esc(shortName)}</div>
+        ${sub?`<div class="v4hero-row-s">${_esc(sub)}</div>`:''}
+      </div>
+      <div class="v4hero-row-r" style="text-align:right">${targetHtml}</div>
+    </div>`;
+  }).join('');
+  const more=exList.length>limit?`<div class="v4hero-more">+${exList.length-limit} MORE</div>`:'';
+  return rows?rows+more:'';
+}
+// "Last time" line for a day type, before a date
+function _lastTimeHtml(dt,dateStr){
+  const s=all().filter(x=>x.dayType===dt&&x.date<dateStr).sort(_byDateDesc)[0];
+  if(!s) return `<div class="v4last" style="cursor:default"><b>Last time</b> first ${_esc(dayTitle(dt))} session</div>`;
+  const vol=calcVolume(s), prs=_sessPRNames(s).length, durMin=s.duration?Math.round(s.duration/60):null;
+  const bits=[_relDay(s.date)];
+  if(vol>0)bits.push((vol/1000).toFixed(1)+'t');
+  if(durMin)bits.push(durMin+'m');
+  return `<div class="v4last" onclick="showDetail('${_jsq(s.id)}')"><b>Last time</b> ${_esc(bits.join(' · '))}${prs?` · <span class="pr">★ ${prs} PR</span>`:''}</div>`;
+}
+// Hero shown once today's session is logged
+function _loggedHeroHtml(s,today){
+  const tcol=v4TypeColor(s.dayType);
+  const vol=calcVolume(s), sets=(s.exercises||[]).reduce((a,e)=>a+e.sets.length,0);
+  const durMin=s.duration?Math.round(s.duration/60):null;
+  const diff=s.feedback?.difficulty;
+  const diffCol={'Very Easy':'var(--green)','Easy':'var(--green)','Moderate':'var(--amber)','Difficult':'var(--orange)','Very Difficult':'var(--red)'}[diff];
+  const prs=_sessPRNames(s);
+  const nx=_nextTraining(today);
+  return `<div class="v4hero">
+    <div class="v4hero-top">
+      <div>
+        <div class="v4hero-eyebrow" style="color:var(--green)"><span class="dot" style="background:var(--green)"></span> SESSION LOGGED</div>
+        <div class="v4hero-day" style="color:${tcol}">${_esc(dayTitle(s.dayType).toUpperCase())}</div>
+      </div>
+      <div class="v4hero-meta">
+        <div class="v4hero-cyc">${_esc(getCycleInfo(s.date).cycleLabel||'')}</div>
+        <div class="v4hero-prog">${s.exercises.length} ex</div>
+      </div>
+    </div>
+    <div class="v4done">
+      <div class="v4-cycsum-grid">
+        <div class="v4-cycsum-cell"><div class="v4-cycsum-val">${vol>0?(vol/1000).toFixed(1):'—'}${vol>0?'<sub style="font-size:.5em;color:var(--text3);font-weight:600;margin-left:2px">t</sub>':''}</div><div class="v4-cycsum-lbl">Volume</div></div>
+        <div class="v4-cycsum-cell"><div class="v4-cycsum-val">${sets}</div><div class="v4-cycsum-lbl">Sets</div></div>
+        <div class="v4-cycsum-cell"><div class="v4-cycsum-val">${durMin??'—'}${durMin?'<sub style="font-size:.5em;color:var(--text3);font-weight:600;margin-left:2px">m</sub>':''}</div><div class="v4-cycsum-lbl">Time</div></div>
+      </div>
+      ${diff||prs.length?`<div class="v4done-line">${diff?`<span style="color:${diffCol}">●</span> ${_esc(diff)}`:''}${diff&&prs.length?' · ':''}${prs.length?`<span style="color:var(--amber)">★ ${_esc(prs.slice(0,3).join(', '))}${prs.length>3?` +${prs.length-3}`:''}</span>`:''}</div>`:''}
+      ${nx?`<div class="v4done-line" style="color:var(--text3)">Next: <span style="color:${_typeColor(nx.dt)}">${_esc(dayTitle(nx.dt))}</span> ${_whenTxt(nx.days)}</div>`:''}
+    </div>
+    <div class="v4hero-cta">
+      <button class="v4btn ghost" onclick="showDetail('${_jsq(s.id)}')">View session</button>
+    </div>
+  </div>`;
+}
+
 function renderToday() {
   const today=todayStr(), info=getCycleInfo(today), sessions=all();
   const cycle=cycleFor(today);
@@ -2359,16 +2495,13 @@ function renderToday() {
         <button class="v4btn ghost" style="margin-top:8px;font-size:10px;color:var(--text3)" onclick="clearVacation()">End holiday early</button>
       </div>
     </div>`;
-  } else if(info.dayType==='REST'){
-    // Find next training day
-    let nextInfo=null,nextDateStr=null;
-    for(let i=1;i<=cycleLen;i++){
-      const d=new Date(today+'T00:00:00');d.setDate(d.getDate()+i);
-      const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-      const ni=getCycleInfo(ds);
-      if(ni.dayType&&ni.dayType!=='REST'){nextInfo=ni;nextDateStr=ds;break;}
-    }
-    const daysAway=nextDateStr?Math.round((new Date(nextDateStr+'T00:00:00')-new Date(today+'T00:00:00'))/86400000):0;
+  } else if(logged){
+    heroEl.innerHTML=_loggedHeroHtml(logged,today);
+  } else if(!info.dayType||info.dayType==='REST'){
+    // Rest day — preview the next session
+    const nx=_nextTraining(today);
+    const nxEx=nx?getActivePlanEx(nx.dt,nx.ds).flatMap(g=>g.ex):[];
+    const nxRows=nx?_heroExRows(nxEx,nx.dt,nx.ds,3):'';
     heroEl.innerHTML=`<div class="v4hero">
       <div class="v4hero-top">
         <div>
@@ -2380,7 +2513,8 @@ function renderToday() {
           <div class="v4hero-prog">${info.dayName}</div>
         </div>
       </div>
-      <div class="v4hero-info">${nextInfo?`Next: ${dayTitle(nextInfo.dayType)} ${daysAway===1?'tomorrow':`in ${daysAway} days`}`:'Take it easy.'}</div>
+      <div class="v4hero-info">${nx?`Next: <span style="color:${_typeColor(nx.dt)};font-weight:700">${_esc(dayTitle(nx.dt))}</span> ${_whenTxt(nx.days)}`:'Take it easy.'}</div>
+      ${nxRows?`<div class="v4hero-list"><div class="v4sub-eyebrow">Next session preview</div>${nxRows}</div>`:''}
       <div class="v4hero-cta">
         <button class="v4btn ghost" onclick="startWorkout()">+ Log custom session</button>
         <button class="v4btn ghost" style="margin-top:8px;font-size:10px;color:var(--text3)" onclick="openDayOverrideSheet('${today}')">Change today's plan</button>
@@ -2391,45 +2525,7 @@ function renderToday() {
     const tc=v4TypeClass(info.dayType);
     const tcol=v4TypeColor(info.dayType);
     const exList=getActivePlanEx(info.dayType,today).flatMap(g=>g.ex);
-    const previewLimit=4;
-    const exRows=exList.slice(0,previewLimit).map(e=>{
-      const prev=getPrevPerf(e,today);
-      const bw=isBW(e),tb=isTimeBased(e);
-      let targetHtml=`<span style="color:var(--text4)">—</span>`;
-      const _cp=_getActiveCustomProgram(today);
-      const _pr=_cp?progressionFor(e,_cp.prog,info.dayType):null;
-      if(_pr){
-        const wt=x=>_pr.kind==='bw'?(x>0?'+'+x+'kg':'BW'):x+'kg';
-        const dl=_inDeload(_cp.prog,today);
-        targetHtml=_pr.ready&&!dl
-          ?`<div style="font-size:13px;font-weight:700;color:var(--green)">↑ ${wt(_pr.next)}</div><div style="font-size:9px;color:var(--text3);margin-top:1px;font-family:var(--fm)">all sets hit ${_pr.meta.maxReps}</div>`
-          :`<div style="font-size:13px;font-weight:700">${wt(_pr.w)}</div><div style="font-size:9px;color:var(--text3);margin-top:1px;font-family:var(--fm)">${dl?'deload · 2 sets':`aim ${_pr.meta.maxReps} reps`}</div>`;
-      } else if(prev){
-        if(!bw&&!tb&&prev.w>0){
-          const hist=getExHistory(e);
-          const bestW=hist.length?Math.max(...hist.map(h=>h.w)):0;
-          const next=prev.w>=bestW&&bestW>0?+(prev.w+2.5).toFixed(1):bestW;
-          const prevTxt=`${prev.r}×${prev.w}`;
-          targetHtml=next>0
-            ?`<div style="font-size:13px;font-weight:700;color:var(--green)">→ ${next}kg</div><div style="font-size:9px;color:var(--text3);margin-top:1px;font-family:var(--fm)">last ${prevTxt}</div>`
-            :`<span>${prevTxt}</span>`;
-        } else if(tb){
-          targetHtml=`<span>${prev.r}s</span>`;
-        } else {
-          targetHtml=`<span>${prev.r}r</span>`;
-        }
-      }
-      const shortName=e.replace(/\s*\([^)]+\)/,'');
-      const sub=e.match(/\(([^)]+)\)/)?.[1]||'';
-      return `<div class="v4hero-row">
-        <div>
-          <div class="v4hero-row-n">${shortName}</div>
-          ${sub?`<div class="v4hero-row-s">${sub}</div>`:''}
-        </div>
-        <div class="v4hero-row-r" style="text-align:right">${targetHtml}</div>
-      </div>`;
-    }).join('');
-    const more=exList.length>previewLimit?`<div class="v4hero-more">+${exList.length-previewLimit} MORE</div>`:'';
+    const exRows=_heroExRows(exList,info.dayType,today,4);
     const cat=(dayCategory(info.dayType)||'').toUpperCase();
     const cyclePos=cycle.findIndex(c=>c.idx===info.dayName);
     heroEl.innerHTML=`<div class="v4hero">
@@ -2444,13 +2540,11 @@ function renderToday() {
         </div>
       </div>
       <div class="v4hero-info">${exList.length} exercises · ${info.dayName}</div>
+      ${_lastTimeHtml(info.dayType,today)}
       ${bmTodayHtml(exList,info.dayType,today)}
-      ${exRows?`<div class="v4hero-list">${exRows}${more}</div>`:''}
-      <div class="v4hero-cta">${logged
-        ?`<div class="v4btn done-state"><svg viewBox="0 0 24 24" width="14" height="14" style="vertical-align:-2px;margin-right:6px" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> SESSION LOGGED</div>`
-        :`<button class="v4btn primary" onclick="startWorkout()">▸ START ${dayTitle(info.dayType).toUpperCase()}</button>
-         <button class="v4btn ghost" style="margin-top:8px;font-size:10px;color:var(--text3)" onclick="openDayOverrideSheet('${today}')">Change today's plan</button>`
-      }</div>
+      ${exRows?`<div class="v4hero-list">${exRows}</div>`:''}
+      <div class="v4hero-cta"><button class="v4btn primary" onclick="startWorkout()">▸ START ${dayTitle(info.dayType).toUpperCase()}</button>
+         <button class="v4btn ghost" style="margin-top:8px;font-size:10px;color:var(--text3)" onclick="openDayOverrideSheet('${today}')">Change today's plan</button></div>
     </div>`;
   }
 
@@ -2494,9 +2588,10 @@ function renderToday() {
   }
 
   // ── Ribbon — single row: cycle strip + 3 stats ──
-  const ws=new Date();ws.setDate(ws.getDate()-((ws.getDay()+6)%7));
-  const wsStr=`${ws.getFullYear()}-${String(ws.getMonth()+1).padStart(2,'0')}-${String(ws.getDate()).padStart(2,'0')}`;
-  const wkCount=sessions.filter(s=>s.date>=wsStr).length;
+  const wsStr=_mondayOf(today);
+  const wkCount=sessions.filter(s=>s.dayType!=='REST'&&s.date>=wsStr&&s.date<=today).length;
+  let wkPlan=0; for(let i=0;i<7;i++){ const d=_addDays(wsStr,i); if(!getCycleInfo(d).isVacation&&_isTrainType(getDayType(d)))wkPlan++; }
+  const streak=_trainingStreak();
   const daysToGoal=PROFILE.target?Math.max(0,Math.round((new Date(PROFILE.target+'T00:00:00')-new Date(today+'T00:00:00'))/86400000)):null;
   const goalVal=daysToGoal!==null?`${daysToGoal}<sub style="font-size:10px;color:var(--text3);font-weight:600;margin-left:1px">d</sub>`:'—';
   const goalSub=daysToGoal!==null?'days left':'no target';
@@ -2508,8 +2603,8 @@ function renderToday() {
     </div>`;
   ribbonEl.innerHTML=`<div style="display:grid;grid-template-columns:1.6fr 1fr 1fr 1fr;gap:8px;max-width:500px;margin:0 auto;align-items:stretch">
     ${cycHtml||'<div></div>'}
-    ${statCell('SESSIONS',sessions.length,'all-time')}
-    ${statCell('THIS WK',wkCount,'sessions')}
+    ${statCell('STREAK',streak,'in a row')}
+    ${statCell('THIS WK',`${wkCount}<sub style="font-size:11px;color:var(--text3);font-weight:600;margin-left:1px">/${Math.max(wkPlan,wkCount)}</sub>`,'done / plan')}
     ${statCell('TO GOAL',goalVal,goalSub,true)}
   </div>`;
   kpisEl.innerHTML='';
@@ -2534,31 +2629,15 @@ function renderToday() {
     sumBanner.innerHTML='';
   }
 
-  // ── Recent (kept, restyled with new tokens) ──
-  const recent=[...sessions].reverse().slice(0,3);
+  // ── Recent: same rows as the Log tab, newest first, nothing in the future ──
+  const recent=sessions.filter(s=>s.dayType!=='REST'&&s.date<=today&&(!logged||s.id!==logged.id)).sort(_byDateDesc).slice(0,3);
   const recEl=document.getElementById('recent-sessions');
   if(!recent.length){recEl.innerHTML='';return;}
-  recEl.innerHTML=`<div class="eyebrow" style="padding:0 4px 8px">Recent</div>`+recent.map(s=>{
-    const tc=v4TypeClass(s.dayType);
-    const ex=s.exercises.map(e=>e.name.split(' (')[0]).slice(0,3);
-    const fb=s.feedback;
-    const hasPR=sessionHasPR(s);
-    const durMin=s.duration?Math.round(s.duration/60):null;
-    return `<div class="si" onclick="showDetail('${s.id}')" style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:8px;cursor:pointer">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
-        <div style="min-width:0;flex:1">
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap">
-            <span class="v4pill ${tc}">${dayFullLabel(s.dayType)}</span>
-            ${hasPR?`<span class="v4pill amber">★ PR</span>`:''}
-            ${fb?.difficulty?`<span class="eyebrow" style="color:var(--text3)">${fb.difficulty.toUpperCase()}</span>`:''}
-          </div>
-          <div style="font-size:14px;font-weight:600;color:var(--text)">${s.label}</div>
-          <div class="tnum" style="font-size:11px;color:var(--text3);margin-top:4px">${s.exercises.length} ex · ${s.exercises.reduce((a,e)=>a+e.sets.length,0)} sets${durMin?` · ${durMin}m`:''}</div>
-        </div>
-        <div class="tnum" style="font-size:11px;color:var(--text3);white-space:nowrap;flex-shrink:0">${s.date}</div>
-      </div>
-    </div>`;
-  }).join('');
+  recEl.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:baseline;padding:4px 4px 8px">
+      <div class="eyebrow">Recent</div>
+      <button class="v4link" onclick="logTab='timeline';switchView('calendar')">See all →</button>
+    </div>
+    <div class="lg-week" style="padding:2px 12px">${recent.map(s=>_sessRow(s,{rel:true})).join('')}</div>`;
 }
 
 // Helpers for hero card titles
@@ -5031,7 +5110,7 @@ function _tool(n){ return n.match(/\(([^)]+)\)\s*$/)?.[1]||''; }
 
 // ── LOG v2: weekly timeline, newest first ───────────────────────────────────
 let _logFilter='all', _logWeeks=6;
-const APP_VERSION='v85';
+const APP_VERSION='v86';
 
 // Shared missed-day logic (Progress → Block and Log use the same list)
 // Past training days with nothing logged; a workout on a rest day makes up the oldest open miss.
@@ -5139,7 +5218,7 @@ function renderTimelineTab(){
   el.innerHTML=html;
 }
 
-function _sessRow(s){
+function _sessRow(s,opts){
   const col=_typeColor(s.dayType), pr=sessionHasPR(s);
   const d=new Date(s.date+'T00:00:00');
   const durMin=s.duration?Math.round(s.duration/60):null;
@@ -5150,7 +5229,7 @@ function _sessRow(s){
     <div class="lg-date" style="border-color:${col}"><div class="lg-dw">${d.toLocaleDateString('en-GB',{weekday:'short'}).toUpperCase()}</div><div class="lg-dn">${d.getDate()}</div></div>
     <div class="lg-body">
       <div class="lg-name"><span style="color:${col}">${_esc(name)}</span>${pr?'<span class="lg-pr">★ PR</span>':''}${diffCol?`<span class="lg-diff" style="background:${diffCol}" title="${_esc(s.feedback.difficulty)}"></span>`:''}</div>
-      <div class="lg-sub">${_esc(_sessSummary(s))}</div>
+      <div class="lg-sub">${opts&&opts.rel?`<span style="color:var(--text2)">${_esc(_relDay(s.date))}</span> · `:''}${_esc(_sessSummary(s))}</div>
     </div>
     <div class="lg-meta">${vol>0?`<div>${(vol/1000).toFixed(1)}t</div>`:''}<div>${s.exercises.length} ex${durMin?` · ${durMin}m`:''}</div></div>
   </div>`;
