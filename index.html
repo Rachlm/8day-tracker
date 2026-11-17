@@ -1967,8 +1967,9 @@ function _syncIdle(){
   const n=Object.keys(_sessDirty()).length;
   if(!fbReady||!db||!_srvLive){ setSyncUI('err',n?`Offline · ${n} saved on phone`:'Offline'); return; }
   if(n) setSyncUI('syncing',`Sending ${n}…`);
-  else if(Object.keys(_metaDirty()).length) setSyncUI(_lastSyncErr.startsWith('settings')?'err':'syncing',_lastSyncErr.startsWith('settings')?'Settings not saved':'Saving settings…');
-  else { _lastSyncErr=''; setSyncUI('ok','Synced'); }
+  else { const md=Object.keys(_metaDirty()).filter(k=>META_GET[k]);
+    if(md.length) setSyncUI(md.some(k=>_metaErr[k])?'err':'syncing',md.some(k=>_metaErr[k])?'Settings not saved':'Saving settings…');
+    else { _lastSyncErr=''; setSyncUI('ok','Synced'); } }
 }
 function _markSess(id,op,seed){ const d=_sessDirty(); d[id]={op,ts:_stamp(),seed:!!seed}; _setSessDirty(d); }
 function _pushSess(id){
@@ -1991,17 +1992,54 @@ const META_GET={custom:()=>CUSTOM_EX,plan:()=>PLAN,exLib:()=>EX_LIBRARY,cycle:()
 // Save settings to the server; stays marked as unsent until the server confirms
 function metaPush(keys){
   const ts=_stamp(), d=_metaDirty(); keys.forEach(k=>d[k]=ts); _setMetaDirty(d);
-  _metaSend(keys,ts);
+  try{ _metaSend(keys,ts); }catch(e){}
+  _syncIdle();
+}
+// Each setting is sent on its own, so one bad setting can never block the others.
+// mergeFields replaces the whole setting on the server, so things you delete stay deleted.
+const META_LABEL={custom:'extra exercises',plan:'Normal program',exLib:'exercise library',cycle:'cycle day names',dayOverrides:'day changes',
+  profile:'profile',bwLog:'bodyweight log',programs:'programs',programSchedule:'program schedule',vacation:'holiday'};
+const _metaErr={};
+function _errTxt(err){ return String((err&&(err.code||err.message))||err||'unknown error').slice(0,240); }
+// Firestore refuses some values outright: empty or reserved names. Leave those out of what is sent.
+function _fsClean(v){
+  if(v===undefined||typeof v==='function') return null;
+  if(typeof v==='number'&&!isFinite(v)) return null;
+  if(Array.isArray(v)) return v.map(x=>_fsClean(x));
+  if(v&&typeof v==='object'){ const o={}; Object.keys(v).forEach(k=>{ if(!k||/^__.*__$/.test(k)||v[k]===undefined||typeof v[k]==='function') return; o[k]=_fsClean(v[k]); }); return o; }
+  return v;
 }
 function _metaSend(keys,ts){
   if(!fbReady||!db) return;
-  const obj={}; keys.forEach(k=>{ const v=META_GET[k](); obj[k]=v===undefined?null:JSON.parse(JSON.stringify(v)); _metaInflight[k]=ts; });
+  keys.forEach(k=>{ if(META_GET[k]) _metaSendOne(k,ts); });
+}
+function _metaSendOne(k,ts){
   const tid=trainerId();
-  db.doc(`trainers/${tid}/meta`).set(obj,{merge:true}).then(()=>{
-    keys.forEach(k=>{ if(_metaInflight[k]===ts) delete _metaInflight[k]; });
-    if(trainerId()===tid){ const d=_metaDirty(); keys.forEach(k=>{ if(d[k]===ts) delete d[k]; }); _setMetaDirty(d); }
+  _metaInflight[k]=ts;
+  let pr;
+  try{
+    const raw=META_GET[k]();
+    const v=raw==null?null:_fsClean(JSON.parse(JSON.stringify(raw)));
+    pr=db.doc(`trainers/${tid}/meta`).set({[k]:v},{mergeFields:[k]});
+  }catch(err){
+    // The server library refused the data before sending: show why instead of "Saving…" forever
+    if(_metaInflight[k]===ts) delete _metaInflight[k];
+    _metaErr[k]=_errTxt(err); _syncIdle(); return;
+  }
+  const to=setTimeout(()=>{ if(_metaInflight[k]===ts){ delete _metaInflight[k]; _metaErr[k]='no answer from the server yet (retrying)'; _syncIdle(); } },25000);
+  pr.then(()=>{
+    clearTimeout(to);
+    if(_metaInflight[k]===ts) delete _metaInflight[k];
+    if(trainerId()===tid){ const d=_metaDirty(); if(d[k]===ts){ delete d[k]; delete _metaErr[k]; } _setMetaDirty(d); }
     _syncIdle();
-  }).catch(err=>{ keys.forEach(k=>{ if(_metaInflight[k]===ts) delete _metaInflight[k]; }); _lastSyncErr='settings ('+keys.join(', ')+'): '+String(err&&(err.code||err.message)||err); _syncIdle(); });
+  }).catch(err=>{ clearTimeout(to); if(_metaInflight[k]===ts) delete _metaInflight[k]; _metaErr[k]=_errTxt(err); _syncIdle(); });
+}
+function metaRetryAll(){
+  Object.keys(_metaErr).forEach(k=>delete _metaErr[k]);
+  const d=_metaDirty(); Object.keys(d).forEach(k=>{ if(!META_GET[k]){ delete d[k]; } }); _setMetaDirty(d);
+  Object.keys(d).forEach(k=>{ delete _metaInflight[k]; _metaSendOne(k,d[k]); });
+  Object.keys(_sessDirty()).forEach(_pushSess);
+  _syncIdle(); setTimeout(()=>{ if(document.getElementById('sync-modal').classList.contains('open')) openSyncModal(); },1500);
 }
 function _stashOrphans(list){
   if(!list.length) return;
@@ -2013,7 +2051,7 @@ function _stashOrphans(list){
 setInterval(()=>{
   if(!fbReady||!db||!_srvLive) return;
   Object.keys(_sessDirty()).forEach(_pushSess);
-  const d=_metaDirty(); Object.keys(d).filter(k=>META_GET[k]&&_metaInflight[k]!==d[k]).forEach(k=>_metaSend([k],d[k]));
+  const d=_metaDirty(); Object.keys(d).filter(k=>META_GET[k]&&_metaInflight[k]!==d[k]).forEach(k=>_metaSendOne(k,d[k]));
 },30000);
 
 let _fbLoading=null;
@@ -2097,7 +2135,7 @@ function startListeners() {
     // Settings changed on this phone while offline: send them now
     const d2=_metaDirty();
     const resend=Object.keys(d2).filter(k=>META_GET[k]&&_metaInflight[k]!==d2[k]);
-    resend.forEach(k=>_metaSend([k],d2[k]));
+    resend.forEach(k=>_metaSendOne(k,d2[k]));
     _syncIdle();
     if(!snap.metadata||!snap.metadata.hasPendingWrites) refreshActiveView();
   },()=>{});
@@ -5183,7 +5221,7 @@ function _tool(n){ return n.match(/\(([^)]+)\)\s*$/)?.[1]||''; }
 
 // ── LOG v2: weekly timeline, newest first ───────────────────────────────────
 let _logFilter='all', _logWeeks=6;
-const APP_VERSION='v93';
+const APP_VERSION='v94';
 
 // Shared missed-day logic (Progress → Block and Log use the same list)
 // Past training days with nothing logged; a workout on a rest day makes up the oldest open miss.
@@ -5849,9 +5887,9 @@ function openSyncModal(){
   const n=Object.keys(_sessDirty()).length;
   document.getElementById('sync-status-line').innerHTML=n
     ?`<span style="color:var(--amber)">● ${n} workout change${n!==1?'s':''} saved on this phone, waiting to be sent.</span>`
-    :Object.keys(_metaDirty()).length?`<span style="color:var(--amber)">● Workouts are synced. Settings still being sent: ${_esc(Object.keys(_metaDirty()).join(', '))}.</span>`
+    :Object.keys(_metaDirty()).length?`<span style="color:var(--amber)">● Workouts are synced. Settings still being sent:</span>${Object.keys(_metaDirty()).map(k=>`<div style="margin-top:4px">· ${_esc(META_LABEL[k]||k)}${_metaErr[k]?`<div style="color:var(--red);font-family:var(--fm);font-size:11px;word-break:break-word">${_esc(_metaErr[k])}</div>`:''}</div>`).join('')}<button onclick="metaRetryAll()" style="margin-top:8px;padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:inherit;font-size:12px;font-weight:600;cursor:pointer">Send again</button>`
     :(fbReady&&_srvLive?'<span style="color:var(--green)">● Everything is synced.</span>':'<span style="color:var(--text3)">● Offline. Changes are saved on this phone.</span>');
-  if(_lastSyncErr&&!(fbReady&&_srvLive&&!n&&!Object.keys(_metaDirty()).length)) document.getElementById('sync-status-line').innerHTML+=`<div style="color:var(--red);margin-top:4px;font-family:var(--fm);font-size:11px">Last sync error: ${_esc(_lastSyncErr)}</div>`;
+  if(_lastSyncErr&&!_lastSyncErr.startsWith('settings')&&!(fbReady&&_srvLive&&!n)) document.getElementById('sync-status-line').innerHTML+=`<div style="color:var(--red);margin-top:4px;font-family:var(--fm);font-size:11px">Last sync error: ${_esc(_lastSyncErr)}</div>`;
   const prev=_lsGet('tr-trainer-prev',[]).filter(c=>c!==trainerId());
   document.getElementById('sync-prev').innerHTML=prev.length
     ?'Previous codes on this phone (tap to go back):'+prev.slice(-3).reverse().map(c=>`<div onclick="document.getElementById('switch-input').value='${_jsq(c)}'" style="font-family:var(--fm);font-size:11px;color:var(--text2);padding:7px 0;cursor:pointer;word-break:break-all">${_esc(c)}</div>`).join('')
