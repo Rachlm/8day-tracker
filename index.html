@@ -1391,6 +1391,12 @@ svg.bm-body .n{fill:#1f1f1f;stroke:var(--bg2);stroke-width:1.1}
       <div class="val" id="profile-backup-short">File</div>
       <div class="arrow">›</div>
     </div>
+    <div class="v4set-row" onclick="openRecover()">
+      <svg viewBox="0 0 24 24"><path d="M12 8v5l3 2M3 12a9 9 0 1 0 3-6.7M3 4v5h5"/></svg>
+      <div class="lbl">Recover workouts</div>
+      <div class="val" id="profile-recover-short">—</div>
+      <div class="arrow">›</div>
+    </div>
     <div class="v4set-row" onclick="pickRestoreFile()">
       <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v5h5"/></svg>
       <div class="lbl">Restore from backup</div>
@@ -1955,6 +1961,7 @@ function _setMetaDirty(d){ _lsSet('tr-meta-dirty-v1',d); }
 function _unsentCount(){ return Object.keys(_sessDirty()).length+Object.keys(_metaDirty()).length; }
 function _stamp(){ return Date.now()+'_'+Math.random().toString(36).slice(2,7); }
 const _sessInflight={}, _metaInflight={};
+let _lastSyncErr='';
 let _srvLive=false; // true once the server has answered; false again when the connection drops
 function _syncIdle(){
   const n=Object.keys(_sessDirty()).length;
@@ -1968,13 +1975,14 @@ function _pushSess(id){
   const tid=trainerId(), ref=db.doc(`trainers/${tid}/sessions/${id}`);
   let pr;
   if(e.op==='del') pr=e.seed?ref.set({id,deleted:true}):ref.delete();
-  else { const sv=US.find(x=>x.id===id); if(!sv){ const d=_sessDirty(); delete d[id]; _setSessDirty(d); return; } pr=ref.set(sv); }
+  else { const sv=US.find(x=>x.id===id); if(!sv){ const d=_sessDirty(); delete d[id]; _setSessDirty(d); return; }
+    try{ pr=ref.set(JSON.parse(JSON.stringify(sv))); }catch(err){ _lastSyncErr=String(err&&(err.code||err.message)||err); setSyncUI('err','Save failed · kept on phone'); return; } }
   _sessInflight[id]=e.ts;
   pr.then(()=>{
     if(_sessInflight[id]===e.ts) delete _sessInflight[id];
     if(trainerId()===tid){ const d=_sessDirty(); if(d[id]&&d[id].ts===e.ts){ delete d[id]; _setSessDirty(d); } }
     _syncIdle();
-  }).catch(()=>{ if(_sessInflight[id]===e.ts) delete _sessInflight[id]; setSyncUI('err','Save failed · kept on phone'); });
+  }).catch(err=>{ if(_sessInflight[id]===e.ts) delete _sessInflight[id]; _lastSyncErr=String(err&&(err.code||err.message)||err); setSyncUI('err','Save failed · kept on phone'); });
 }
 const META_GET={custom:()=>CUSTOM_EX,plan:()=>PLAN,exLib:()=>EX_LIBRARY,cycle:()=>CUSTOM_CYCLE,dayOverrides:()=>DAY_OVERRIDES,
   profile:()=>PROFILE,bwLog:()=>BW_LOG,programs:()=>PROGRAMS,programSchedule:()=>PROGRAM_SCHEDULE,vacation:()=>VACATION};
@@ -1985,7 +1993,7 @@ function metaPush(keys){
 }
 function _metaSend(keys,ts){
   if(!fbReady||!db) return;
-  const obj={}; keys.forEach(k=>{ const v=META_GET[k](); obj[k]=v===undefined?null:v; _metaInflight[k]=ts; });
+  const obj={}; keys.forEach(k=>{ const v=META_GET[k](); obj[k]=v===undefined?null:JSON.parse(JSON.stringify(v)); _metaInflight[k]=ts; });
   const tid=trainerId();
   db.doc(`trainers/${tid}/meta`).set(obj,{merge:true}).then(()=>{
     keys.forEach(k=>{ if(_metaInflight[k]===ts) delete _metaInflight[k]; });
@@ -1997,7 +2005,7 @@ function _stashOrphans(list){
   if(!list.length) return;
   const o=_lsGet('tr-sess-orphans-v1',[]);
   list.forEach(x=>{ if(!o.some(y=>y.id===x.id)) o.push(x); });
-  _lsSet('tr-sess-orphans-v1',o.slice(-50));
+  _lsSet('tr-sess-orphans-v1',o.slice(-500));
 }
 
 let _fbLoading=null;
@@ -2062,7 +2070,7 @@ function startListeners() {
     _clearPrCache();
     Object.keys(_sessDirty()).forEach(_pushSess);
     _syncIdle();refreshActiveView();
-  },()=>{ _srvLive=false; _syncIdle(); });
+  },err=>{ _srvLive=false; _lastSyncErr=String(err&&(err.code||err.message)||err); _syncIdle(); });
   unsubM=db.doc(`trainers/${tid}/meta`).onSnapshot(snap=>{
     if(snap.metadata&&snap.metadata.fromCache) return;
     const md=snap.exists?snap.data():{}, dirty=_metaDirty();
@@ -2719,6 +2727,7 @@ function renderToday() {
     </div>`;
   }
 
+  { const rn=_orphans().length; if(rn) heroEl.insertAdjacentHTML('afterbegin',`<div class="pg-banner warn-b" style="margin-bottom:10px;cursor:pointer" onclick="openRecover()">⚠️ <strong>${rn} workout${rn!==1?'s':''} can be recovered.</strong> Tap to put ${rn!==1?'them':'it'} back in your Log.</div>`); }
   // Phase banner (deload / test week)
   const _ph=!info.isVacation?phaseOn(today):null;
   if(_ph) heroEl.insertAdjacentHTML('afterbegin',phaseBannerHtml(_ph,'margin-bottom:10px'));
@@ -5166,7 +5175,7 @@ function _tool(n){ return n.match(/\(([^)]+)\)\s*$/)?.[1]||''; }
 
 // ── LOG v2: weekly timeline, newest first ───────────────────────────────────
 let _logFilter='all', _logWeeks=6;
-const APP_VERSION='v91';
+const APP_VERSION='v92';
 
 // Shared missed-day logic (Progress → Block and Log use the same list)
 // Past training days with nothing logged; a workout on a rest day makes up the oldest open miss.
@@ -5774,6 +5783,7 @@ function renderProfile() {
 
   // Settings — short values
   { const lb=_lsGet('tr-last-backup',null), be=document.getElementById('profile-backup-short'); if(be) be.textContent=lb?'last '+_fmtShort(lb):'never'; }
+  { const rn=_orphans().length, re=document.getElementById('profile-recover-short'); if(re){ re.textContent=rn?rn+' found':'none'; re.style.color=rn?'var(--amber)':''; } }
   { const n=Object.keys(_sessDirty()).length; document.getElementById('profile-sync-short').textContent=n?`${n} to send`:(fbReady&&_srvLive?'Connected':'Offline'); }
   document.getElementById('profile-prog-short').textContent=b?_shortName(b.prog.name).split(' · ')[0]:'Normal';
   const vacEl=document.getElementById('profile-vacation-short');
@@ -5832,6 +5842,7 @@ function openSyncModal(){
   document.getElementById('sync-status-line').innerHTML=n
     ?`<span style="color:var(--amber)">● ${n} workout change${n!==1?'s':''} saved on this phone, waiting to be sent.</span>`
     :(fbReady&&_srvLive?'<span style="color:var(--green)">● Everything is synced.</span>':'<span style="color:var(--text3)">● Offline. Changes are saved on this phone.</span>');
+  if(_lastSyncErr&&!(fbReady&&_srvLive&&!n)) document.getElementById('sync-status-line').innerHTML+=`<div style="color:var(--red);margin-top:4px;font-family:var(--fm);font-size:11px">Last sync error: ${_esc(_lastSyncErr)}</div>`;
   const prev=_lsGet('tr-trainer-prev',[]).filter(c=>c!==trainerId());
   document.getElementById('sync-prev').innerHTML=prev.length
     ?'Previous codes on this phone (tap to go back):'+prev.slice(-3).reverse().map(c=>`<div onclick="document.getElementById('switch-input').value='${_jsq(c)}'" style="font-family:var(--fm);font-size:11px;color:var(--text2);padding:7px 0;cursor:pointer;word-break:break-all">${_esc(c)}</div>`).join('')
@@ -5858,6 +5869,33 @@ async function switchCode(){
   US=[];_clearPrCache();closeSyncModal();setSyncUI('syncing','Loading…');
   if(fbReady)startListeners(); else initFirebase();
   refreshActiveView();
+}
+
+// ── RECOVER WORKOUTS (v92) ──────────────────────────────────────────────────
+// Workouts that were on this phone but never reached the server are kept aside
+// when a sync replaces the list. This puts them back and sends them to the server.
+function _orphans(){
+  const have=new Set(US.map(x=>x.id));
+  return _lsGet('tr-sess-orphans-v1',[]).filter(x=>x&&x.id&&x.date&&Array.isArray(x.exercises)&&!have.has(x.id)).sort((a,b)=>b.date.localeCompare(a.date));
+}
+function openRecover(){
+  const o=_orphans();
+  document.getElementById('add-day-inner').innerHTML=`
+    <div style="font-size:20px;font-weight:700;margin-bottom:6px">Recover workouts</div>
+    ${o.length?`<div style="font-size:13px;color:var(--text2);line-height:1.5;margin-bottom:12px">${o.length} workout${o.length!==1?'s were':' was'} saved on this phone but never reached the server, so a sync removed ${o.length!==1?'them':'it'} from the Log. Nothing is deleted: tap below to put ${o.length!==1?'them':'it'} back.</div>
+      <button onclick="recoverOrphans()" style="width:100%;padding:14px;background:var(--green);color:#000;border:none;border-radius:12px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:12px">Restore ${o.length!==1?'all '+o.length+' workouts':'this workout'}</button>
+      <div class="pg-rows">${o.map(x=>`<div class="pg-row" style="cursor:default"><div><div class="pg-n" style="font-size:13px">${_fmtLong(x.date)} ${x.date.slice(0,4)}</div><div class="pg-s">${_esc(DAY_FULL_NAMES[x.dayType]||x.dayType||x.label||'Workout')} · ${x.exercises.length} exercises</div></div></div>`).join('')}</div>`
+    :`<div style="font-size:13px;color:var(--text2);line-height:1.5">No set-aside workouts were found on this phone.</div>`}`;
+  document.getElementById('add-day-sheet').classList.add('open');
+}
+function recoverOrphans(){
+  const o=_orphans(); if(!o.length){ closeAddDaySheet(); return; }
+  o.forEach(x=>{ US.push(x); _markSess(x.id,'set'); });
+  localStorage.setItem('tr-sess-v4',JSON.stringify(US));
+  _clearPrCache();
+  o.forEach(x=>_pushSess(x.id));
+  _syncIdle(); closeAddDaySheet(); refreshActiveView();
+  alert(`${o.length} workout${o.length!==1?'s':''} restored.`);
 }
 
 // ── FULL BACKUP / RESTORE (v88) ─────────────────────────────────────────────
