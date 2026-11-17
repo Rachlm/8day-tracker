@@ -1966,7 +1966,9 @@ let _srvLive=false; // true once the server has answered; false again when the c
 function _syncIdle(){
   const n=Object.keys(_sessDirty()).length;
   if(!fbReady||!db||!_srvLive){ setSyncUI('err',n?`Offline · ${n} saved on phone`:'Offline'); return; }
-  if(_unsentCount()) setSyncUI('syncing',n?`Sending ${n}…`:'Saving…'); else setSyncUI('ok','Synced');
+  if(n) setSyncUI('syncing',`Sending ${n}…`);
+  else if(Object.keys(_metaDirty()).length) setSyncUI(_lastSyncErr.startsWith('settings')?'err':'syncing',_lastSyncErr.startsWith('settings')?'Settings not saved':'Saving settings…');
+  else { _lastSyncErr=''; setSyncUI('ok','Synced'); }
 }
 function _markSess(id,op,seed){ const d=_sessDirty(); d[id]={op,ts:_stamp(),seed:!!seed}; _setSessDirty(d); }
 function _pushSess(id){
@@ -1999,7 +2001,7 @@ function _metaSend(keys,ts){
     keys.forEach(k=>{ if(_metaInflight[k]===ts) delete _metaInflight[k]; });
     if(trainerId()===tid){ const d=_metaDirty(); keys.forEach(k=>{ if(d[k]===ts) delete d[k]; }); _setMetaDirty(d); }
     _syncIdle();
-  }).catch(()=>{ keys.forEach(k=>{ if(_metaInflight[k]===ts) delete _metaInflight[k]; }); });
+  }).catch(err=>{ keys.forEach(k=>{ if(_metaInflight[k]===ts) delete _metaInflight[k]; }); _lastSyncErr='settings ('+keys.join(', ')+'): '+String(err&&(err.code||err.message)||err); _syncIdle(); });
 }
 function _stashOrphans(list){
   if(!list.length) return;
@@ -2007,6 +2009,12 @@ function _stashOrphans(list){
   list.forEach(x=>{ if(!o.some(y=>y.id===x.id)) o.push(x); });
   _lsSet('tr-sess-orphans-v1',o.slice(-500));
 }
+
+setInterval(()=>{
+  if(!fbReady||!db||!_srvLive) return;
+  Object.keys(_sessDirty()).forEach(_pushSess);
+  const d=_metaDirty(); Object.keys(d).filter(k=>META_GET[k]&&_metaInflight[k]!==d[k]).forEach(k=>_metaSend([k],d[k]));
+},30000);
 
 let _fbLoading=null;
 function _loadFirebaseScripts(){
@@ -5175,7 +5183,7 @@ function _tool(n){ return n.match(/\(([^)]+)\)\s*$/)?.[1]||''; }
 
 // ── LOG v2: weekly timeline, newest first ───────────────────────────────────
 let _logFilter='all', _logWeeks=6;
-const APP_VERSION='v92';
+const APP_VERSION='v93';
 
 // Shared missed-day logic (Progress → Block and Log use the same list)
 // Past training days with nothing logged; a workout on a rest day makes up the oldest open miss.
@@ -5841,8 +5849,9 @@ function openSyncModal(){
   const n=Object.keys(_sessDirty()).length;
   document.getElementById('sync-status-line').innerHTML=n
     ?`<span style="color:var(--amber)">● ${n} workout change${n!==1?'s':''} saved on this phone, waiting to be sent.</span>`
+    :Object.keys(_metaDirty()).length?`<span style="color:var(--amber)">● Workouts are synced. Settings still being sent: ${_esc(Object.keys(_metaDirty()).join(', '))}.</span>`
     :(fbReady&&_srvLive?'<span style="color:var(--green)">● Everything is synced.</span>':'<span style="color:var(--text3)">● Offline. Changes are saved on this phone.</span>');
-  if(_lastSyncErr&&!(fbReady&&_srvLive&&!n)) document.getElementById('sync-status-line').innerHTML+=`<div style="color:var(--red);margin-top:4px;font-family:var(--fm);font-size:11px">Last sync error: ${_esc(_lastSyncErr)}</div>`;
+  if(_lastSyncErr&&!(fbReady&&_srvLive&&!n&&!Object.keys(_metaDirty()).length)) document.getElementById('sync-status-line').innerHTML+=`<div style="color:var(--red);margin-top:4px;font-family:var(--fm);font-size:11px">Last sync error: ${_esc(_lastSyncErr)}</div>`;
   const prev=_lsGet('tr-trainer-prev',[]).filter(c=>c!==trainerId());
   document.getElementById('sync-prev').innerHTML=prev.length
     ?'Previous codes on this phone (tap to go back):'+prev.slice(-3).reverse().map(c=>`<div onclick="document.getElementById('switch-input').value='${_jsq(c)}'" style="font-family:var(--fm);font-size:11px;color:var(--text2);padding:7px 0;cursor:pointer;word-break:break-all">${_esc(c)}</div>`).join('')
