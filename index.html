@@ -2000,7 +2000,10 @@ function metaPush(keys){
 const META_LABEL={custom:'extra exercises',plan:'Normal program',exLib:'exercise library',cycle:'cycle day names',dayOverrides:'day changes',
   profile:'profile',bwLog:'bodyweight log',programs:'programs',programSchedule:'program schedule',vacation:'holiday'};
 const _metaErr={};
-function _errTxt(err){ return String((err&&(err.code||err.message))||err||'unknown error').slice(0,240); }
+function _errTxt(err){ return String(err&&err.code?(err.code+(err.message?': '+err.message:'')):((err&&err.message)||err||'unknown error')).slice(0,240); }
+// Settings live in one document next to the workouts. (Before v95 the app used "trainers/<code>/meta",
+// which is not a valid document address, so settings never reached the server.)
+function _metaPath(tid){ return `trainers/${tid}/meta/settings`; }
 // Firestore refuses some values outright: empty or reserved names. Leave those out of what is sent.
 function _fsClean(v){
   if(v===undefined||typeof v==='function') return null;
@@ -2020,7 +2023,7 @@ function _metaSendOne(k,ts){
   try{
     const raw=META_GET[k]();
     const v=raw==null?null:_fsClean(JSON.parse(JSON.stringify(raw)));
-    pr=db.doc(`trainers/${tid}/meta`).set({[k]:v},{mergeFields:[k]});
+    pr=db.doc(_metaPath(tid)).set({[k]:v},{mergeFields:[k]});
   }catch(err){
     // The server library refused the data before sending: show why instead of "Saving…" forever
     if(_metaInflight[k]===ts) delete _metaInflight[k];
@@ -2117,8 +2120,13 @@ function startListeners() {
     Object.keys(_sessDirty()).forEach(_pushSess);
     _syncIdle();refreshActiveView();
   },err=>{ _srvLive=false; _lastSyncErr=String(err&&(err.code||err.message)||err); _syncIdle(); });
-  unsubM=db.doc(`trainers/${tid}/meta`).onSnapshot(snap=>{
+  unsubM=db.doc(_metaPath(tid)).onSnapshot(snap=>{
     if(snap.metadata&&snap.metadata.fromCache) return;
+    if(localStorage.getItem('tr-meta-v2')!=='done'){
+      localStorage.setItem('tr-meta-v2','done');
+      if(!snap.exists){ metaPush(Object.keys(META_GET)); return; }
+      _setMetaDirty({}); Object.keys(_metaErr).forEach(k=>delete _metaErr[k]);
+    }
     const md=snap.exists?snap.data():{}, dirty=_metaDirty();
     const take=k=>!dirty[k]&&(k in md);
     if(take('custom')&&md.custom){CUSTOM_EX=md.custom;localStorage.setItem('tr-custom-v2',JSON.stringify(CUSTOM_EX));}
@@ -5221,7 +5229,7 @@ function _tool(n){ return n.match(/\(([^)]+)\)\s*$/)?.[1]||''; }
 
 // ── LOG v2: weekly timeline, newest first ───────────────────────────────────
 let _logFilter='all', _logWeeks=6;
-const APP_VERSION='v94';
+const APP_VERSION='v95';
 
 // Shared missed-day logic (Progress → Block and Log use the same list)
 // Past training days with nothing logged; a workout on a rest day makes up the oldest open miss.
@@ -5912,7 +5920,7 @@ async function switchCode(){
   if(!confirm(`Switch to this code?\n\n${code}\n\nThis phone will show the data stored under that code.`+(n?`\n\n⚠️ ${n} change${n!==1?'s':''} on this phone ${n!==1?'have':'has'} not been sent yet and will be lost.`:'')+`\n\nYour current code is kept in this screen so you can switch back.`)) return;
   const prev=_lsGet('tr-trainer-prev',[]).filter(c=>c!==old&&c!==code); prev.push(old); _lsSet('tr-trainer-prev',prev.slice(-5));
   localStorage.setItem(TK,code);
-  _setSessDirty({}); _setMetaDirty({});
+  _setSessDirty({}); _setMetaDirty({}); localStorage.removeItem('tr-meta-v2');
   US=[];_clearPrCache();closeSyncModal();setSyncUI('syncing','Loading…');
   if(fbReady)startListeners(); else initFirebase();
   refreshActiveView();
