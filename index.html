@@ -358,6 +358,22 @@ body{font-family:var(--fb);background:var(--bg);color:var(--text);font-size:14px
 .ltop{position:sticky;top:0;background:var(--bg);border-bottom:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;z-index:10}
 .linner{padding:12px 16px 120px;max-width:500px;margin:0 auto}
 .lex-row{display:flex;align-items:center;justify-content:space-between;padding:13px 14px;background:var(--bg2);border-radius:12px;border:1px solid var(--border);margin-bottom:8px}
+.lex-row:active{background:var(--bg3)}
+.lib-gh{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}
+.lib-gh span{color:var(--text4);font-weight:600;margin-left:4px}
+.lib-dup{display:flex;justify-content:space-between;align-items:center;gap:10px;background:#fbbf2414;border:1px solid #fbbf2455;color:var(--amber);border-radius:12px;padding:11px 14px;margin-bottom:12px;cursor:pointer;font-size:13px}
+.lib-more{width:100%;margin:6px 0 10px;padding:12px;background:none;border:1px dashed var(--border);border-radius:12px;color:var(--text2);font:600 13px var(--fb);cursor:pointer}
+.exd-fig{margin:4px auto 8px;max-width:240px}
+.exd-btns{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0 6px}
+.exd-btns button,.mg-b{flex:1 1 auto;padding:11px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font:600 13px var(--fb);cursor:pointer;white-space:nowrap}
+.exd-btns button.primary,.mg-b.primary{background:var(--green);border-color:var(--green);color:#000}
+.exd-btns button.danger{color:var(--red);flex:0 0 auto}
+.mg-card{margin:0 16px 10px;padding:12px;background:var(--bg3);border-radius:12px}
+.mg-n{display:flex;justify-content:space-between;gap:8px;font-size:13px;padding:3px 0}
+.mg-opt{display:flex;gap:10px;align-items:center;padding:11px 12px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;cursor:pointer}
+.mg-opt.on{border-color:var(--green);background:#4ade8012}
+.mg-r{width:16px;height:16px;border-radius:50%;border:2px solid var(--text3);flex-shrink:0}
+.mg-opt.on .mg-r{border-color:var(--green);background:radial-gradient(var(--green) 45%,transparent 50%)}
 /* FEEDBACK MODAL */
 .fbg{position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:600;display:none;align-items:flex-end}
 .fbg.open{display:flex}
@@ -1051,6 +1067,15 @@ svg.bm-body .n{fill:#1f1f1f;stroke:var(--bg2);stroke-width:1.1}
   </div>
 </div>
 
+<!-- v96: EXERCISE DETAIL SHEET -->
+<div class="soverlay" id="exd-sheet" onclick="if(event.target===this)closeExDetail()">
+  <div class="sheet"><div class="shandle"></div><div id="exd-inner"></div></div>
+</div>
+<!-- v96: DUPLICATES / MERGE SHEET -->
+<div class="soverlay" id="exm-sheet" onclick="if(event.target===this)closeMerge()">
+  <div class="sheet"><div class="shandle"></div><div class="stitle" id="exm-title">Merge</div><div id="exm-inner"></div></div>
+</div>
+
 <!-- DAY OVERRIDE SHEET -->
 <div class="soverlay" id="day-override-sheet" onclick="if(event.target===this)closeDayOverrideSheet()">
   <div class="sheet">
@@ -1636,6 +1661,10 @@ const _HOL_SESSIONS=[
 // Holiday sessions seeded via onSnapshot handler in startListeners
 let CUSTOM_EX = JSON.parse(localStorage.getItem('tr-custom-v2') || '{}');
 let EX_LIBRARY = JSON.parse(localStorage.getItem('tr-exlib-v1') || '[]');
+// v96: exercises merged by the user ({from,to} list) and pairs marked "not the same"
+function _exNamesClean(v){ v=(v&&typeof v==='object')?v:{}; return {merge:Array.isArray(v.merge)?v.merge.filter(m=>m&&m.from&&m.to&&m.from!==m.to):[], apart:Array.isArray(v.apart)?v.apart.filter(x=>typeof x==='string'):[]}; }
+let EX_NAMES = (()=>{ try{ return _exNamesClean(JSON.parse(localStorage.getItem('tr-exnames-v1')||'null')); }catch(e){ return _exNamesClean(null); } })();
+let _exVer = 0;
 // Seed holiday bodyweight exercises if not already present
 (function(){
   const toAdd=[
@@ -1646,7 +1675,7 @@ let EX_LIBRARY = JSON.parse(localStorage.getItem('tr-exlib-v1') || '[]');
     {name:'Pull-Ups (Bodyweight)',type:'reps',group:'Bodyweight'},
   ];
   let changed=false;
-  toAdd.forEach(ex=>{if(!EX_LIBRARY.find(e=>e.name===ex.name)){EX_LIBRARY.push(ex);changed=true;}});
+  toAdd.forEach(ex=>{if(!EX_LIBRARY.find(e=>e.name===ex.name)&&!EX_NAMES.merge.some(m=>m.from===ex.name)){EX_LIBRARY.push(ex);changed=true;}});
   if(changed){localStorage.setItem('tr-exlib-v1',JSON.stringify(EX_LIBRARY));}
 })();
 let CUSTOM_CYCLE = JSON.parse(localStorage.getItem('tr-cycle-v1') || 'null');
@@ -1988,7 +2017,7 @@ function _pushSess(id){
   }).catch(err=>{ if(_sessInflight[id]===e.ts) delete _sessInflight[id]; _lastSyncErr=String(err&&(err.code||err.message)||err); setSyncUI('err','Save failed · kept on phone'); });
 }
 const META_GET={custom:()=>CUSTOM_EX,plan:()=>PLAN,exLib:()=>EX_LIBRARY,cycle:()=>CUSTOM_CYCLE,dayOverrides:()=>DAY_OVERRIDES,
-  profile:()=>PROFILE,bwLog:()=>BW_LOG,programs:()=>PROGRAMS,programSchedule:()=>PROGRAM_SCHEDULE,vacation:()=>VACATION};
+  profile:()=>PROFILE,bwLog:()=>BW_LOG,programs:()=>PROGRAMS,programSchedule:()=>PROGRAM_SCHEDULE,vacation:()=>VACATION,exNames:()=>EX_NAMES};
 // Save settings to the server; stays marked as unsent until the server confirms
 function metaPush(keys){
   const ts=_stamp(), d=_metaDirty(); keys.forEach(k=>d[k]=ts); _setMetaDirty(d);
@@ -1998,7 +2027,7 @@ function metaPush(keys){
 // Each setting is sent on its own, so one bad setting can never block the others.
 // mergeFields replaces the whole setting on the server, so things you delete stay deleted.
 const META_LABEL={custom:'extra exercises',plan:'Normal program',exLib:'exercise library',cycle:'cycle day names',dayOverrides:'day changes',
-  profile:'profile',bwLog:'bodyweight log',programs:'programs',programSchedule:'program schedule',vacation:'holiday'};
+  profile:'profile',bwLog:'bodyweight log',programs:'programs',programSchedule:'program schedule',vacation:'holiday',exNames:'merged exercises'};
 const _metaErr={};
 function _errTxt(err){ return String(err&&err.code?(err.code+(err.message?': '+err.message:'')):((err&&err.message)||err||'unknown error')).slice(0,240); }
 // Settings live in one document next to the workouts. (Before v95 the app used "trainers/<code>/meta",
@@ -2115,7 +2144,7 @@ function startListeners() {
       } else if(doc.deleted){ _addSeedTomb(sess.id); }
     });
     localStorage.setItem('tr-sess-v4',JSON.stringify(US));
-    try{ migrateSessionNames(); }catch(e){ console.error('name migration',e); }
+    try{ migrateSessionNames(); migrateBuiltinNames(); }catch(e){ console.error('name migration',e); }
     _clearPrCache();
     Object.keys(_sessDirty()).forEach(_pushSess);
     _syncIdle();refreshActiveView();
@@ -2139,7 +2168,9 @@ function startListeners() {
     if(take('programs')&&md.programs){PROGRAMS=md.programs;localStorage.setItem('tr-programs-v1',JSON.stringify(PROGRAMS));}
     if(take('programSchedule')&&md.programSchedule){PROGRAM_SCHEDULE=md.programSchedule;localStorage.setItem('tr-prog-sched-v1',JSON.stringify(PROGRAM_SCHEDULE));}
     if(take('vacation')){VACATION=md.vacation||null;localStorage.setItem('tr-vacation-v1',JSON.stringify(VACATION));}
-    try{ migrateMetaNames(); }catch(e){ console.error('name migration',e); }
+    let _exNCh=false;
+    if(take('exNames')&&md.exNames){ const nx=_exNamesClean(md.exNames); if(JSON.stringify(nx)!==JSON.stringify(EX_NAMES)){ EX_NAMES=nx; _exNCh=true; } localStorage.setItem('tr-exnames-v1',JSON.stringify(EX_NAMES)); }
+    try{ migrateMetaNames(); if(_exNCh){ _exVer++; migrateSessionNames(); migrateBuiltinNames(); migrateActiveWorkoutNames(); } }catch(e){ console.error('name migration',e); }
     // Settings changed on this phone while offline: send them now
     const d2=_metaDirty();
     const resend=Object.keys(d2).filter(k=>META_GET[k]&&_metaInflight[k]!==d2[k]);
@@ -2338,6 +2369,7 @@ async function saveLibrary() {
 
 // ── EXERCISE LIBRARY ───────────────────────────────────────────────────────
 function openLibrary() {
+  _lib={q:'',m:null,showCat:false};
   syncLibraryFromAllSources();
   renderLibrary();
   document.getElementById('lib-overlay').classList.add('open');
@@ -2346,46 +2378,242 @@ function closeLibrary() {
   document.getElementById('lib-overlay').classList.remove('open');
 }
 
+// ── v96 LIBRARY: body map, search, body-part groups, detail card, duplicates ──
+let _lib={q:'',m:null,showCat:false};
+const LIB_REGIONS=['Chest','Back','Shoulders','Arms','Legs','Core','Other'];
+function libVisible(){ return EX_LIBRARY.filter(e=>!e.hidden); }
 function renderLibrary() {
   const el=document.getElementById('lib-inner');
-  if(!EX_LIBRARY.length){
-    el.innerHTML=`<div style="text-align:center;padding:48px 24px;color:var(--text3)">
-      <div style="font-size:40px;margin-bottom:12px">📚</div>
-      <div style="font-size:16px;font-weight:600;color:var(--text2);margin-bottom:8px">Library is empty</div>
-      <div style="font-size:13px;line-height:1.5">Tap <strong style="color:var(--green)">+ Add</strong> to create custom exercises.<br>Built-in time exercises: Plank, Dead Hang, Wall Sit.</div>
-    </div>`;
-    return;
+  el.innerHTML=`<input type="search" id="lib-q" class="pg-search" style="margin:0 0 12px;font-size:14px;padding:10px 12px" placeholder="Search exercises" value="${_esc(_lib.q)}" oninput="libSearch(this.value)">
+    <div id="lib-body"></div>`;
+  renderLibBody();
+}
+function libSearch(v){ _lib.q=v; renderLibBody(); }
+function libPickMuscle(k){ _lib.m=_lib.m===k?null:k; renderLibBody(); }
+function libToggleCat(){ _lib.showCat=!_lib.showCat; renderLibBody(); }
+function setLibBy(b){ try{localStorage.setItem('tr-lib-by',b);}catch(e){} renderLibBody(); }
+function _libRow(n, inLib){
+  const x=bmMuscles(n), tb=isTimeBased(n)||BM_CAT_TIME.has(n), m=_lib.m;
+  const tag=x.p.length?`<div class="bm-libtag">${x.p.map(k=>BM_M[k]).join(' · ')}${x.s.length?' <span style="color:var(--text4)">+ '+x.s.map(k=>BM_M[k]).join(', ')+'</span>':''}</div>`
+    :'<div class="bm-libtag" style="color:var(--amber)">No muscles set. Tap to pick them.</div>';
+  return `<div class="lex-row" onclick="openExDetail('${_jsq(n)}')" style="cursor:pointer${inLib?'':';border-style:dashed'}">
+    <div style="min-width:0">
+      <div style="font-size:14px;font-weight:600">${_esc(_shortName(n))} <span style="font-size:11px;font-weight:500;color:var(--text3)">${_esc(_tool(n))}</span>${tb?'<span class="tbadge-ex">TIME</span>':''}${m&&!x.p.includes(m)&&x.s.includes(m)?' <span style="font-size:10px;color:var(--text4)">partly</span>':''}</div>
+      ${tag}
+    </div>
+    <div style="color:var(--text3);font-size:18px;flex-shrink:0;padding-left:8px">${inLib?'›':'+'}</div>
+  </div>`;
+}
+function renderLibBody(){
+  const el=document.getElementById('lib-body'); if(!el) return;
+  let by='region'; try{ by=localStorage.getItem('tr-lib-by')||'region'; }catch(e){}
+  if(by!=='muscle') by='region';
+  const vis=libVisible().map(e=>e.name);
+  const q=_lib.q, m=_lib.m;
+  // Figure: brighter = more of your exercises train this muscle
+  const cnt={}; BM_KEYS.forEach(k=>cnt[k]=0);
+  vis.forEach(n=>{ const x=bmMuscles(n); x.p.forEach(k=>cnt[k]+=1); x.s.forEach(k=>cnt[k]+=.5); });
+  const mx=Math.max(1,...Object.values(cnt));
+  const fill=k=>k===m?['#d4ff3a',1]:cnt[k]>0?['#d4ff3a',.18+.6*Math.min(1,cnt[k]/mx)]:['#2a2a2a',1];
+  const thin=BM_KEYS.filter(k=>cnt[k]<1).slice(0,4);
+  const chips=!m&&thin.length?`<div class="eyebrow" style="margin-top:10px;color:var(--amber)">Few exercises</div><div class="bm-chips" style="margin-top:4px">${thin.map(k=>`<button class="bm-chip warn" onclick="libPickMuscle('${k}')">${BM_M[k]}</button>`).join('')}</div>`:'';
+  let html='';
+  const dups=exDupGroups();
+  if(dups.length&&!q&&!m) html+=`<div class="lib-dup" onclick="openDupList()"><div><b>${dups.length} possible duplicate${dups.length>1?'s':''}</b><div style="font-size:11px;color:var(--text2);margin-top:2px">${_esc(dups.slice(0,2).map(g=>g.map(_shortName).join(' / ')).join(' · '))}${dups.length>2?' …':''}</div></div><div style="font-weight:700">Review ›</div></div>`;
+  html+=`<div style="margin:0 -16px">${bmPickerHead(fill,m,'libPickMuscle','Brighter = more of your exercises train it',chips)}</div>`;
+  const list=bmFilter(vis,q,m);
+  html+=`<div class="bm-seg" style="margin:4px 0 14px"><button class="${by==='region'?'on':''}" onclick="setLibBy('region')">Body part</button><button class="${by==='muscle'?'on':''}" onclick="setLibBy('muscle')">Main muscle</button></div>`;
+  if(!vis.length) html+=`<div style="text-align:center;padding:24px;color:var(--text3);font-size:13px">Your library is empty. Tap <b style="color:var(--green)">+ Add</b> or pick a starter exercise below.</div>`;
+  else if(!list.length) html+=`<div style="text-align:center;padding:16px;color:var(--text3);font-size:13px">None of your exercises match.</div>`;
+  else {
+    const grps={};
+    if(by==='muscle'){ BM_KEYS.forEach(k=>grps[BM_M[k]]=[]); grps['Muscles not set']=[];
+      list.forEach(n=>{ const p=(m&&bmMuscles(n).p.includes(m))?m:bmMuscles(n).p[0]; grps[p?BM_M[p]:'Muscles not set'].push(n); }); }
+    else { LIB_REGIONS.forEach(r=>grps[r]=[]); list.forEach(n=>{ const r=bmRegion(n); grps[LIB_REGIONS.includes(r)?r:'Other'].push(n); }); }
+    const keepOrder=!!m; // muscle filter: keep "main first" order
+    Object.entries(grps).forEach(([g,exs])=>{ if(!exs.length) return;
+      if(!keepOrder) exs.sort((a,b)=>a.localeCompare(b));
+      html+=`<div style="margin-bottom:18px"><div class="lib-gh">${_esc(g)} <span>${exs.length}</span></div>${exs.map(n=>_libRow(n,true)).join('')}</div>`; });
   }
-  // group by .group, or by main muscle
-  let _libBy='group'; try{_libBy=localStorage.getItem('tr-lib-by')||'group';}catch(e){}
-  const grps={};
-  if(_libBy==='muscle'){
-    BM_KEYS.forEach(k=>grps[BM_M[k]]=[]); grps['Unknown']=[];
-    EX_LIBRARY.forEach(e=>{const p=bmMuscles(e.name).p[0]; grps[p?BM_M[p]:'Unknown'].push(e);});
-    Object.keys(grps).forEach(k=>{if(!grps[k].length)delete grps[k];});
-  } else EX_LIBRARY.forEach(e=>{const g=e.group||'Custom';if(!grps[g])grps[g]=[];grps[g].push(e);});
-  el.innerHTML=`<div class="bm-seg" style="margin:0 0 16px"><button class="${_libBy==='group'?'on':''}" onclick="setLibBy('group')">By group</button><button class="${_libBy==='muscle'?'on':''}" onclick="setLibBy('muscle')">By muscle</button></div>`+Object.entries(grps).map(([g,exs])=>`
-    <div style="margin-bottom:20px">
-      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">${g}</div>
-      ${exs.map(e=>`<div class="lex-row">
-        <div>
-          <div style="font-size:14px;font-weight:600">${e.name}</div>
-          ${bmMuscles(e.name).p.length?`<div class="bm-libtag">${bmMuscles(e.name).p.map(k=>BM_M[k]).join(' · ')}${bmMuscles(e.name).s.length?' <span style="color:var(--text4)">+ '+bmMuscles(e.name).s.map(k=>BM_M[k]).join(', ')+'</span>':''}</div>`:'<div class="bm-libtag" style="color:var(--amber)">No muscles set. Tap ✏ to pick them.</div>'}
-          <div style="margin-top:4px"><span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;${e.type==='time'?'background:var(--purple)22;color:var(--purple)':'background:var(--blue)22;color:var(--blue)'}">${e.type==='time'?'⏱ TIME':'🔢 REPS'}</span></div>
-        </div>
-        <div style="display:flex;gap:6px;align-items:center">
-          <button onclick="openEditLibEx('${e.name.replace(/'/g,"\\'")}')" style="width:32px;height:32px;border-radius:50%;border:none;background:var(--bg3);color:var(--text3);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0">✏</button>
-          <button onclick="deleteLibEx('${e.name.replace(/'/g,"\\'")}')" style="width:32px;height:32px;border-radius:50%;border:none;background:var(--bg3);color:var(--text3);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0">×</button>
-        </div>
-      </div>`).join('')}
-    </div>`).join('');
+  // Starter exercises the user does not have yet
+  const cat=bmCatalogNew(vis);
+  if(cat.length){
+    if(q||m){ const cf=bmFilter(cat,q,m); if(cf.length) html+=`<div class="lib-gh" style="margin-top:6px">Starter exercises <span>${cf.length}</span></div>${cf.map(n=>_libRow(n,false)).join('')}`; }
+    else html+=`<button class="lib-more" onclick="libToggleCat()">${_lib.showCat?'Hide':'Browse'} ${cat.length} starter exercises ${_lib.showCat?'▴':'▾'}</button>${_lib.showCat?cat.slice().sort((a,b)=>a.localeCompare(b)).map(n=>_libRow(n,false)).join(''):''}`;
+  }
+  html+=`<div style="text-align:center;font-size:11px;color:var(--text4);margin-top:16px">${vis.length} exercises in your library</div>`;
+  el.innerHTML=html;
+}
+function deleteLibEx(name) {
+  if(!confirm(`Hide "${name}" from the library?\n\nYour logged sessions stay. It comes back if you use it in a workout again.`))return;
+  const e=EX_LIBRARY.find(x=>x.name===name); if(e) e.hidden=true;
+  saveLibrary(); closeExDetail(); renderLibBody();
+}
+function libAddFromCatalog(name){
+  ensureInLibrary(name); closeExDetail(); renderLibBody(); openExDetail(name);
 }
 
-function setLibBy(b){ try{localStorage.setItem('tr-lib-by',b);}catch(e){} renderLibrary(); }
-function deleteLibEx(name) {
-  if(!confirm(`Remove "${name}" from library?`))return;
-  EX_LIBRARY=EX_LIBRARY.filter(e=>e.name!==name);
-  saveLibrary();renderLibrary();
+// ── Exercise detail card ──
+let _exdName=null;
+function openExDetail(name){
+  _exdName=name;
+  const inLib=EX_LIBRARY.some(e=>e.name===name&&!e.hidden);
+  const x=bmMuscles(name), kind=exKind(name), h=exSessions(name);
+  const fill=k=>x.p.includes(k)?['#d4ff3a',1]:x.s.includes(k)?['#d4ff3a',.38]:['#2a2a2a',1];
+  const last=h[h.length-1], best=exBest(name);
+  const d=s=>new Date(s+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'2-digit'});
+  const dup=exDupGroups().find(g=>g.includes(name));
+  let html=`<div style="padding:0 16px">
+    <div style="font-size:19px;font-weight:700;line-height:1.25">${_esc(_shortName(name))}</div>
+    <div class="eyebrow" style="margin-top:4px">${[_tool(name),kind==='time'?'Seconds':'Reps + kg',x.p.length?bmRegion(name):''].filter(Boolean).map(_esc).join(' · ')}</div>
+    <div class="exd-fig">${bmPair(fill,null,null)}</div>
+    ${x.p.length?`<div style="display:flex;gap:16px;font-size:12px;line-height:1.5;justify-content:center;text-align:center">
+        <div><span style="color:var(--accent)">●</span> <b>Main</b><br><span style="color:var(--text2)">${x.p.map(k=>BM_M[k]).join(', ')}</span></div>
+        ${x.s.length?`<div><span style="color:var(--accent);opacity:.45">●</span> <b>Also</b><br><span style="color:var(--text2)">${x.s.map(k=>BM_M[k]).join(', ')}</span></div>`:''}
+      </div>`:`<div style="font-size:12px;color:var(--amber);text-align:center">No muscles set yet. Tap Edit to pick them on the body.</div>`}
+    ${h.length?`<div class="pg-tiles">
+        <div class="pg-tile"><div class="v" style="font-size:15px">${h.length}</div><div class="eyebrow">Sessions</div></div>
+        <div class="pg-tile"><div class="v" style="font-size:15px">${_esc(setText(kind,best.best))}</div><div class="eyebrow">Best set</div></div>
+        <div class="pg-tile"><div class="v" style="font-size:15px">${d(last.date)}</div><div class="eyebrow">Last time</div></div>
+      </div>
+      <div style="font-size:12px;color:var(--text2);margin-top:8px">Last: <span class="tnum">${_esc(last.txt)}</span></div>`
+      :`<div style="font-size:12px;color:var(--text3);margin-top:12px;text-align:center">Not logged yet.</div>`}
+    ${dup?`<div class="lib-dup" style="margin-top:12px" onclick="openMergeFor(${_esc(JSON.stringify(dup))})"><div style="font-size:12px">Looks the same as <b>${_esc(dup.filter(n=>n!==name).join(', '))}</b></div><div style="font-weight:700">Merge ›</div></div>`:''}
+    <div class="exd-btns">
+      ${h.length?`<button onclick="exdProgress()">Progress</button>`:''}
+      ${inLib?`<button onclick="exdEdit()">Edit</button><button onclick="openMergePick('${_jsq(name)}')">Merge into…</button><button class="danger" onclick="deleteLibEx('${_jsq(name)}')">Hide</button>`
+        :`<button class="primary" onclick="libAddFromCatalog('${_jsq(name)}')">+ Add to library</button>`}
+    </div>
+  </div>`;
+  document.getElementById('exd-inner').innerHTML=html;
+  document.getElementById('exd-sheet').classList.add('open');
+}
+function closeExDetail(){ document.getElementById('exd-sheet').classList.remove('open'); }
+function exdEdit(){ const n=_exdName; closeExDetail(); openEditLibEx(n); }
+function exdProgress(){ const n=_exdName; closeExDetail(); closeLibrary(); openLift(n); }
+
+// ── Duplicates ──
+const _DUP_TOOL={rope:'cable',cable:'cable','ab wheel':'bw',bodyweight:'bw','bodyweight/plate':'bw',bw:'bw',bb:'bb',barbell:'bb',db:'db',dumbbell:'db',dumbbells:'db',machine:'machine'};
+const _DUP_ALIAS=[[/\brdl\b/g,'romanian deadlift'],[/\bab (wheel )?roll ?outs?\b/g,'ab wheel'],[/\btriceps\b/g,'tricep'],[/\bbiceps\b/g,'bicep'],
+  [/\bpull ?ups?\b/g,'pull up'],[/\bchin ?ups?\b/g,'chin up'],[/\bpush ?ups?\b/g,'push up'],[/\bsit ?ups?\b/g,'sit up'],[/\bstep ?ups?\b/g,'step up'],
+  [/\bstanding\b/g,''],[/\bbarbell curl\b/g,'bicep curl'],[/\bbent over\b/g,'bent over'],[/\bflye\b/g,'fly']];
+function exDupKey(name){
+  const s=String(name).toLowerCase(), tm=s.match(/\(([^)]*)\)\s*$/);
+  let base=' '+s.replace(/\s*\([^)]*\)\s*$/,'').replace(/[^a-z0-9]+/g,' ')+' ';
+  _DUP_ALIAS.forEach(([re,r])=>{ base=base.replace(re,r); });
+  base=base.split(' ').filter(Boolean).map(w=>w.length>3?w.replace(/s$/,''):w).join(' ');
+  const t=tm?tm[1].trim():'';
+  return [base, _DUP_TOOL[t]!==undefined?_DUP_TOOL[t]:t];
+}
+function _apartKey(a,b){ return [a,b].sort().join('\u0001'); }
+function exDupGroups(){
+  const names=bmUserExNames();
+  const byBase={};
+  names.forEach(n=>{ const [b,t]=exDupKey(n); (byBase[b]=byBase[b]||{})[t]=[...((byBase[b]||{})[t]||[]),n]; });
+  const apart=new Set(EX_NAMES.apart), out=[];
+  Object.values(byBase).forEach(byT=>{
+    const tools=Object.keys(byT).filter(t=>t);
+    if(byT['']&&tools.length===1){ byT[tools[0]].push(...byT['']); delete byT['']; }
+    Object.values(byT).forEach(g=>{
+      if(g.length<2) return;
+      let open=false; for(let i=0;i<g.length&&!open;i++) for(let j=i+1;j<g.length;j++) if(!apart.has(_apartKey(g[i],g[j]))){ open=true; break; }
+      if(open) out.push(g.slice().sort());
+    });
+  });
+  return out;
+}
+function _exUseCount(n){ return exSessions(n).length; }
+function _exKeepGuess(g){
+  const plan=new Set(); try{ getPlanEx && Object.keys(PLAN).forEach(dt=>(PLAN[dt]||[]).forEach(x=>(x.ex||[]).forEach(e=>plan.add(e)))); PROGRAMS.forEach(p=>Object.values(p.plan||{}).forEach(gs=>gs.forEach(x=>(x.ex||[]).forEach(e=>plan.add(e))))); }catch(e){}
+  return g.slice().sort((a,b)=>(_exUseCount(b)-_exUseCount(a))||((plan.has(b)?1:0)-(plan.has(a)?1:0))||((BM_CATALOG.includes(b)?1:0)-(BM_CATALOG.includes(a)?1:0))||a.localeCompare(b))[0];
+}
+let _mg={mode:'list',names:[],keep:null,from:null,q:''};
+function _mgOpen(){ document.getElementById('exm-sheet').classList.add('open'); renderMerge(); }
+function openDupList(){ _mg={mode:'list',names:[],keep:null,from:null,q:''}; _mgOpen(); }
+function openMergeFor(g){ closeExDetail(); _mg={mode:'merge',names:g.slice(),keep:_exKeepGuess(g),from:null,q:''}; _mgOpen(); }
+function openMergePick(name){ closeExDetail(); _mg={mode:'pick',names:[name],keep:null,from:name,q:''}; _mgOpen(); }
+function closeMerge(){ document.getElementById('exm-sheet').classList.remove('open'); }
+function mgKeep(n){ _mg.keep=n; renderMerge(); }
+function mgPickTarget(n){ const g=[_mg.from,n]; _mg={mode:'merge',names:g,keep:n,from:_mg.from,q:''}; renderMerge(); }
+function mgSearch(v){ _mg.q=v; const el=document.getElementById('mg-list'); if(el) el.innerHTML=_mgPickList(); }
+function _mgPickList(){
+  const from=_mg.from, [fb]=exDupKey(from);
+  const pool=bmUserExNames().filter(n=>n!==from);
+  const q=_mg.q.toLowerCase().trim();
+  const sim=n=>{ const [b]=exDupKey(n); return b===fb?3:(bmMuscles(n).p.join()===bmMuscles(from).p.join()?1:0); };
+  const list=pool.filter(n=>!q||n.toLowerCase().includes(q)).sort((a,b)=>sim(b)-sim(a)||a.localeCompare(b)).slice(0,40);
+  return list.map(n=>`<div class="sitem" onclick="mgPickTarget('${_jsq(n)}')"><div style="min-width:0"><div class="sitem-name">${_esc(n)}</div><div class="sitem-sub">${_exUseCount(n)} sessions${bmMuscles(n).p.length?' · '+bmMuscles(n).p.map(k=>BM_M[k]).join(' · '):''}</div></div></div>`).join('')||`<div style="padding:16px;color:var(--text3);font-size:13px">No match.</div>`;
+}
+function renderMerge(){
+  const el=document.getElementById('exm-inner');
+  if(_mg.mode==='list'){
+    const gs=exDupGroups();
+    document.getElementById('exm-title').textContent='Possible duplicates';
+    el.innerHTML=gs.length?`<div style="padding:0 16px 8px;font-size:12px;color:var(--text2);line-height:1.5">These names look like the same exercise. Merging joins their history into one name, so progress and PRs are counted together.</div>`+
+      gs.map((g,i)=>`<div class="mg-card">
+        ${g.map(n=>`<div class="mg-n"><span>${_esc(n)}</span><span class="tnum" style="color:var(--text3)">${_exUseCount(n)} sess.</span></div>`).join('')}
+        <div style="display:flex;gap:8px;margin-top:10px"><button class="mg-b primary" onclick="openMergeFor(${_esc(JSON.stringify(g))})">Merge…</button><button class="mg-b" onclick="mgApart(${_esc(JSON.stringify(g))})">Not the same</button></div>
+      </div>`).join('')
+      :`<div style="padding:24px 16px;text-align:center;color:var(--text3);font-size:13px">No duplicates found. 👍</div>`;
+    return;
+  }
+  if(_mg.mode==='pick'){
+    document.getElementById('exm-title').textContent='Merge '+_shortName(_mg.from)+' into…';
+    el.innerHTML=`<div style="padding:0 16px 8px;font-size:12px;color:var(--text2)">Pick the exercise it is the same as.</div>
+      <div style="padding:0 16px 8px"><input type="search" class="pg-search" placeholder="Search" oninput="mgSearch(this.value)"></div><div id="mg-list">${_mgPickList()}</div>`;
+    return;
+  }
+  const keep=_mg.keep, gone=_mg.names.filter(n=>n!==keep);
+  const n=gone.reduce((a,x)=>a+_exUseCount(x),0);
+  document.getElementById('exm-title').textContent='Merge exercises';
+  el.innerHTML=`<div style="padding:0 16px">
+    <div class="eyebrow" style="margin-bottom:6px">Keep this name</div>
+    ${_mg.names.map(x=>`<div class="mg-opt${x===keep?' on':''}" onclick="mgKeep('${_jsq(x)}')"><span class="mg-r"></span><div style="min-width:0;flex:1"><div style="font-size:14px;font-weight:600">${_esc(x)}</div><div style="font-size:11px;color:var(--text3)">${_exUseCount(x)} sessions${bmMuscles(x).p.length?' · '+bmMuscles(x).p.map(k=>BM_M[k]).join(' · '):''}</div></div></div>`).join('')}
+    <div style="font-size:12px;color:var(--text2);line-height:1.5;margin:12px 0">${n} session${n!==1?'s':''} of <b>${_esc(gone.join(', '))}</b> will be renamed to <b>${_esc(keep)}</b>. Plans, programs and PR picks follow. If both are in the same workout, the sets are joined.</div>
+    <button class="mg-b primary" style="width:100%;padding:14px;font-size:15px" onclick="mgDo()">Merge</button>
+  </div>`;
+}
+function mgApart(g){
+  for(let i=0;i<g.length;i++) for(let j=i+1;j<g.length;j++){ const k=_apartKey(g[i],g[j]); if(!EX_NAMES.apart.includes(k)) EX_NAMES.apart.push(k); }
+  saveExNames(); renderMerge(); renderLibBody();
+}
+function saveExNames(){ localStorage.setItem('tr-exnames-v1',JSON.stringify(EX_NAMES)); metaPush(['exNames']); }
+function mgDo(){
+  const keep=_mg.keep, gone=_mg.names.filter(n=>n!==keep);
+  if(!keep||!gone.length) return;
+  exMergeNames(gone,keep);
+  closeMerge();
+  if(exDupGroups().length&&document.getElementById('lib-overlay').classList.contains('open')) openDupList();
+  renderLibBody();
+  try{ if(typeof showToast==='function') showToast('Merged into '+_shortName(keep)); }catch(e){}
+}
+// Merge: every old name becomes `to` everywhere (history, plans, programs, library, PR picks)
+function exMergeNames(froms,to){
+  try{ localStorage.setItem('tr-merge-backup-v1',JSON.stringify({at:new Date().toISOString(),froms,to,US,PLAN,CUSTOM_EX,EX_LIBRARY,PROGRAMS,PR_PREFS,hOvr:[..._hOvr]})); }catch(e){}
+  froms.forEach(from=>{
+    if(!from||from===to) return;
+    const a=EX_LIBRARY.find(e=>e.name===from), b=EX_LIBRARY.find(e=>e.name===to);
+    if(a&&!b){ a.name=to; }
+    else if(a&&b){
+      if(!(b.muscles&&b.muscles.p&&b.muscles.p.length)&&a.muscles) b.muscles=a.muscles;
+      if(b.rest==null&&a.rest!=null) b.rest=a.rest;
+      if(b.hidden&&!a.hidden) delete b.hidden;
+      EX_LIBRARY=EX_LIBRARY.filter(e=>e!==a);
+    }
+    EX_NAMES.merge.forEach(m=>{ if(m.to===from) m.to=to; });
+    EX_NAMES.merge=EX_NAMES.merge.filter(m=>m.from!==from&&m.from!==to&&m.from!==m.to);
+    EX_NAMES.merge.push({from,to});
+  });
+  const t=EX_LIBRARY.find(e=>e.name===to);
+  if(!t) EX_LIBRARY.push({name:to,type:isTimeBased(to)?'time':'reps',group:bmRegion(to)});
+  else if(t.hidden) delete t.hidden;
+  saveExNames(); saveLibrary();
+  _exVer++;
+  migrateSessionNames(); migrateBuiltinNames(); migrateMetaNames(); migrateActiveWorkoutNames();
+  try{ _clearPrCache(); }catch(e){}
+  if(typeof currentProgressEx!=='undefined'&&currentProgressEx&&froms.includes(currentProgressEx)) currentProgressEx=to;
+  try{ if(_liftOpen&&froms.includes(_liftOpen)) _liftOpen=to; }catch(e){}
+  try{ refreshActiveView(); }catch(e){}
 }
 
 function openAddLibEx() {
@@ -2438,7 +2666,9 @@ function syncLibraryFromAllSources() {
   const existing=new Set(EX_LIBRARY.map(e=>e.name));
   let added=false;
   allNames.forEach(name=>{
+    name=_renEx(name);
     if(existing.has(name))return;
+    existing.add(name);
     EX_LIBRARY.push({name,type:isTimeBased(name)?'time':'reps',group:groupMap[name]||'Imported'});
     added=true;
   });
@@ -2447,7 +2677,8 @@ function syncLibraryFromAllSources() {
 
 // Silently add a single exercise to the library if not already present
 function ensureInLibrary(name) {
-  if(EX_LIBRARY.some(e=>e.name===name))return;
+  const ex0=EX_LIBRARY.find(e=>e.name===name);
+  if(ex0){ if(ex0.hidden){ delete ex0.hidden; saveLibrary(); } return; }
   const groupMap={};
   Object.values(PLAN).forEach(gs=>gs.forEach(g=>g.ex.forEach(n=>{if(!groupMap[n])groupMap[n]=g.g;})));
   EX_LIBRARY.push({name,type:isTimeBased(name)?'time':'reps',group:groupMap[name]||(BM_CATALOG.includes(name)?bmRegion(name):'Custom')});
@@ -4709,7 +4940,7 @@ function setsText(kind,sets){
 }
 
 let _exSessCache={}, _exSessSig='';
-function _exSig(){ return H.length+'|'+US.length+'|'+(US.length?US[US.length-1].id:'')+'|'+(BW_LOG?BW_LOG.length:0)+'|'+EX_LIBRARY.length; }
+function _exSig(){ return H.length+'|'+US.length+'|'+(US.length?US[US.length-1].id:'')+'|'+(BW_LOG?BW_LOG.length:0)+'|'+EX_LIBRARY.length+'|'+_exVer+'|'+_hOvr.size; }
 function exSessions(name){
   const sig=_exSig();
   if(sig!==_exSessSig){ _exSessCache={}; _exSessSig=sig; }
@@ -5046,14 +5277,15 @@ function bmKnownNorms(){
 // Every exercise the user already has: library, history and all plans
 function bmUserExNames(){
   const s=new Set();
-  try{ EX_LIBRARY.forEach(e=>s.add(e.name)); }catch(e){}
+  try{ EX_LIBRARY.forEach(e=>{ if(!e.hidden) s.add(e.name); }); }catch(e){}
   try{ allExNames().forEach(n=>s.add(n)); }catch(e){}
   try{ [PLAN,DEFAULT_PLAN].forEach(pl=>Object.values(pl).forEach(gs=>gs.forEach(g=>(g.ex||[]).forEach(n=>s.add(n))))); }catch(e){}
   try{ PROGRAMS.forEach(p=>Object.values(p.plan||{}).forEach(gs=>gs.forEach(g=>(g.ex||[]).forEach(n=>s.add(n))))); }catch(e){}
-  return [...s];
+  try{ Object.values(CUSTOM_EX||{}).forEach(a=>(a||[]).forEach(n=>s.add(n))); }catch(e){}
+  return [...new Set([...s].map(_renEx))];
 }
 // Catalogue entries the user does not have yet (under any spelling)
-function bmCatalogNew(exclude){ const k=bmKnownNorms(); (exclude||[]).forEach(n=>k.add(bmNorm(n))); return BM_CATALOG.filter(n=>!k.has(bmNorm(n))); }
+function bmCatalogNew(exclude){ const k=bmKnownNorms(); (exclude||[]).forEach(n=>k.add(bmNorm(n))); return BM_CATALOG.filter(n=>!k.has(bmNorm(n))&&_renEx(n)===n); }
 function bmTag(name, m){
   const x=bmMuscles(name); if(!x.p.length) return '';
   const part=m&&!x.p.includes(m);
@@ -5229,7 +5461,7 @@ function _tool(n){ return n.match(/\(([^)]+)\)\s*$/)?.[1]||''; }
 
 // ── LOG v2: weekly timeline, newest first ───────────────────────────────────
 let _logFilter='all', _logWeeks=6;
-const APP_VERSION='v95';
+const APP_VERSION='v96';
 
 // Shared missed-day logic (Progress → Block and Log use the same list)
 // Past training days with nothing logged; a workout on a rest day makes up the oldest open miss.
@@ -6586,7 +6818,19 @@ function _applyABSpec(prog){
 
 // ── ONE-TIME NAME MIGRATION (idempotent; safe to run on every load/snapshot) ──
 const EX_RENAME = {"Back squat (BB)": "Back Squat (BB)","Romanian deadlift (BB)": "Romanian Deadlift (BB)","Bench press (BB)": "Bench Press (BB)","Pull-ups": "Pull-Ups (Bodyweight)","Overhead press (BB)": "Overhead Press (BB)","Bent-over row (BB)": "Bent Over Row (BB)","Barbell curl": "Bicep Curl (BB)","Lateral raises (DB)": "Lateral Raises (DB)","Single-arm overhead triceps (DB)": "Single-Arm Overhead Triceps (DB)","Bulgarian split squat (DB)": "Bulgarian Split Squat (DB)","Chin-ups": "Chin-Ups (Bodyweight)","Incline press (DB)": "Incline Press (DB)","Leg curl (bench attachment)": "Leg Curl (Bench Attachment)","Weighted dips": "Dips (Bodyweight)","Single-arm row (DB)": "Single-Arm Row (DB)","Rear-delt raises (DB)": "Rear-Delt Raises (DB)","Standing calf raises (DB)": "Standing Calf Raises (DB)","Hanging knee raise": "Hanging Knee Raise (Bodyweight)","Ab wheel": "Ab Rollout (Ab Wheel)","Weighted Pull-Ups (Bodyweight/Plate)": "Pull-Ups (Bodyweight)","Weighted Dips (Bodyweight/Plate)": "Dips (Bodyweight)","Dip (Bodyweight)": "Dips (Bodyweight)","Goblet Squat": "Goblet Squat (DB)","Incline Hammer Strength Press": "Incline Press (Machine)","Machine Chest Press": "Chest Press (Machine)","Cable Fly - High to Low (Cable)": "High-to-Low Fly (Cable)","Bodyweight Squat (Bodyweight)": "Air Squat (Bodyweight)"};
-function _renEx(n){ return EX_RENAME[n] || n; }
+let _exMergeRef=null, _exMergeMap={};
+function _exMergeMapGet(){
+  const l=(typeof EX_NAMES!=='undefined'&&EX_NAMES.merge)||[];
+  const sig=l.map(m=>m.from+'\u0001'+m.to).join('\u0002');
+  if(sig!==_exMergeRef){ _exMergeRef=sig; _exMergeMap={}; l.forEach(m=>{ _exMergeMap[m.from]=m.to; }); }
+  return _exMergeMap;
+}
+// Built-in renames first, then the user's merges (followed in a chain: A→B→C)
+function _renEx(n){
+  let m=EX_RENAME[n]||n; const um=_exMergeMapGet();
+  for(let i=0;i<10&&um[m]&&um[m]!==m;i++) m=um[m];
+  return m;
+}
 function _renList(arr){
   if(!Array.isArray(arr)) return null;
   const out=[]; let ch=false;
@@ -6663,10 +6907,25 @@ function migrateMetaNames(){
 }
 function migrateActiveWorkoutNames(){
   try{
+    if(typeof activeWorkout!=='undefined'&&activeWorkout){
+      const r=_renExercises(activeWorkout.exercises);
+      if(r){ activeWorkout.exercises=r; persistWorkout(); }
+      return;
+    }
     const raw=localStorage.getItem('tr-active-wk-v1'); if(!raw) return;
     const w=JSON.parse(raw); const r=_renExercises(w.exercises);
     if(r){ w.exercises=r; localStorage.setItem('tr-active-wk-v1',JSON.stringify(w)); }
   }catch(e){}
+}
+// Built-in history (old sessions inside the app): a merged name is saved as an edited copy
+function migrateBuiltinNames(){
+  if(!EX_NAMES.merge.length) return;
+  H.forEach(h=>{
+    if(_hOvr.has(h.id)) return;
+    const r=_renExercises(h.exercises); if(!r) return;
+    _hOvrAdd(h.id);
+    saveSession({...JSON.parse(JSON.stringify(h)),exercises:JSON.parse(JSON.stringify(r))});
+  });
 }
 
 // ── ANDROID BACK GESTURE (v90) ─────────────────────────────────────────────
@@ -6674,7 +6933,7 @@ function migrateActiveWorkoutNames(){
 const _LAYERS=[
   ['finish-modal',()=>closeFinishModal()],['feedback-modal',()=>skipFeedback()],['planchg-modal',()=>skipPlanChanges()],
   ['profile-edit-modal',()=>closeProfileEdit()],['bw-modal',()=>closeBwLog()],['sync-modal',()=>closeSyncModal()],
-  ['ex-sheet',()=>closeSheet()],['prog-sheet',()=>closeProgSheet()],['addex-sheet',()=>closeAddLibEx()],['editex-sheet',()=>closeEditLibEx()],
+  ['ex-sheet',()=>closeSheet()],['prog-sheet',()=>closeProgSheet()],['addex-sheet',()=>closeAddLibEx()],['editex-sheet',()=>closeEditLibEx()],['exm-sheet',()=>closeMerge()],['exd-sheet',()=>closeExDetail()],
   ['day-override-sheet',()=>closeDayOverrideSheet()],['add-day-sheet',()=>closeAddDaySheet()],['new-prog-sheet',()=>closeNewProgSheet()],
   ['activate-prog-sheet',()=>closeActivateProgSheet()],['vacation-sheet',()=>closeVacationSheet()],['pr-edit-sheet',()=>closePrEditSheet()],
   ['lib-overlay',()=>closeLibrary()],['edit-overlay',()=>closeEditSession()],['programs-overlay',()=>closeProgramsOverlay()],
@@ -6708,7 +6967,7 @@ window.addEventListener('popstate',()=>{
 })();
 
 // ── INIT ───────────────────────────────────────────────────────────────────
-try{ migrateSessionNames(); migrateMetaNames(); migrateActiveWorkoutNames(); }catch(e){ console.error('name migration',e); }
+try{ migrateSessionNames(); migrateBuiltinNames(); migrateMetaNames(); migrateActiveWorkoutNames(); }catch(e){ console.error('name migration',e); }
 renderToday();
 restoreWorkout();
 initFirebase();
