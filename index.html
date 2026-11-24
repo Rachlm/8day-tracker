@@ -540,6 +540,19 @@ body{font-family:var(--fb);background:var(--bg);color:var(--text);font-size:14px
 .fexb{background:var(--bg2);border:1px solid var(--border);border-radius:18px;margin-bottom:12px;overflow:hidden}
 .fexb-head{display:flex;align-items:flex-start;justify-content:space-between;padding:14px 16px 10px;gap:10px}
 .fexb-name{font-size:16px;font-weight:700;line-height:1.25}
+.cz-target{margin:8px 0 2px;padding:8px 10px;border-radius:10px;background:var(--bg3);border-left:3px solid var(--text3)}
+.cz-target.up{border-left-color:var(--green)}.cz-target.up .cz-main{color:var(--green)}
+.cz-target.dl{border-left-color:var(--blue)}
+.cz-main{font-size:13px;font-weight:700}.cz-n{float:right;font-family:var(--fm);font-size:11px;color:var(--text2);font-weight:600}
+.cz-sub{font-size:11px;color:var(--text3);margin-top:2px;line-height:1.35}
+.cz-verdict{margin:6px 0 2px;font-size:12px;font-weight:600;color:var(--text2);line-height:1.35}
+.cz-verdict.up{color:var(--green)}.cz-verdict.warn{color:var(--amber)}
+.cz-add{margin-left:6px;padding:3px 9px;border-radius:8px;border:1px solid var(--green);background:none;color:var(--green);font:inherit;font-size:11px;cursor:pointer}
+.cz-sec{margin-top:12px;padding:10px 12px;border-radius:10px;background:var(--bg3)}
+.cz-sec.warn{border:1px solid #f59e0b40}.cz-sec.warn .cz-h{color:var(--amber)}.cz-sec.up .cz-h{color:var(--green)}
+.cz-h{font-size:12px;font-weight:700;margin-bottom:4px}
+.cz-list{display:flex;flex-wrap:wrap;gap:6px}
+.cz-go{padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font:inherit;font-size:12px;cursor:pointer}
 .fexb-best{font-size:10px;color:var(--text3);margin-top:3px;font-family:var(--fm);letter-spacing:.02em}
 .fexb-best b{color:var(--amber);font-weight:700}
 .fexb-mv{display:flex;flex-direction:column;gap:2px;flex-shrink:0}
@@ -1914,20 +1927,20 @@ function getPrevSets(exName, beforeDate) {
   const sessions = all().filter(s => s.date < beforeDate);
   for (let i = sessions.length - 1; i >= 0; i--) {
     const ex = (sessions[i].exercises||[]).find(e => e.name === exName);
-    const work = ex ? (ex.sets||[]).filter(st => !st.wu) : [];
+    const work = ex ? _workSets(ex.sets) : [];
     if (work.length) return { sets: work, label: sessions[i].label };
   }
   return null;
 }
 
 function calcVolume(sess) {
-  return sess.exercises.reduce((a,ex)=>a+ex.sets.reduce((b,s)=>b+(s.wu?0:(s.r||0)*(s.w||0)),0),0);
+  return sess.exercises.reduce((a,ex)=>a+ex.sets.reduce((b,s)=>b+(_isWu(s,ex.sets)?0:(s.r||0)*(s.w||0)),0),0);
 }
 
 function toggleWarmup(ei,si) {
   if(!activeWorkout)return;
-  const set=activeWorkout.exercises[ei].sets[si];
-  set.wu=!set.wu;
+  const _ex=activeWorkout.exercises[ei], set=_ex.sets[si];
+  set.wu=!_isWu(set,_ex.sets,_wkCoach(ei)?.w); // v99: explicit, so it overrides the automatic warm-up rule
   const mode=localStorage.getItem('tr-wk-mode-v1')||'focus';
   if(mode==='focus'){
     renderWkEx();
@@ -1945,7 +1958,7 @@ function getExHistory(exName) {
   return all().map(s => {
     const ex0 = (s.exercises||[]).find(e => e.name === exName);
     if (!ex0) return null;
-    const ex = {...ex0, sets: (ex0.sets||[]).filter(st => !st.wu)};
+    const ex = {...ex0, sets: _workSets(ex0.sets)};
     if (!ex.sets.length) return null;
     const topSet = ex.sets.filter(s => s.w > 0).reduce((best, s) => (s.w > (best?.w || 0) ? s : best), null);
     const bwSets = ex.sets.filter(s => (!s.w || s.w === 0) && s.r > 0);
@@ -2381,18 +2394,19 @@ function editTableHTML(ei,ex) {
 
 function editSetRowHTML(ei,si,set,tb) {
   if(tb===undefined) tb=isTimeBased(editSession.exercises[ei].name);
-  const n=set.wu?'W':si+1-editSession.exercises[ei].sets.slice(0,si).filter(x=>x.wu).length;
-  return `<div class="srow" id="esr-${ei}-${si}" style="grid-template-columns:${tb?_EDIT_COLS_T:_EDIT_COLS};${set.wu?'opacity:.6':''}">
+  const _es=editSession.exercises[ei].sets, _w=_isWu(set,_es);
+  const n=_w?'W':si+1-_es.slice(0,si).filter(x=>_isWu(x,_es)).length;
+  return `<div class="srow" id="esr-${ei}-${si}" style="grid-template-columns:${tb?_EDIT_COLS_T:_EDIT_COLS};${_w?'opacity:.6':''}">
     <div class="snum">${n}</div>
     <input class="sinput" type="number" inputmode="numeric" placeholder="${tb?'secs':'reps'}" value="${set.r!=null?set.r:''}" oninput="updEditSet(${ei},${si},'r',this.value)">
     ${tb?'':`<input class="sinput" type="text" inputmode="decimal" autocomplete="off" placeholder="kg" value="${set.w!=null?set.w:''}" oninput="updEditSet(${ei},${si},'w',this.value)">`}
-    <button class="delbtn" onclick="toggleEditWu(${ei},${si})" title="Warm-up set" style="${set.wu?'color:var(--amber);font-weight:800':''}">W</button>
+    <button class="delbtn" onclick="toggleEditWu(${ei},${si})" title="Warm-up set" style="${_w?'color:var(--amber);font-weight:800':''}">W</button>
     <button class="delbtn" onclick="deleteEditSet(${ei},${si})">✕</button>
   </div>`;
 }
 
 function updEditSet(ei,si,f,v){ v=_num(v); if(v===null) return; if(editSession)editSession.exercises[ei].sets[si][f]=v; }
-function toggleEditWu(ei,si){ if(!editSession)return; const st=editSession.exercises[ei].sets[si]; if(st.wu) delete st.wu; else st.wu=true; _refreshEditExBlock(ei); }
+function toggleEditWu(ei,si){ if(!editSession)return; const sets=editSession.exercises[ei].sets, st=sets[si]; st.wu=!_isWu(st,sets); _refreshEditExBlock(ei); }
 
 function deleteEditSet(ei,si) {
   if(!editSession)return;
@@ -3129,6 +3143,8 @@ function renderToday() {
   { const rn=_orphans().length; if(rn) heroEl.insertAdjacentHTML('afterbegin',`<div class="pg-banner warn-b" style="margin-bottom:10px;cursor:pointer" onclick="openRecover()">⚠️ <strong>${rn} workout${rn!==1?'s':''} can be recovered.</strong> Tap to put ${rn!==1?'them':'it'} back in your Log.</div>`); }
   // Phase banner (deload / test week)
   const _ph=!info.isVacation?phaseOn(today):null;
+  // v99: lifts that stopped progressing (inserted first so the phase banner stays on top)
+  try{ const _sb=stalledBannerHtml(today); if(_sb) heroEl.insertAdjacentHTML('afterbegin',_sb); }catch(e){}
   if(_ph) heroEl.insertAdjacentHTML('afterbegin',phaseBannerHtml(_ph,'margin-bottom:10px'));
   // Fatigue warning on Today too (dismissible)
   const _fat=fatigueAlert();
@@ -3710,11 +3726,36 @@ function buildSets(nm, date, dt) {
     if(meta?.sets)numSets=meta.sets;
     if(_inDeload(custom.prog,date||todayStr()))numSets=Math.min(numSets,2);
   }
+  // v99: program exercises start at today's target weight (↑ when ready), with last time's warm-ups in front
+  const c=!tb&&dt?coachFor(nm,date||todayStr(),dt):null;
+  if(c&&c.w!=null){
+    const wus=_prevWarmups(nm,date||todayStr()).slice(-2).filter(x=>(+x.w||0)<c.w).map(x=>({r:x.r||'',w:x.w,wu:true,done:false}));
+    const work=Array.from({length:c.sets},(_,i)=>{
+      const prev=ps?.sets[i];
+      const r=c.up?c.meta.minReps:_aimReps(c);
+      return {r,w:c.w>0?c.w:(prev?.w||''),done:false};
+    });
+    return wus.concat(work);
+  }
   return Array.from({length:numSets},(_,i)=>{
     const prev=ps?.sets[i];
     if(tb) return {r:prev?.r||30,w:0,done:false};
     return {r:prev?.r||'',w:prev?.w||'',done:false};
   });
+}
+// Reps to start from when staying at the same weight: what you did last time at the top weight, kept inside the range
+function _aimReps(c){
+  const lt=c.last; if(!lt) return c.meta.minReps;
+  const r=Math.max(0,...lt.sets.filter(st=>(+st.w||0)===lt.topW).map(st=>+st.r||0));
+  return Math.max(c.meta.minReps,Math.min(r||c.meta.minReps,c.meta.maxReps));
+}
+function _prevWarmups(nm,beforeDate){
+  const sessions=all().filter(s=>s.date<beforeDate);
+  for(let i=sessions.length-1;i>=0;i--){
+    const ex=(sessions[i].exercises||[]).find(e=>e.name===nm);
+    if(ex&&(ex.sets||[]).length) return ex.sets.filter(st=>_isWu(st,ex.sets));
+  }
+  return [];
 }
 
 // Best set before a date — same scoring as the Log, Progress and Profile (estimated 1RM; seconds for timed)
@@ -3735,7 +3776,7 @@ function renderWkEx() {
 
   // Mode bar
   const totalSets=activeWorkout.exercises.reduce((a,e)=>a+e.sets.length,0);
-  const doneSets=activeWorkout.exercises.reduce((a,e)=>a+e.sets.filter(s=>s.done&&!s.wu).length,0);
+  const doneSets=activeWorkout.exercises.reduce((a,e)=>a+e.sets.filter(s=>s.done&&!_isWu(s,e.sets)).length,0);
   const modeBar=`<div class="wk-modebar">
     <div class="wk-mode-meta">${doneSets}/${totalSets} sets · ${total} ex</div>
     <div class="wk-mode-toggle">
@@ -3790,15 +3831,20 @@ function renderFocusExercise(ex,ei,total){
   const canUp=ei>0,canDown=ei<total-1;
   const aSi=getActiveSetIdx(ei);
   const aSet=ex.sets[aSi];
-  const prevSet=ps?.sets[aSi]||null;
+  const _c=tb?null:_wkCoach(ei);
+  const _aW=_isWu(aSet,ex.sets,_c?.w), _k=ex.sets.slice(0,aSi).filter(x=>!_isWu(x,ex.sets,_c?.w)).length;
+  const prevSet=_aW?null:(ps?.sets[_k]||ps?.sets[ps.sets.length-1]||null);
+  const _vd=activeWorkout._verdict&&activeWorkout._verdict[ei];
+  const coachHtml=coachTargetHtml(_c,ex)+(_vd?`<div class="cz-verdict ${_vd.cls||''}">${_esc(_vd.msg)}${_vd.add?` <button class="cz-add" onclick="addSet(${ei})">+ Add set</button>`:''}</div>`:'');
   const bestLine=best
     ?`<div class="fexb-best">★ <b>Best</b> ${_esc(best.label)} — ${_esc(best.display)}</div>`
     :`<div class="fexb-best">No history yet</div>`;
 
   // Set chips
   const chipsHtml=ex.sets.map((s,si)=>{
-    const cls=`fset-chip ${s.wu?'warmup':''} ${s.done?'done':''} ${si===aSi?'active':''}`;
-    const lbl=s.wu?'W':(si+1);
+    const _w=_isWu(s,ex.sets,_c?.w);
+    const cls=`fset-chip ${_w?'warmup':''} ${s.done?'done':''} ${si===aSi?'active':''}`;
+    const lbl=_w?'W':(si+1-ex.sets.slice(0,si).filter(x=>_isWu(x,ex.sets,_c?.w)).length);
     return `<div class="${cls}" onclick="setActiveSetIdx(${ei},${si})">${lbl}</div>`;
   }).join('')+`<button class="fset-add" onclick="addSet(${ei})" title="Add set">+</button>`;
 
@@ -3856,14 +3902,16 @@ function renderFocusExercise(ex,ei,total){
         <button class="fmv-btn" onclick="moveExWk(${ei},'down')" ${canDown?'':'disabled'}>▼</button>
       </div>
     </div>
+    ${coachHtml}
     <div class="fset-chips">${chipsHtml}</div>
     ${body}
   </div>`;
 }
 
 function actionRow(ei,si,set){
+  const _ex=activeWorkout?.exercises[ei], _w=_ex?_isWu(set,_ex.sets,_wkCoach(ei)?.w):!!set.wu;
   return `<div class="fact-row">
-    <button class="fact-wu ${set.wu?'active':''}" onclick="toggleWarmup(${ei},${si})">${set.wu?'★ Warm-up':'Warm-up'}</button>
+    <button class="fact-wu ${_w?'active':''}" onclick="toggleWarmup(${ei},${si})">${_w?'★ Warm-up':'Warm-up'}</button>
     <button class="fact-check ${set.done?'done':''}" onclick="toggleSet(${ei},${si})">
       ${set.done?'<svg viewBox=\"0 0 24 24\"><polyline points=\"20 6 9 17 4 12\"/></svg> Done — tap to undo':'<svg viewBox=\"0 0 24 24\"><polyline points=\"20 6 9 17 4 12\"/></svg> Mark set complete'}
     </button>
@@ -3990,6 +4038,16 @@ function toggleSet(ei,si) {
   const set=activeWorkout.exercises[ei].sets[si];
   set.done=!set.done;
   const ex=activeWorkout.exercises[ei];
+  // v99: one-line verdict for the set just ticked
+  const _c=isTimeBased(ex.name)?null:_wkCoach(ei);
+  const _isW=_isWu(set,ex.sets,_c?.w);
+  if(!activeWorkout._verdict) activeWorkout._verdict={};
+  if(set.done&&_c){
+    const v=setVerdict(_c,ex,set);
+    const work=ex.sets.filter(x=>x.done&&(x.r||x.w)&&!_isWu(x,ex.sets,_c.w)).length;
+    if(v){ v.add=!_c.deload&&!_isW&&work<_c.sets&&ex.sets.every(x=>x.done); activeWorkout._verdict[ei]=v; }
+    if(v&&(localStorage.getItem('tr-wk-mode-v1')||'focus')!=='focus') _toast(v.msg);
+  } else if(!set.done) delete activeWorkout._verdict[ei];
   const ps=getPrevSets(ex.name,activeWorkout.date);
   const tb=isTimeBased(ex.name);
   const mode=localStorage.getItem('tr-wk-mode-v1')||'focus';
@@ -3998,7 +4056,7 @@ function toggleSet(ei,si) {
     if(set.done){
       // find next non-done, non-warmup
       let nxt=-1;
-      for(let i=0;i<ex.sets.length;i++){if(!ex.sets[i].done&&!ex.sets[i].wu){nxt=i;break;}}
+      for(let i=0;i<ex.sets.length;i++){if(!ex.sets[i].done&&!_isWu(ex.sets[i],ex.sets,_c?.w)){nxt=i;break;}}
       if(nxt<0)for(let i=0;i<ex.sets.length;i++){if(!ex.sets[i].done){nxt=i;break;}}
       if(nxt>=0){
         if(!activeWorkout._activeSet)activeWorkout._activeSet={};
@@ -4015,16 +4073,16 @@ function toggleSet(ei,si) {
     persistWorkout();
     // v97: rest also after the last set of an exercise (before the next one); not after the very last set of the workout
     const moreToDo=activeWorkout.exercises.some(x=>(x.sets||[]).some(y=>!y.done));
-    if(activeWorkout.late){} else if(!set.wu&&moreToDo) startRest(restFor(ex.name),ex.name); else if(!set.wu) skipRest();
-    if(!set.wu){
+    if(activeWorkout.late){} else if(!_isW&&moreToDo) startRest(restFor(ex.name),ex.name); else if(!_isW) skipRest();
+    if(!_isW){
       const kind=exKind(ex.name), sc=setScore(kind,set);
       const prevBest=getBestSet(ex.name,activeWorkout.date);
-      const earlier=Math.max(0,...ex.sets.filter((x,i)=>i!==si&&x.done&&!x.wu).map(x=>setScore(kind,x)));
+      const earlier=Math.max(0,...ex.sets.filter((x,i)=>i!==si&&x.done&&!_isWu(x,ex.sets,_c?.w)).map(x=>setScore(kind,x)));
       // A PR needs history to beat, and must beat the other sets of today too
       if(sc>0&&prevBest&&sc>prevBest.vol+1e-9&&sc>earlier+1e-9) showPrToast(ex.name,set,tb);
     }
   } else {
-    if(_restEnd&&_restEx===ex.name&&!set.wu) skipRest();
+    if(_restEnd&&_restEx===ex.name&&!_isW) skipRest();
     persistWorkout();
   }
 }
@@ -4065,8 +4123,11 @@ function showPrToast(name, set, tb) {
 function addSet(ei) {
   if(!activeWorkout)return;
   const ex=activeWorkout.exercises[ei];
-  const last=ex.sets[ex.sets.length-1];
+  const _wk=_workSets(ex.sets,_wkCoach(ei)?.w);
+  const last=_wk[_wk.length-1]||ex.sets[ex.sets.length-1];
   ex.sets.push({r:last?.r||'',w:last?.w||'',done:false});
+  if(activeWorkout._verdict&&activeWorkout._verdict[ei]) activeWorkout._verdict[ei].add=false;
+  if(!activeWorkout._activeSet)activeWorkout._activeSet={}; activeWorkout._activeSet[ei]=ex.sets.length-1;
   const mode=localStorage.getItem('tr-wk-mode-v1')||'focus';
   if(mode==='focus'){
     renderWkEx();
@@ -4202,7 +4263,7 @@ function filterSheet(v) {
   const groups=getPlanEx(dt);
   const m=_wkPick.muscle, sw=_wkPick.swap;
   // Figure: muscles already in this workout are lit
-  const cur=bmFromList((src?.exercises||[]).map(e=>[e.name,Math.max(1,e.sets.filter(s=>!s.wu).length)]));
+  const cur=bmFromList((src?.exercises||[]).map(e=>[e.name,Math.max(1,_workSets(e.sets).length)]));
   const fill=k=>k===m?['#d4ff3a',1]:cur.sets[k]>0?['#d4ff3a',.3]:['#2a2a2a',1];
   document.getElementById('sheet-bm').innerHTML=bmPickerHead(fill,m,'wkPickMuscle',
     `<span style="color:var(--accent);opacity:.6">●</span> already in this workout`);
@@ -4283,15 +4344,45 @@ function finishWorkout() {
   }
   const mins=Math.max(1,Math.round((Date.now()-activeWorkout.startedAt)/60000));
   const btn=(label,js,kind)=>`<button onclick="${js}" style="width:100%;padding:14px;margin-top:10px;border-radius:12px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;${kind==='go'?'background:var(--green);color:#000;border:none':kind==='alt'?'background:var(--bg3);color:var(--text);border:1px solid var(--border)':'background:none;color:var(--text2);border:1px solid var(--border)'}">${label}</button>`;
+  const _chk=finishCheckHtml();
   document.getElementById('finish-inner').innerHTML=`
     <div style="font-size:20px;font-weight:700;margin-bottom:4px">Finish workout?</div>
     <div style="font-size:13px;color:var(--text2)">${c.done} of ${c.total} sets ticked · ${mins} min</div>
+    ${_chk}
     ${c.unticked?`<div class="pg-banner warn-b" style="margin:14px 0 4px">⚠️ <strong>${c.unticked} set${c.unticked!==1?'s':''} not ticked.</strong> You changed the numbers but did not mark ${c.unticked!==1?'them':'it'} complete.</div>
       ${btn(`Finish and include ${c.unticked!==1?'those '+c.unticked+' sets':'that set'}`,'confirmFinish(true)','go')}
       ${c.done?btn('Finish without '+(c.unticked!==1?'them':'it'),'confirmFinish(false)','alt'):''}`
       :btn('Finish','confirmFinish(false)','go')}
     ${btn('Keep training','closeFinishModal()','back')}`;
   document.getElementById('finish-modal').classList.add('open');
+}
+// v99: what is still open in the plan, and what went up / goes up next time
+function finishCheckHtml(){
+  if(!activeWorkout) return '';
+  const planNames=new Set();
+  try{ getActivePlanEx(activeWorkout.dayType,activeWorkout.date).forEach(g=>g.ex.forEach(n=>planNames.add(n))); }catch(e){}
+  const notDone=[], short=[], upToday=[], raise=[];
+  activeWorkout.exercises.forEach((ex,ei)=>{
+    const c=isTimeBased(ex.name)?null:coachFor(ex.name,activeWorkout.date,activeWorkout.dayType);
+    const done=ex.sets.filter(st=>(st.done||st.t)&&(st.r||st.w));
+    const work=done.filter(st=>!_isWu(st,ex.sets,c?.w));
+    if(!done.length){ if(planNames.has(ex.name)) notDone.push({ei,nm:ex.name}); return; }
+    if(!c) return;
+    if(work.length<c.sets) short.push({ei,nm:ex.name,n:work.length,of:c.sets});
+    if(c.deload||!work.length) return;
+    const topW=Math.max(0,...work.map(st=>+st.w||0));
+    const topR=Math.max(0,...work.filter(st=>(+st.w||0)===topW).map(st=>+st.r||0));
+    const lt=c.last; if(lt){ const lr=Math.max(0,...lt.sets.filter(st=>(+st.w||0)===lt.topW).map(st=>+st.r||0));
+      if(topW>lt.topW||(topW===lt.topW&&topR>lr)) upToday.push(`${_shortName(ex.name)} ${topW>lt.topW?_kgTxt(c,lt.topW)+' → '+_kgTxt(c,topW):'+'+(topR-lr)+' rep'+(topR-lr!==1?'s':'')}`); }
+    if(_isReady(work,topW,c.meta,c.sets)) raise.push(`${_shortName(ex.name)} → ${_kgTxt(c,+(topW+c.step).toFixed(1))}`);
+  });
+  const go=(o)=>`<button class="cz-go" onclick="closeFinishModal();setTimeout(()=>document.getElementById('fexb-${o.ei}')?.scrollIntoView({behavior:'smooth',block:'start'}),50)">${_esc(_shortName(o.nm))}${o.of?` · ${o.n}/${o.of}`:''}</button>`;
+  let h='';
+  if(notDone.length) h+=`<div class="cz-sec warn"><div class="cz-h">Not done yet (${notDone.length})</div><div class="cz-list">${notDone.map(go).join('')}</div><div class="cz-sub">Tap one to do it now, or finish to skip ${notDone.length!==1?'them':'it'}.</div></div>`;
+  if(short.length) h+=`<div class="cz-sec"><div class="cz-h">Fewer working sets than planned</div><div class="cz-list">${short.map(go).join('')}</div></div>`;
+  if(upToday.length) h+=`<div class="cz-sec up"><div class="cz-h">Better than last time 💪</div><div class="cz-sub">${upToday.map(_esc).join(' · ')}</div></div>`;
+  if(raise.length) h+=`<div class="cz-sec up"><div class="cz-h">Go up next time</div><div class="cz-sub">${raise.map(_esc).join(' · ')}</div></div>`;
+  return h;
 }
 function closeFinishModal(){ document.getElementById('finish-modal').classList.remove('open'); }
 function confirmFinish(includeUnticked){
@@ -4971,7 +5062,7 @@ function showDetail(id) {
   const col=TYPE_COLOR[s.dayType]||'#666';
   const dayName=DAY_FULL_NAMES[s.dayType]||s.dayType||'Session';
   document.getElementById('detail-title').textContent=dayName;
-  const totalSets=s.exercises.reduce((a,e)=>a+e.sets.filter(st=>!st.wu).length,0);
+  const totalSets=s.exercises.reduce((a,e)=>a+_workSets(e.sets).length,0);
   const totalVol=calcVolume(s);
   const durMin=s.duration?Math.round(s.duration/60):null;
   const diffColor={'Very Easy':'var(--green)','Easy':'var(--green)','Moderate':'var(--amber)','Difficult':'var(--orange)','Very Difficult':'var(--red)'};
@@ -5021,7 +5112,7 @@ function showDetail(id) {
     html+=`<div class="dex" onclick="closeDetail();openLift('${_jsq(ex.name)}')" style="cursor:pointer">
       <div class="dex-name">${_esc(ex.name)}${prBadge}</div>
       ${ex.note?`<div style="font-size:12px;color:var(--text2);margin:-2px 0 8px">📝 ${_esc(ex.note)}</div>`:''}
-      <div class="dsets">${ex.sets.map((st,i)=>`<div class="dset" style="${st.wu?'opacity:.5;font-style:italic':''}">${st.wu?'W':i+1-ex.sets.slice(0,i).filter(x=>x.wu).length}: ${_esc(setText(kind,st))}</div>`).join('')}</div>
+      <div class="dsets">${ex.sets.map((st,i)=>`<div class="dset" style="${_isWu(st,ex.sets)?'opacity:.5;font-style:italic':''}">${_isWu(st,ex.sets)?'W':i+1-ex.sets.slice(0,i).filter(x=>_isWu(x,ex.sets)).length}: ${_esc(setText(kind,st))}</div>`).join('')}</div>
       ${prev?`<div style="font-size:11px;color:${cmp};margin-top:6px;font-family:var(--fm)">last time (${_fmtShort(prev.date)}): ${_esc(prev.txt)}</div>`:''}
     </div>`;
   });
@@ -5117,7 +5208,7 @@ function exSessions(name){
   const kind=exKind(name), out=[]; let runBest=0;
   all().forEach(s=>{
     const ex=(s.exercises||[]).find(e=>e.name===name); if(!ex) return;
-    const sets=(ex.sets||[]).filter(st=>!st.wu&&((+st.r||0)>0||(+st.w||0)>0));
+    const sets=_workSets(ex.sets).filter(st=>((+st.r||0)>0||(+st.w||0)>0));
     if(!sets.length) return;
     let best=sets[0], bestSc=-1, topW=0;
     sets.forEach(st=>{ const sc=setScore(kind,st); if(sc>bestSc){bestSc=sc;best=st;} if((+st.w||0)>topW) topW=+st.w; });
@@ -5157,9 +5248,97 @@ function progressionFor(name, prog, dt){
   if(!hist.length) return null;
   const last=hist[hist.length-1];
   const need=meta.sets||3;
-  const ready=last.sets.length>=need&&last.sets.every(st=>(+st.r||0)>=meta.maxReps);
+  const ready=_isReady(last.sets,last.topW||0,meta,need);
   const w=last.topW||0;
   return {ready,last,meta,w,next:ready?+(w+progStep(name)).toFixed(1):w,kind};
+}
+// ── v99 COACHING ─────────────────────────────────────────────────────────────
+// Warm-up: marked by hand, or a leading set clearly lighter (<75%) than the heaviest set (or today's target)
+function _isWu(st,sets,ref){
+  if(!st) return false;
+  if(st.wu===true) return true; if(st.wu===false) return false;
+  const w=+st.w||0; if(w<=0||!sets) return false;
+  let top=+ref||0; for(const x of sets) if(x&&x.wu!==true) top=Math.max(top,+x.w||0);
+  if(!(w<0.75*top)) return false;
+  const i=sets.indexOf(st); if(i<0) return false;
+  for(let j=0;j<i;j++){ const x=sets[j]; if(!x||x.wu===true) continue; if(!((+x.w||0)<0.75*top)) return false; }
+  return true;
+}
+function _workSets(sets,ref){ return (sets||[]).filter(st=>!_isWu(st,sets,ref)); }
+// Ready to go up: every set at the top weight reaches the top of the range, and either enough working sets were done
+// or the reps were clearly above the range (weight obviously too light)
+function _isReady(work,topW,meta,need){
+  if(!work||!work.length||!meta?.maxReps) return false;
+  const top=topW>0?work.filter(st=>(+st.w||0)===topW):work;
+  if(!top.length||!top.every(st=>(+st.r||0)>=meta.maxReps)) return false;
+  return work.length>=(need||3)||top.some(st=>(+st.r||0)>=meta.maxReps+2);
+}
+function coachFor(name,date,dt){
+  try{
+    const c=_getActiveCustomProgram(date||todayStr()); if(!c) return null;
+    const prog=c.prog, meta=prog.planMeta?.[dt]?.[name]; if(!meta||!meta.maxReps) return null;
+    const kind=exKind(name); if(kind==='time') return null;
+    const dl=_inDeload(prog,date||todayStr());
+    const sets=dl?Math.min(meta.sets||3,2):(meta.sets||3);
+    const p=progressionFor(name,prog,dt);
+    if(!p) return {name,meta,kind,sets,deload:dl,w:null,up:false,first:true,step:progStep(name)};
+    const up=p.ready&&!dl;
+    return {name,meta,kind,sets,deload:dl,w:up?p.next:p.w,lastW:p.w,up,last:p.last,step:progStep(name)};
+  }catch(e){ return null; }
+}
+function _wkCoach(ei){
+  if(!activeWorkout) return null;
+  const ex=activeWorkout.exercises[ei]; if(!ex) return null;
+  return coachFor(ex.name,activeWorkout.date,activeWorkout.dayType);
+}
+const _kgTxt=(c,w)=>c.kind==='bw'?(w>0?'+'+w+' kg':'bodyweight'):w+' kg';
+function coachTargetHtml(c,ex){
+  if(!c) return '';
+  const m=c.meta, rng=m.minReps===m.maxReps?m.maxReps:`${m.minReps}–${m.maxReps}`;
+  const work=ex?ex.sets.filter(st=>st.done&&(st.r||st.w)&&!_isWu(st,ex.sets,c.w)).length:0;
+  const prog=ex?` <span class="cz-n">${work}/${c.sets} sets</span>`:'';
+  let main, sub='', cls='';
+  if(c.deload){ main=`Deload · ${c.sets} × ${rng}${c.w!=null?' · '+_kgTxt(c,c.w):''}`; sub='same weight, stop 2–3 reps before failure'; cls='dl'; }
+  else if(c.first){ main=`Target · ${c.sets} × ${rng} reps`; sub='first time in this program: find a weight you can do for '+m.maxReps; }
+  else if(c.up){ main=`↑ Today · ${c.sets} × ${rng} · ${_kgTxt(c,c.w)}`; sub=`last time ${_kgTxt(c,c.lastW)} hit ${m.maxReps}+ reps, so go up`; cls='up'; }
+  else { main=`Today · ${c.sets} × ${rng} · ${_kgTxt(c,c.w)}`; sub=`stay at this weight and aim for ${m.maxReps} reps on every set`; }
+  return `<div class="cz-target ${cls}"><div class="cz-main">${_esc(main)}${prog}</div><div class="cz-sub">${_esc(sub)}</div></div>`;
+}
+// One-line verdict after a set is ticked
+function setVerdict(c,ex,st){
+  if(!c||!st) return null;
+  const m=c.meta, r=+st.r||0, w=+st.w||0;
+  if(_isWu(st,ex.sets,c.w)) return {cls:'',msg:`Warm-up ✓${c.w?` · working weight today ${_kgTxt(c,c.w)}`:''}`};
+  const k=ex.sets.filter(x=>x.done&&(x.r||x.w)&&!_isWu(x,ex.sets,c.w)).length;
+  const tail=` · working set ${k} of ${c.sets}`;
+  if(c.deload) return {cls:'',msg:`Deload set ✓ — keep it easy`+tail};
+  if(r>=m.maxReps+2) return {cls:'up',msg:(c.kind==='bw'&&w<=0?`Too easy (${r} reps) — add weight next time`:`Too easy (${r} reps) — go up ${c.step} kg ${k<c.sets?'on the next set':'next time'}`)+tail};
+  if(r>=m.maxReps) return {cls:'up',msg:`Top of range ✓ — all sets at ${m.maxReps} = weight goes up next time`+tail};
+  if(r>=m.minReps) return {cls:'',msg:`In range ✓ — push for ${m.maxReps}`+tail};
+  return {cls:'warn',msg:`Below range (${m.minReps}–${m.maxReps}) — keep this weight${w>0?`, or drop ${c.step} kg if form breaks`:''}`+tail};
+}
+// Today banner: lifts in the active program that have not improved in their last sessions
+function stalledLifts(dateStr){
+  const b=activeBlock(dateStr); if(!b) return [];
+  if(_inDeload(b.prog,dateStr)) return [];
+  const out=[], seen=new Set();
+  _progExercises(b.prog).forEach(g=>g.ex.forEach(nm=>{
+    if(seen.has(nm)) return; seen.add(nm);
+    const p=progressionFor(nm,b.prog,g.dt); if(p&&p.ready) return;
+    // only this program block counts (old gym bests from months ago are not a fair comparison)
+    const h=exSessions(nm).filter(e=>e.date>=b.start&&e.date<dateStr&&!_inDeload(b.prog,e.date));
+    if(h.length<4) return;
+    let bi=0; h.forEach((e,i)=>{ if(e.score>h[bi].score+1e-9) bi=i; });
+    const since=h.length-1-bi; if(since>=3) out.push({nm,since});
+  }));
+  return out.sort((a,b)=>b.since-a.since);
+}
+function stalledBannerHtml(dateStr){
+  const l=stalledLifts(dateStr); if(!l.length) return '';
+  const sig=l.map(x=>x.nm+':'+x.since).join('|');
+  if(isDismissed('stalled',sig)) return '';
+  const names=l.slice(0,4).map(x=>`<span style="cursor:pointer;text-decoration:underline" onclick="openLift('${_jsq(x.nm)}')">${_esc(_shortName(x.nm))}</span> (${x.since})`).join(' · ');
+  return `<div class="pg-banner warn-b" style="position:relative;padding-right:34px;margin-bottom:10px">📉 <strong>No new best in 3+ sessions:</strong> ${names}${l.length>4?` +${l.length-4} more`:''}<div style="font-size:11px;opacity:.85;margin-top:3px">Next time add 1 rep per set, or a small weight jump.</div>${_xBtn('stalled',sig)}</div>`;
 }
 function stalledInfo(name, prog){
   const h=exSessions(name).filter(e=>!_inDeload(prog,e.date));
@@ -5263,7 +5442,7 @@ function bmActual(days=28){
   let first=today;
   all().filter(s=>s.date>=from&&s.date<=today&&s.dayType!=='REST').forEach(s=>{
     if(s.date<first) first=s.date;
-    (s.exercises||[]).forEach(ex=>{ const n=(ex.sets||[]).filter(st=>!st.wu).length; if(n) list.push([ex.name,n]); });
+    (s.exercises||[]).forEach(ex=>{ const n=_workSets(ex.sets).length; if(n) list.push([ex.name,n]); });
   });
   const span=Math.max(7,Math.round((new Date(today+'T00:00:00')-new Date(first+'T00:00:00'))/86400000)+1);
   const allHist=all().some(s=>s.date<from);
@@ -5528,7 +5707,7 @@ function bmEditValue(which){ const st=_bmEdit[which]; return st.p.length?{p:[...
 
 // After a workout: what you trained
 function bmSessionHtml(exercises){
-  const r=bmFromList((exercises||[]).map(ex=>[ex.name,(ex.sets||[]).filter(s=>!s.wu).length]));
+  const r=bmFromList((exercises||[]).map(ex=>[ex.name,_workSets(ex.sets).length]));
   const top=BM_KEYS.filter(k=>r.sets[k]>0).sort((a,b)=>r.sets[b]-r.sets[a]);
   if(!top.length) return '';
   const mx=Math.max(...top.map(k=>r.sets[k]));
@@ -5539,7 +5718,7 @@ function bmSessionHtml(exercises){
 }
 
 // ── Log muscle maps (v87) ──
-function bmSessR(s){ return bmFromList((s.exercises||[]).map(ex=>[ex.name,(ex.sets||[]).filter(st=>!st.wu).length])); }
+function bmSessR(s){ return bmFromList((s.exercises||[]).map(ex=>[ex.name,_workSets(ex.sets).length])); }
 function bmHeatFill(r){
   const mx=Math.max(0,...BM_KEYS.map(k=>r.sets[k]))||1;
   return k=>r.sets[k]>0.01?['#d4ff3a',.25+.75*Math.min(1,r.sets[k]/mx)]:['#2a2a2a',1];
@@ -5567,7 +5746,7 @@ function bmDetPick(k){ _bmDetSel=_bmDetSel===k?null:k; const el=document.getElem
 // Log: weekly muscle map per week card
 const _bmWkOpen=new Set(); const _bmWkSel={};
 function bmWeekHtml(wk, weekSess, isCurrent){
-  const list=[]; weekSess.forEach(s=>(s.exercises||[]).forEach(ex=>{ const n=(ex.sets||[]).filter(st=>!st.wu).length; if(n) list.push([ex.name,n]); }));
+  const list=[]; weekSess.forEach(s=>(s.exercises||[]).forEach(ex=>{ const n=_workSets(ex.sets).length; if(n) list.push([ex.name,n]); }));
   const r=bmFromList(list);
   const hit=BM_KEYS.filter(k=>r.sets[k]>0.01).sort((a,b)=>r.sets[b]-r.sets[a]);
   if(!hit.length) return '';
@@ -5630,7 +5809,7 @@ function _tool(n){ return n.match(/\(([^)]+)\)\s*$/)?.[1]||''; }
 
 // ── LOG v2: weekly timeline, newest first ───────────────────────────────────
 let _logFilter='all', _logWeeks=6;
-const APP_VERSION='v98';
+const APP_VERSION='v99';
 
 // Shared missed-day logic (Progress → Block and Log use the same list)
 // Past training days with nothing logged; a workout on a rest day makes up the oldest open miss.
