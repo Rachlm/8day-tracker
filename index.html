@@ -5630,7 +5630,7 @@ function _tool(n){ return n.match(/\(([^)]+)\)\s*$/)?.[1]||''; }
 
 // ── LOG v2: weekly timeline, newest first ───────────────────────────────────
 let _logFilter='all', _logWeeks=6;
-const APP_VERSION='v97';
+const APP_VERSION='v98';
 
 // Shared missed-day logic (Progress → Block and Log use the same list)
 // Past training days with nothing logged; a workout on a rest day makes up the oldest open miss.
@@ -6329,6 +6329,8 @@ async function switchCode(){
     if(keep.length) _lsSet('tr-switch-backup-v1',{code:old,at:new Date().toISOString(),sessions:keep});
   }catch(e){}
   _SWITCH_WIPE.forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} });
+  // v98: this phone is joining an existing code — never seed default programs/exercises into it
+  try{ localStorage.setItem('tr-ab-seed-v1','1'); localStorage.setItem('tr-seed-bwlib-v1','1'); }catch(e){}
   localStorage.setItem(TK,code);
   try{ if(unsubS)unsubS(); if(unsubM)unsubM(); }catch(e){}
   closeSyncModal(); setSyncUI('syncing','Loading…');
