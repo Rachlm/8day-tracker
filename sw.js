@@ -1,13 +1,15 @@
-const CACHE = '8day-tracker-v96';
-const ASSETS = ['./index.html','./manifest.json','./icon-192.png','./icon-512.png',
-  'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js'];
+const CACHE = '8day-tracker-v97';
+const ASSETS = ['./index.html','./manifest.json','./icon-192.png','./icon-512.png'];
 // Sync library: cached when possible so the app can reconnect after an offline start.
 // Optional — a failure here never blocks the install.
-const OPTIONAL = ['https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js',
+// v97: the chart library is optional too, so a slow CDN can never block an update
+const OPTIONAL = ['https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js',
+  'https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js',
   'https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js'];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS).then(() =>
+  // v97: bypass the browser cache so the new version never stores the previous page
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS.map(u => new Request(u, {cache:'reload'}))).then(() =>
     Promise.all(OPTIONAL.map(u => fetch(u, {mode:'cors'}).then(r => { if(r && r.ok) return c.put(u, r); }).catch(() => {})))
   )).then(() => self.skipWaiting()));
 });
@@ -39,6 +41,6 @@ self.addEventListener('fetch', e => {
       const cl=r.clone();
       caches.open(CACHE).then(c=>c.put(e.request,cl));
       return r;
-    }).catch(()=>caches.match('./index.html'));
+    }).catch(()=>Response.error());
   }));
 });

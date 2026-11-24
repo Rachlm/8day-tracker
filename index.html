@@ -1188,7 +1188,7 @@ svg.bm-body .n{fill:#1f1f1f;stroke:var(--bg2);stroke-width:1.1}
     <label>Date</label>
     <input type="date" id="bw-date-input">
     <label>Weight (kg)</label>
-    <input type="number" id="bw-input" placeholder="e.g. 82.5" step="0.1" min="30" max="300" inputmode="decimal">
+    <input type="text" id="bw-input" placeholder="e.g. 82.5" inputmode="decimal" autocomplete="off">
     <div class="mbtns">
       <button class="mbtn" onclick="closeBwLog()">Cancel</button>
       <button class="mbtn primary" onclick="saveBwLog()">Save</button>
@@ -1514,7 +1514,7 @@ const DEFAULT_PLAN = {
 };
 
 // Load editable plan from localStorage
-let PLAN = JSON.parse(localStorage.getItem('tr-plan-v1') || 'null') || JSON.parse(JSON.stringify(DEFAULT_PLAN));
+let PLAN = _lsObj('tr-plan-v1') || JSON.parse(JSON.stringify(DEFAULT_PLAN));
 
 const CYCLE_PATTERN = ['PUSH (Hypertrophy)','LEGS (Strength)','REST','PULL','REST','PUSH (Strength)','LEGS (Hypertrophy)','REST'];
 const DAY_NAMES     = ['D2','D3','D4','D5','D6','D7','D8','D1'];
@@ -1635,7 +1635,10 @@ const H = [
 ];
 
 // ── STATE ──────────────────────────────────────────────────────────────────
-let US = JSON.parse(localStorage.getItem('tr-sess-v4') || '[]');
+// v97: every saved value is read safely, so one damaged value can never stop the app from starting
+function _lsArr(k){ const v=_lsGet(k,[]); return Array.isArray(v)?v:[]; }
+function _lsObj(k){ const v=_lsGet(k,null); return (v&&typeof v==='object'&&!Array.isArray(v))?v:null; }
+let US = _lsArr('tr-sess-v4');
 // ── Seed holiday sessions into US (fully editable + Firebase-synced) ──────
 const _HOL_SESSIONS=[
  {id:'hol1',date:'2026-05-08',label:'Holiday · Push+Legs',dayType:'FULL BODY',cycle:'Holiday',duration:1800,notes:'',exercises:[
@@ -1659,14 +1662,16 @@ const _HOL_SESSIONS=[
  ]}
 ];
 // Holiday sessions seeded via onSnapshot handler in startListeners
-let CUSTOM_EX = JSON.parse(localStorage.getItem('tr-custom-v2') || '{}');
-let EX_LIBRARY = JSON.parse(localStorage.getItem('tr-exlib-v1') || '[]');
+let CUSTOM_EX = _lsObj('tr-custom-v2') || {};
+let EX_LIBRARY = _lsArr('tr-exlib-v1');
 // v96: exercises merged by the user ({from,to} list) and pairs marked "not the same"
 function _exNamesClean(v){ v=(v&&typeof v==='object')?v:{}; return {merge:Array.isArray(v.merge)?v.merge.filter(m=>m&&m.from&&m.to&&m.from!==m.to):[], apart:Array.isArray(v.apart)?v.apart.filter(x=>typeof x==='string'):[]}; }
 let EX_NAMES = (()=>{ try{ return _exNamesClean(JSON.parse(localStorage.getItem('tr-exnames-v1')||'null')); }catch(e){ return _exNamesClean(null); } })();
 let _exVer = 0;
-// Seed holiday bodyweight exercises if not already present
+// Seed holiday bodyweight exercises once (v97: not on every start)
 (function(){
+  if(localStorage.getItem('tr-seed-bwlib-v1')) return;
+  try{ localStorage.setItem('tr-seed-bwlib-v1','1'); }catch(e){}
   const toAdd=[
     {name:'Pike Push-Ups (Bodyweight)',type:'reps',group:'Bodyweight'},
     {name:'Chair Dips (Bodyweight)',type:'reps',group:'Bodyweight'},
@@ -1678,13 +1683,14 @@ let _exVer = 0;
   toAdd.forEach(ex=>{if(!EX_LIBRARY.find(e=>e.name===ex.name)&&!EX_NAMES.merge.some(m=>m.from===ex.name)){EX_LIBRARY.push(ex);changed=true;}});
   if(changed){localStorage.setItem('tr-exlib-v1',JSON.stringify(EX_LIBRARY));}
 })();
-let CUSTOM_CYCLE = JSON.parse(localStorage.getItem('tr-cycle-v1') || 'null');
-let DAY_OVERRIDES = JSON.parse(localStorage.getItem('tr-day-ov-v1') || '{}');
-let PROFILE = JSON.parse(localStorage.getItem('tr-profile-v1') || 'null') || {name:'Rachid',age:33,height:183,weight:'',goal:'Hypertrophy',target:'2026-07-24'};
+let CUSTOM_CYCLE = _lsGet('tr-cycle-v1',null);
+let DAY_OVERRIDES = _lsObj('tr-day-ov-v1') || {};
+let PROFILE = _lsObj('tr-profile-v1') || {name:'Rachid',age:33,height:183,weight:'',goal:'Hypertrophy',target:'2026-07-24'};
 let activeWorkout = null;
 let wkInterval = null, restInterval = null, restSecs = 0;
-let BW_LOG = JSON.parse(localStorage.getItem('tr-bw-v1') || '[]');
-if(BW_LOG.length === 0) {
+let BW_LOG = _lsArr('tr-bw-v1');
+// Starting weigh-ins only on a brand-new phone (never again after you clear the log)
+if(BW_LOG.length === 0 && localStorage.getItem('tr-bw-v1') === null) {
   BW_LOG = [
     {date:'2026-03-28',w:81},
     {date:'2026-04-11',w:82.3},
@@ -1695,11 +1701,11 @@ if(BW_LOG.length === 0) {
   // Save to Firebase once ready — deferred so db is initialized first
 
 }
-let PENDING_CYCLE_SUMMARY = JSON.parse(localStorage.getItem('tr-cycle-sum-v1') || 'null');
-let PROGRAMS = JSON.parse(localStorage.getItem('tr-programs-v1') || '[]');
-let PROGRAM_SCHEDULE = JSON.parse(localStorage.getItem('tr-prog-sched-v1') || '[]');
+let PENDING_CYCLE_SUMMARY = _lsGet('tr-cycle-sum-v1',null);
+let PROGRAMS = _lsArr('tr-programs-v1');
+let PROGRAM_SCHEDULE = _lsArr('tr-prog-sched-v1');
 let _editingProgId = null, _newProgDays = [], _newProgColor = '#d4ff3a', _newProgEmoji = '💪', _activatingProgId = null;
-let VACATION = JSON.parse(localStorage.getItem('tr-vacation-v1') || 'null');
+let VACATION = _lsObj('tr-vacation-v1');
 let _editProgId = null; // null = Normal Training, string = custom program being exercise-edited
 
 function _getEditPlan() {
@@ -1714,7 +1720,7 @@ function _getEditCycle() {
   return activeCycle();
 }
 function _saveEditPlan(){if(_editProgId)savePrograms();else saveMeta();}
-let PR_PREFS = JSON.parse(localStorage.getItem('tr-pr-prefs-v1') || 'null');
+let PR_PREFS = _lsObj('tr-pr-prefs-v1');
 let currentProgressEx = null, progressChart = null, volumeChart = null;
 let kpiChart = null, kpiDay = 'D2', kpiMetric = 'volume';
 let calViewDate = new Date();
@@ -1728,7 +1734,15 @@ const TIME_EX_DEFAULTS = new Set(['Plank (Bodyweight)','Dead Hang (Bodyweight)',
 let _hOvr=new Set(_lsGet0('tr-h-ovr-v1'));
 function _lsGet0(k){ try{ return JSON.parse(localStorage.getItem(k)||'[]')||[]; }catch(e){ return []; } }
 function _hOvrAdd(id){ if(!_hOvr.has(id)){ _hOvr.add(id); try{localStorage.setItem('tr-h-ovr-v1',JSON.stringify([..._hOvr]));}catch(e){} } }
-const all = () => [...H.filter(h=>!_hOvr.has(h.id)), ...US].sort((a,b) => a.date.localeCompare(b.date)||(a.id>b.id?1:-1));
+let _allSrc=null, _allOut=null, _allH=-1;
+const all = () => {
+  // v97: the sorted list is reused while the workouts are unchanged (a copy is returned, so callers can't damage it)
+  if(!_allOut||_allH!==_hOvr.size||_allSrc.length!==US.length||US.some((x,i)=>x!==_allSrc[i])){
+    _allSrc=US.slice(); _allH=_hOvr.size;
+    _allOut=[...H.filter(h=>!_hOvr.has(h.id)), ...US].sort((a,b) => String(a.date).localeCompare(String(b.date))||(a.id>b.id?1:-1));
+  }
+  return _allOut.slice();
+};
 
 // ── EXERCISE TYPE ──────────────────────────────────────────────────────────
 function isTimeBased(name) {
@@ -1886,8 +1900,8 @@ function getDayType(dateStr) {
 function getPrevPerf(exName, beforeDate) {
   const sessions = all().filter(s => s.date < beforeDate);
   for (let i = sessions.length - 1; i >= 0; i--) {
-    const ex = sessions[i].exercises.find(e => e.name === exName);
-    if (ex && ex.sets.length) {
+    const ex = (sessions[i].exercises||[]).find(e => e.name === exName);
+    if (ex && ex.sets && ex.sets.length) {
       const ws = ex.sets.map(s => s.w).filter(w => w > 0);
       const rs = ex.sets.map(s => s.r).filter(r => r > 0);
       return { w: ws.length ? Math.max(...ws) : 0, r: rs.length ? Math.max(...rs) : 0, label: sessions[i].label };
@@ -1899,8 +1913,8 @@ function getPrevPerf(exName, beforeDate) {
 function getPrevSets(exName, beforeDate) {
   const sessions = all().filter(s => s.date < beforeDate);
   for (let i = sessions.length - 1; i >= 0; i--) {
-    const ex = sessions[i].exercises.find(e => e.name === exName);
-    const work = ex ? ex.sets.filter(st => !st.wu) : [];
+    const ex = (sessions[i].exercises||[]).find(e => e.name === exName);
+    const work = ex ? (ex.sets||[]).filter(st => !st.wu) : [];
     if (work.length) return { sets: work, label: sessions[i].label };
   }
   return null;
@@ -1929,9 +1943,9 @@ function toggleWarmup(ei,si) {
 
 function getExHistory(exName) {
   return all().map(s => {
-    const ex0 = s.exercises.find(e => e.name === exName);
+    const ex0 = (s.exercises||[]).find(e => e.name === exName);
     if (!ex0) return null;
-    const ex = {...ex0, sets: ex0.sets.filter(st => !st.wu)};
+    const ex = {...ex0, sets: (ex0.sets||[]).filter(st => !st.wu)};
     if (!ex.sets.length) return null;
     const topSet = ex.sets.filter(s => s.w > 0).reduce((best, s) => (s.w > (best?.w || 0) ? s : best), null);
     const bwSets = ex.sets.filter(s => (!s.w || s.w === 0) && s.r > 0);
@@ -1981,6 +1995,19 @@ function trainerId() {
 // ── UNSENT CHANGES (v88) ────────────────────────────────────────────────────
 // Everything is saved on the phone first. These lists remember what the server
 // has not confirmed yet, so a sync can never wipe it.
+// v97: saving the workout list can fail when the phone's storage for the app is full.
+// Free the old merge-undo copy and try again; if it still fails, warn once (the server copy is still sent).
+let _storeWarned=false;
+function _saveUS(){
+  const txt=JSON.stringify(US);
+  try{ localStorage.setItem('tr-sess-v4',txt); return true; }catch(e){}
+  try{ localStorage.removeItem('tr-merge-backup-v1'); localStorage.setItem('tr-sess-v4',txt); return true; }catch(e){}
+  _storageWarn(); return false;
+}
+function _storageWarn(){
+  if(_storeWarned) return; _storeWarned=true;
+  try{ alert('Storage on this phone is full, so the app could not save to the phone. Your data is still being sent to the server. Make a backup in Profile and free up some space.'); }catch(e){}
+}
 function _lsGet(k,def){ try{ const v=JSON.parse(localStorage.getItem(k)||'null'); return v==null?def:v; }catch(e){ return def; } }
 function _lsSet(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
 function _sessDirty(){ return _lsGet('tr-sess-dirty-v1',{}); }
@@ -2006,13 +2033,14 @@ function _pushSess(id){
   if(_sessInflight[id]===e.ts) return;
   const tid=trainerId(), ref=db.doc(`trainers/${tid}/sessions/${id}`);
   let pr;
-  if(e.op==='del') pr=e.seed?ref.set({id,deleted:true}):ref.delete();
+  // v97: a delete leaves a small 'deleted' marker, so other phones know it was removed on purpose
+  if(e.op==='del') pr=ref.set({id,deleted:true});
   else { const sv=US.find(x=>x.id===id); if(!sv){ const d=_sessDirty(); delete d[id]; _setSessDirty(d); return; }
     try{ pr=ref.set(JSON.parse(JSON.stringify(sv))); }catch(err){ _lastSyncErr=String(err&&(err.code||err.message)||err); setSyncUI('err','Save failed · kept on phone'); return; } }
   _sessInflight[id]=e.ts;
   pr.then(()=>{
     if(_sessInflight[id]===e.ts) delete _sessInflight[id];
-    if(trainerId()===tid){ const d=_sessDirty(); if(d[id]&&d[id].ts===e.ts){ delete d[id]; _setSessDirty(d); } }
+    if(trainerId()===tid){ const d=_sessDirty(); if(d[id]&&d[id].ts===e.ts){ delete d[id]; _setSessDirty(d); } if(e.op!=='del') _seenAdd([id]); }
     _syncIdle();
   }).catch(err=>{ if(_sessInflight[id]===e.ts) delete _sessInflight[id]; _lastSyncErr=String(err&&(err.code||err.message)||err); setSyncUI('err','Save failed · kept on phone'); });
 }
@@ -2042,7 +2070,9 @@ function _fsClean(v){
   return v;
 }
 function _metaSend(keys,ts){
-  if(!fbReady||!db) return;
+  // v97: settings are only sent while the server is reachable. Offline changes wait (marked unsent) and are
+  // merged with the server copy first, so another phone's entries are not overwritten on reconnect.
+  if(!fbReady||!db||!_srvLive) return;
   keys.forEach(k=>{ if(META_GET[k]) _metaSendOne(k,ts); });
 }
 function _metaSendOne(k,ts){
@@ -2072,6 +2102,42 @@ function metaRetryAll(){
   Object.keys(d).forEach(k=>{ delete _metaInflight[k]; _metaSendOne(k,d[k]); });
   Object.keys(_sessDirty()).forEach(_pushSess);
   _syncIdle(); setTimeout(()=>{ if(document.getElementById('sync-modal').classList.contains('open')) openSyncModal(); },1500);
+}
+// v97: workouts the server has confirmed at least once. If one of these later disappears from the
+// server, it was deleted on another phone, so it is not offered again under "Recover".
+function _seenGet(){ return new Set(_lsGet('tr-sess-seen-v1',[])); }
+function _seenAdd(ids){ const s=_seenGet(); let ch=false; ids.forEach(i=>{ if(!s.has(i)){ s.add(i); ch=true; } }); if(ch) _lsSet('tr-sess-seen-v1',[...s]); }
+function _orphanDrop(ids){ const o=_lsGet('tr-sess-orphans-v1',[]); const n=o.filter(x=>!(x&&ids.includes(x.id))); if(n.length!==o.length) _lsSet('tr-sess-orphans-v1',n); }
+// Server documents are checked before use, so one malformed workout can never break a screen
+function _normSess(s){
+  if(!s||typeof s!=='object'||typeof s.id!=='string') return null;
+  if(s.deleted) return s;
+  if(typeof s.date!=='string') return null;
+  const exercises=(Array.isArray(s.exercises)?s.exercises:[]).filter(e=>e&&typeof e.name==='string').map(e=>Array.isArray(e.sets)?e:{...e,sets:[]});
+  return (exercises.length===(s.exercises||[]).length&&Array.isArray(s.exercises)&&exercises.every((e,i)=>e===s.exercises[i]))?s:{...s,exercises};
+}
+// v97: settings that are lists are merged item by item when two phones changed them,
+// instead of the last phone overwriting the other one's entries.
+const META_MERGE={bwLog:'date',exLib:'name',programs:'id',programSchedule:'id',dayOverrides:null};
+function _mergeKeyed(base,local,srv,kf){
+  const isArr=kf!=null;
+  const toMap=v=>{ const m=new Map();
+    if(isArr){ (Array.isArray(v)?v:[]).forEach(x=>{ if(x&&x[kf]!=null) m.set(String(x[kf]),x); }); }
+    else if(v&&typeof v==='object') Object.keys(v).forEach(k=>m.set(k,v[k]));
+    return m; };
+  const B=toMap(base), L=toMap(local), S=toMap(srv), eq=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+  const out=new Map(L);
+  S.forEach((sv,k)=>{
+    if(!L.has(k)){ if(!B.has(k)||!eq(B.get(k),sv)) out.set(k,sv); }            // added (or changed) on the other phone
+    else if(B.has(k)&&eq(L.get(k),B.get(k))&&!eq(sv,B.get(k))) out.set(k,sv);   // only changed on the other phone
+  });
+  B.forEach((bv,k)=>{ if(!S.has(k)&&L.has(k)&&eq(L.get(k),bv)) out.delete(k); }); // deleted on the other phone
+  if(!isArr){ const o={}; out.forEach((v,k)=>o[k]=v); return o; }
+  const res=[], used=new Set();
+  (Array.isArray(local)?local:[]).forEach(x=>{ if(!x||x[kf]==null){ res.push(x); return; } const k=String(x[kf]); if(out.has(k)&&!used.has(k)){ res.push(out.get(k)); used.add(k); } });
+  out.forEach((v,k)=>{ if(!used.has(k)){ res.push(v); used.add(k); } });
+  if(kf==='date') res.sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+  return res;
 }
 function _stashOrphans(list){
   if(!list.length) return;
@@ -2106,14 +2172,23 @@ async function initFirebase() {
   } catch(e){ _syncIdle(); }
 }
 
+let _lastListen=0;
 function startListeners() {
+  _lastListen=Date.now();
   const tid=trainerId();
   if(unsubS)unsubS();if(unsubM)unsubM();
-  unsubS=db.collection(`trainers/${tid}/sessions`).onSnapshot(snap=>{
+  let _firstS=true;
+  unsubS=db.collection(`trainers/${tid}/sessions`).onSnapshot({includeMetadataChanges:true},snap=>{
     // A snapshot that did not come from the server (offline) knows less than the phone: ignore it
     if(snap.metadata&&snap.metadata.fromCache){ _srvLive=false; _syncIdle(); return; }
-    _srvLive=true;
-    const _docs=snap.docs.map(d=>d.data());
+    const wasLive=_srvLive; _srvLive=true; _listenRetry=0;
+    // Only the connection state changed (v97: so the dot never stays on "Offline" while online)
+    if(!_firstS&&typeof snap.docChanges==='function'&&snap.docChanges().length===0){
+      if(!wasLive) Object.keys(_sessDirty()).forEach(_pushSess);
+      _syncIdle(); return;
+    }
+    _firstS=false;
+    const _docs=snap.docs.map(d=>_normSess(d.data())).filter(Boolean);
     _docs.forEach(d=>{ if(H.some(h=>h.id===d.id)) _hOvrAdd(d.id); });
     const dirty=_sessDirty(), local=US;
     let next=_docs.filter(s=>!s.deleted&&!(dirty[s.id]&&dirty[s.id].op==='del'));
@@ -2127,8 +2202,10 @@ function startListeners() {
     });
     if(dchg) _setSessDirty(dirty);
     // Safety net: anything on the phone that the server does not know is kept aside, never silently lost
-    const nextIds=new Set(next.map(x=>x.id)), srvIds=new Set(_docs.map(x=>x.id));
-    _stashOrphans(local.filter(x=>!nextIds.has(x.id)&&!srvIds.has(x.id)&&!_HOL_SESSIONS.some(h=>h.id===x.id)&&!(dirty[x.id]&&dirty[x.id].op==='del')));
+    const nextIds=new Set(next.map(x=>x.id)), srvIds=new Set(_docs.map(x=>x.id)), seen=_seenGet();
+    _stashOrphans(local.filter(x=>!nextIds.has(x.id)&&!srvIds.has(x.id)&&!seen.has(x.id)&&!_HOL_SESSIONS.some(h=>h.id===x.id)&&!(dirty[x.id]&&dirty[x.id].op==='del')));
+    _seenAdd([...srvIds]);
+    _orphanDrop([...srvIds]);
     US=next;
     // Seed holiday sessions once. A deleted seed leaves a {deleted:true} tombstone
     // doc so it is never re-added (on any device).
@@ -2143,13 +2220,13 @@ function startListeners() {
         db.doc(`trainers/${tid}/sessions/${sess.id}`).set(sess).catch(()=>{});
       } else if(doc.deleted){ _addSeedTomb(sess.id); }
     });
-    localStorage.setItem('tr-sess-v4',JSON.stringify(US));
+    _saveUS();
     try{ migrateSessionNames(); migrateBuiltinNames(); }catch(e){ console.error('name migration',e); }
     _clearPrCache();
     Object.keys(_sessDirty()).forEach(_pushSess);
     _syncIdle();refreshActiveView();
-  },err=>{ _srvLive=false; _lastSyncErr=String(err&&(err.code||err.message)||err); _syncIdle(); });
-  unsubM=db.doc(_metaPath(tid)).onSnapshot(snap=>{
+  },err=>{ _srvLive=false; _lastSyncErr=String(err&&(err.code||err.message)||err); _syncIdle(); _listenAgain(); });
+  unsubM=db.doc(_metaPath(tid)).onSnapshot({includeMetadataChanges:true},snap=>{
     if(snap.metadata&&snap.metadata.fromCache) return;
     if(localStorage.getItem('tr-meta-v2')!=='done'){
       localStorage.setItem('tr-meta-v2','done');
@@ -2158,6 +2235,23 @@ function startListeners() {
     }
     const md=snap.exists?snap.data():{}, dirty=_metaDirty();
     const take=k=>!dirty[k]&&(k in md);
+    // Changed here AND on the server: merge the two lists, then send the merged list
+    const base=_lsGet('tr-meta-base-v1',{});
+    Object.keys(META_MERGE).forEach(k=>{
+      if(!dirty[k]||!(k in md)||md[k]==null) return;
+      try{
+        const merged=_mergeKeyed(base[k],META_GET[k](),md[k],META_MERGE[k]);
+        if(JSON.stringify(merged)===JSON.stringify(META_GET[k]())) return;
+        if(k==='bwLog'){ BW_LOG=merged; localStorage.setItem('tr-bw-v1',JSON.stringify(BW_LOG)); try{renderBwChart();}catch(e){} }
+        else if(k==='exLib'){ EX_LIBRARY=merged; localStorage.setItem('tr-exlib-v1',JSON.stringify(EX_LIBRARY)); }
+        else if(k==='programs'){ PROGRAMS=merged; localStorage.setItem('tr-programs-v1',JSON.stringify(PROGRAMS)); }
+        else if(k==='programSchedule'){ PROGRAM_SCHEDULE=merged; localStorage.setItem('tr-prog-sched-v1',JSON.stringify(PROGRAM_SCHEDULE)); }
+        else if(k==='dayOverrides'){ DAY_OVERRIDES=merged; localStorage.setItem('tr-day-ov-v1',JSON.stringify(DAY_OVERRIDES)); }
+        const d3=_metaDirty(); d3[k]=_stamp(); _setMetaDirty(d3);
+      }catch(e){ console.error('merge',k,e); }
+    });
+    Object.keys(META_MERGE).forEach(k=>{ if(k in md) base[k]=md[k]; });
+    _lsSet('tr-meta-base-v1',base);
     if(take('custom')&&md.custom){CUSTOM_EX=md.custom;localStorage.setItem('tr-custom-v2',JSON.stringify(CUSTOM_EX));}
     if(take('plan')&&md.plan){PLAN=md.plan;localStorage.setItem('tr-plan-v1',JSON.stringify(PLAN));}
     if(take('exLib')&&md.exLib){EX_LIBRARY=md.exLib;localStorage.setItem('tr-exlib-v1',JSON.stringify(EX_LIBRARY));}
@@ -2177,12 +2271,19 @@ function startListeners() {
     resend.forEach(k=>_metaSendOne(k,d2[k]));
     _syncIdle();
     if(!snap.metadata||!snap.metadata.hasPendingWrites) refreshActiveView();
-  },()=>{});
+  },err=>{ _lastSyncErr='settings: '+String(err&&(err.code||err.message)||err); _syncIdle(); _listenAgain(); });
+}
+// v97: a listener that stopped with an error is restarted after 30 s, 1 min, 2 min … (max 10 min)
+let _listenRetry=0, _listenRetryT=null;
+function _listenAgain(){
+  if(_listenRetryT) return;
+  const wait=Math.min(600000,30000*Math.pow(2,_listenRetry++));
+  _listenRetryT=setTimeout(()=>{ _listenRetryT=null; if(fbReady&&db&&navigator.onLine!==false){ try{ startListeners(); }catch(e){} } },wait);
 }
 
 async function saveSession(sess) {
   if(!US.some(x=>x.id===sess.id)) US.push(sess);
-  localStorage.setItem('tr-sess-v4',JSON.stringify(US));_clearPrCache();
+  _saveUS();_clearPrCache();
   _markSess(sess.id,'set'); _pushSess(sess.id); _syncIdle();
 }
 
@@ -2190,7 +2291,7 @@ async function updateSession(sess) {
   const idx=US.findIndex(s=>s.id===sess.id);
   if(idx===-1)return;
   US[idx]=sess;
-  localStorage.setItem('tr-sess-v4',JSON.stringify(US));_clearPrCache();
+  _saveUS();_clearPrCache();
   _markSess(sess.id,'set'); _pushSess(sess.id); _syncIdle();
   refreshActiveView();
 }
@@ -2202,8 +2303,9 @@ async function deleteSession(id) {
   const isBuiltIn=H.some(s=>s.id===id);
   const isSeed=_HOL_SESSIONS.some(s=>s.id===id)||isBuiltIn;
   if(isBuiltIn)_hOvrAdd(id); else if(isSeed)_addSeedTomb(id);
+  _orphanDrop([id]);
   US=US.filter(s=>s.id!==id);
-  localStorage.setItem('tr-sess-v4',JSON.stringify(US));_clearPrCache();
+  _saveUS();_clearPrCache();
   _markSess(id,'del',isSeed); _pushSess(id); _syncIdle();
   closeEditSession();closeDetail();refreshActiveView();
 }
@@ -2283,13 +2385,13 @@ function editSetRowHTML(ei,si,set,tb) {
   return `<div class="srow" id="esr-${ei}-${si}" style="grid-template-columns:${tb?_EDIT_COLS_T:_EDIT_COLS};${set.wu?'opacity:.6':''}">
     <div class="snum">${n}</div>
     <input class="sinput" type="number" inputmode="numeric" placeholder="${tb?'secs':'reps'}" value="${set.r!=null?set.r:''}" oninput="updEditSet(${ei},${si},'r',this.value)">
-    ${tb?'':`<input class="sinput" type="number" inputmode="decimal" step="0.5" placeholder="kg" value="${set.w!=null?set.w:''}" oninput="updEditSet(${ei},${si},'w',this.value)">`}
+    ${tb?'':`<input class="sinput" type="text" inputmode="decimal" autocomplete="off" placeholder="kg" value="${set.w!=null?set.w:''}" oninput="updEditSet(${ei},${si},'w',this.value)">`}
     <button class="delbtn" onclick="toggleEditWu(${ei},${si})" title="Warm-up set" style="${set.wu?'color:var(--amber);font-weight:800':''}">W</button>
     <button class="delbtn" onclick="deleteEditSet(${ei},${si})">✕</button>
   </div>`;
 }
 
-function updEditSet(ei,si,f,v){if(editSession)editSession.exercises[ei].sets[si][f]=(v===''?'':+v);}
+function updEditSet(ei,si,f,v){ v=_num(v); if(v===null) return; if(editSession)editSession.exercises[ei].sets[si][f]=v; }
 function toggleEditWu(ei,si){ if(!editSession)return; const st=editSession.exercises[ei].sets[si]; if(st.wu) delete st.wu; else st.wu=true; _refreshEditExBlock(ei); }
 
 function deleteEditSet(ei,si) {
@@ -2349,6 +2451,15 @@ async function saveEditSession() {
     .filter(ex=>ex.sets.length>0);
   if(!editSession.exercises.length){ alert('Add at least one set with numbers, or delete the session instead.'); return; }
   editSession.volume=calcVolume(editSession);
+  // v97: a workout moved to another date gets that date's cycle label (custom labels are kept)
+  try{
+    const orig=all().find(x=>x.id===editSession.id);
+    if(orig&&orig.date!==editSession.date){
+      const oi=getCycleInfo(orig.date), ni=getCycleInfo(editSession.date);
+      const auto=!orig.label||orig.label===oi.label||/^(C\d+·D\d+|[A-Z0-9 /]{1,4}·C\d+·D\d+)$/.test(orig.label);
+      if(auto&&ni&&ni.label&&!ni.isPre){ editSession.label=ni.label; editSession.cycle=ni.cycleLabel||editSession.cycle; }
+    }
+  }catch(e){}
   const sess=editSession, savedId=sess.id;
   if(US.some(x=>x.id===savedId)) await updateSession(sess);
   else { _hOvrAdd(savedId); await saveSession(sess); refreshActiveView(); } // built-in history: the edited copy replaces it
@@ -2524,7 +2635,7 @@ function exDupGroups(){
 }
 function _exUseCount(n){ return exSessions(n).length; }
 function _exKeepGuess(g){
-  const plan=new Set(); try{ getPlanEx && Object.keys(PLAN).forEach(dt=>(PLAN[dt]||[]).forEach(x=>(x.ex||[]).forEach(e=>plan.add(e)))); PROGRAMS.forEach(p=>Object.values(p.plan||{}).forEach(gs=>gs.forEach(x=>(x.ex||[]).forEach(e=>plan.add(e))))); }catch(e){}
+  const plan=new Set(); try{ getPlanEx && Object.keys(PLAN).forEach(dt=>(PLAN[dt]||[]).forEach(x=>(x.ex||[]).forEach(e=>plan.add(e)))); PROGRAMS.filter(p=>!p.deleted).forEach(p=>Object.values(p.plan||{}).forEach(gs=>gs.forEach(x=>(x.ex||[]).forEach(e=>plan.add(e))))); }catch(e){}
   return g.slice().sort((a,b)=>(_exUseCount(b)-_exUseCount(a))||((plan.has(b)?1:0)-(plan.has(a)?1:0))||((BM_CATALOG.includes(b)?1:0)-(BM_CATALOG.includes(a)?1:0))||a.localeCompare(b))[0];
 }
 let _mg={mode:'list',names:[],keep:null,from:null,q:''};
@@ -2639,7 +2750,9 @@ function confirmAddLibEx() {
   if(!name){document.getElementById('newex-name').focus();return;}
   const muscles=bmEditValue('add');
   const group=document.getElementById('newex-group').value.trim()||(muscles?BM_REGION[muscles.p[0]]:'Custom');
-  if(EX_LIBRARY.some(e=>e.name===name)){alert('Exercise already exists in library.');return;}
+  const same=EX_LIBRARY.find(e=>e.name.toLowerCase()===name.toLowerCase()||_renEx(e.name).toLowerCase()===_renEx(name).toLowerCase());
+  if(same&&same.hidden){ delete same.hidden; same.type=newExType; if(muscles) same.muscles=muscles; saveLibrary();closeAddLibEx();renderLibrary(); return; }
+  if(same){alert(`"${same.name}" is already in your library.`);return;}
   const ne={name,type:newExType,group}; if(muscles) ne.muscles=muscles;
   EX_LIBRARY.push(ne);
   saveLibrary();closeAddLibEx();renderLibrary();
@@ -2761,6 +2874,7 @@ function refreshActiveView() {
 
 // ── NAV ────────────────────────────────────────────────────────────────────
 function switchView(name) {
+  if(name!=='progress'&&typeof _liftOpen!=='undefined') _liftOpen=null; // v97: no extra Back press later
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   document.querySelectorAll('.nb[id]').forEach(b=>b.classList.remove('active'));
   document.getElementById('view-'+name).classList.add('active');
@@ -2996,7 +3110,7 @@ function renderToday() {
       <div class="v4hero-top">
         <div>
           <div class="v4hero-eyebrow" style="color:${tcol}"><span class="dot" style="background:${tcol}"></span> ${cat}</div>
-          <div class="v4hero-day">${dayTitle(info.dayType).toUpperCase()}</div>
+          <div class="v4hero-day">${_esc(dayTitle(info.dayType).toUpperCase())}</div>
         </div>
         <div class="v4hero-meta">
           <div class="v4hero-cyc">${info.cycleLabel}</div>
@@ -3007,7 +3121,7 @@ function renderToday() {
       ${_lastTimeHtml(info.dayType,today)}
       ${bmTodayHtml(exList,info.dayType,today)}
       ${exRows?`<div class="v4hero-list">${exRows}</div>`:''}
-      <div class="v4hero-cta"><button class="v4btn primary" onclick="startWorkout()">▸ START ${dayTitle(info.dayType).toUpperCase()}</button>
+      <div class="v4hero-cta"><button class="v4btn primary" onclick="startWorkout()">▸ START ${_esc(dayTitle(info.dayType).toUpperCase())}</button>
          <button class="v4btn ghost" style="margin-top:8px;font-size:10px;color:var(--text3)" onclick="openDayOverrideSheet('${today}')">Change today's plan</button></div>
     </div>`;
   }
@@ -3080,10 +3194,10 @@ function renderToday() {
   const sumBanner=document.getElementById('cycle-summary-banner');
   if(PENDING_CYCLE_SUMMARY){
     const ps=PENDING_CYCLE_SUMMARY;
-    const prHtml=ps.prs.length?`<div style="margin-top:8px;font-family:var(--fm);font-size:11px;color:var(--amber)">★ PRs: ${ps.prs.join(', ')}</div>`:'';
+    const prHtml=ps.prs.length?`<div style="margin-top:8px;font-family:var(--fm);font-size:11px;color:var(--amber)">★ PRs: ${ps.prs.map(_esc).join(', ')}</div>`:'';
     sumBanner.innerHTML=`<div class="v4-cycsum">
       <button class="v4-cycsum-x" onclick="dismissCycleSummary()">×</button>
-      <div class="v4-cycsum-eyebrow">✓ ${ps.label} COMPLETE</div>
+      <div class="v4-cycsum-eyebrow">✓ ${_esc(ps.label)} COMPLETE</div>
       <div class="v4-cycsum-grid">
         <div class="v4-cycsum-cell"><div class="v4-cycsum-val">${ps.sessions}</div><div class="v4-cycsum-lbl">Sessions</div></div>
         <div class="v4-cycsum-cell"><div class="v4-cycsum-val">${Math.round(ps.totalVol/1000)}<sub style="font-size:.5em;color:var(--text3);font-weight:600;margin-left:2px">t</sub></div><div class="v4-cycsum-lbl">Volume</div></div>
@@ -3157,7 +3271,7 @@ function getKpiValue(sess, metric) {
 // Chart view settings (remembered per device)
 let kpiGroup = 'cycle', kpiLimit = 10, kpiProg = 'CURRENT';
 try {
-  const kv = JSON.parse(localStorage.getItem('tr-kpi-view-v1') || 'null');
+  const kv = _lsGet('tr-kpi-view-v1',null);
   if (kv) {
     if (kv.group) kpiGroup = kv.group;
     if (kv.limit !== undefined) kpiLimit = kv.limit;
@@ -3285,7 +3399,7 @@ function renderKpiChart() {
     opts.push({ key: 'ALL', label: 'All' });
     progPills.innerHTML = opts.map(o => {
       const col = o.key === 'ALL' ? null : _kpiProgInfo(o.key === 'CURRENT' ? curProg : o.key).color;
-      return `<div class="kpi-pill ${kpiProg === o.key ? 'active' : ''}" onclick="setKpi('prog','${o.key}')">${col ? `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${col};margin-right:5px;vertical-align:middle"></span>` : ''}${o.label}</div>`;
+      return `<div class="kpi-pill ${kpiProg === o.key ? 'active' : ''}" onclick="setKpi('prog','${_jsq(o.key)}')">${col ? `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${col};margin-right:5px;vertical-align:middle"></span>` : ''}${_esc(o.label)}</div>`;
     }).join('');
   }
 
@@ -3301,7 +3415,7 @@ function renderKpiChart() {
   const dayOpts = [{key:'ALL', short:'All'}, ...dayTypes.map(dt => ({ key: dt, short: _kpiDayShort(dt) }))];
   if (!dayOpts.some(d => d.key === kpiDay)) kpiDay = 'ALL';
   dayPills.innerHTML = dayOpts.map(d =>
-    `<div class="kpi-pill ${kpiDay === d.key ? 'active' : ''}" onclick="setKpi('day','${d.key.replace(/'/g, "\\'")}')" title="${d.key.replace(/"/g, '&quot;')}">${d.short}</div>`
+    `<div class="kpi-pill ${kpiDay === d.key ? 'active' : ''}" onclick="setKpi('day','${_jsq(d.key)}')" title="${_esc(d.key)}">${_esc(d.short)}</div>`
   ).join('');
   metricPills.innerHTML = KPI_METRICS.map(m =>
     `<div class="kpi-pill ${kpiMetric === m.key ? 'active' : ''}" onclick="setKpi('metric','${m.key}')">${m.label}</div>`
@@ -3461,39 +3575,60 @@ function renderKpiChart() {
 // Keep old name as alias so nothing else breaks
 
 function persistWorkout() {
-  if(activeWorkout) localStorage.setItem('tr-active-wk-v1', JSON.stringify(activeWorkout));
-  else localStorage.removeItem('tr-active-wk-v1');
+  try{
+    if(activeWorkout) localStorage.setItem('tr-active-wk-v1', JSON.stringify(activeWorkout));
+    else localStorage.removeItem('tr-active-wk-v1');
+  }catch(e){
+    try{ localStorage.removeItem('tr-merge-backup-v1'); if(activeWorkout) localStorage.setItem('tr-active-wk-v1', JSON.stringify(activeWorkout)); }catch(e2){ _storageWarn(); }
+  }
+}
+// v97: save the open workout straight away when the app goes to the background or is closed,
+// so the last number typed is never lost
+function _flushWk(){ if(updSet._t){ clearTimeout(updSet._t); updSet._t=null; } if(activeWorkout) persistWorkout(); }
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='hidden') _flushWk(); });
+window.addEventListener('pagehide',_flushWk);
+// One workout clock for new and reopened workouts (also saves every 30 s)
+function _startWkTimer(){
+  clearInterval(wkInterval);
+  const draw=()=>{
+    if(!activeWorkout) return;
+    const e=Math.max(0,Math.floor((Date.now()-activeWorkout.startedAt)/1000));
+    const t=`${Math.floor(e/60)}:${String(e%60).padStart(2,'0')}`;
+    const a=document.getElementById('wk-timer'); if(a) a.textContent=t;
+    const p=document.getElementById('wk-pill-timer'); if(p) p.textContent=t;
+    return e;
+  };
+  draw();
+  wkInterval=setInterval(()=>{ const e=draw(); if(e!=null&&e%30===0) persistWorkout(); },1000);
 }
 
 function restoreWorkout() {
   const raw = localStorage.getItem('tr-active-wk-v1');
   if(!raw) return;
-  try {
-    activeWorkout = JSON.parse(raw);
-    _topUpWorkoutFromPlan();
+  let w=null;
+  try{ w=JSON.parse(raw); }catch(e){}
+  // Only a save that cannot be read at all is set aside (a copy is kept), never a workout that failed to draw
+  if(!w||typeof w!=='object'||!Array.isArray(w.exercises)){
+    try{ localStorage.setItem('tr-active-wk-bad-v1',raw); }catch(e){}
+    localStorage.removeItem('tr-active-wk-v1'); return;
+  }
+  w.exercises=w.exercises.filter(x=>x&&x.name).map(x=>Array.isArray(x.sets)?x:{...x,sets:[]});
+  if(!w.startedAt) w.startedAt=Date.now();
+  activeWorkout = w;
+  try{ _topUpWorkoutFromPlan(); }catch(e){ console.error('restore top-up',e); }
+  try{
     document.getElementById('wk-title').textContent = DAY_FULL_NAMES[activeWorkout.dayType]||activeWorkout.dayType;
     document.getElementById('wk-sub').textContent = (activeWorkout.label || activeWorkout.date)+(activeWorkout.late?' · logging late for '+_fmtShort(activeWorkout.date):'');
-    renderWkEx();
-    if(activeWorkout.minimized){showPill();}
-    else{document.getElementById('workout-view').classList.add('open');}
-    _wakeSync();
-    if(activeWorkout._rest&&activeWorkout._rest.end>Date.now()){ _restEnd=activeWorkout._rest.end; _restEx=activeWorkout._rest.ex; _restTotal=activeWorkout._rest.total||90; _restShow(); }
-    _staleCheck();
-    clearInterval(wkInterval);
-    const elapsed = Math.floor((Date.now() - activeWorkout.startedAt) / 1000);
-    const initT = `${Math.floor(elapsed/60)}:${String(elapsed%60).padStart(2,'0')}`;
-    document.getElementById('wk-timer').textContent = initT;
-    const p=document.getElementById('wk-pill-timer');if(p)p.textContent=initT;
-    wkInterval = setInterval(() => {
-      const e = Math.floor((Date.now() - activeWorkout.startedAt) / 1000);
-      const t=`${Math.floor(e/60)}:${String(e%60).padStart(2,'0')}`;
-      document.getElementById('wk-timer').textContent = t;
-      const p=document.getElementById('wk-pill-timer');if(p)p.textContent=t;
-    }, 1000);
-  } catch(e) { localStorage.removeItem('tr-active-wk-v1'); }
+  }catch(e){}
+  try{ renderWkEx(); }catch(e){ console.error('restore draw',e); }
+  if(activeWorkout.minimized){showPill();}
+  else{document.getElementById('workout-view').classList.add('open');}
+  try{ _wakeSync(); }catch(e){}
+  if(activeWorkout._rest&&activeWorkout._rest.end>Date.now()){ _restEnd=activeWorkout._rest.end; _restEx=activeWorkout._rest.ex; _restTotal=activeWorkout._rest.total||90; try{_restShow();}catch(e){} }
+  _startWkTimer();
+  try{ _staleCheck(); }catch(e){}
 }
 
-// A workout left open for hours (app closed mid-session): ask what to do with it
 function _staleCheck(){
   if(!activeWorkout) return;
   const last=activeWorkout._last||activeWorkout.startedAt;
@@ -3529,8 +3664,16 @@ function _topUpWorkoutFromPlan(){
 }
 
 function startWorkout(forDate, forDayType, forLabel) {
-  // If workout already active, just resume it
-  if(activeWorkout){_topUpWorkoutFromPlan();renderWkEx();resumeWk();return;}
+  // If workout already active, just resume it — unless a different day/workout was asked for (v97)
+  if(activeWorkout){
+    const wantDate=forDate||activeWorkout.date, wantType=forDayType||(forLabel&&!forDayType?forLabel:null);
+    const different=(forDate||forDayType||forLabel)&&(wantDate!==activeWorkout.date||(wantType&&wantType!==activeWorkout.dayType));
+    if(different){
+      const c=_wkCounts(), cur=(DAY_FULL_NAMES[activeWorkout.dayType]||activeWorkout.dayType||'Workout')+' · '+_fmtShort(activeWorkout.date);
+      if(!confirm(`You still have an open workout (${cur}, ${c.done} set${c.done!==1?'s':''} ticked).\n\nOK = discard it and start the new one\nCancel = go back to the open workout`)){ _topUpWorkoutFromPlan();renderWkEx();resumeWk();return; }
+      clearInterval(wkInterval);skipRest();closeWk();
+    } else {_topUpWorkoutFromPlan();renderWkEx();resumeWk();return;}
+  }
   const date=forDate||todayStr();
   const info=getCycleInfo(date);
   const isCustom=!!forLabel&&!forDayType;
@@ -3552,14 +3695,7 @@ function startWorkout(forDate, forDayType, forLabel) {
   renderWkEx();
   document.getElementById('workout-view').classList.add('open');
   hidePill();_wakeSync();
-  clearInterval(wkInterval);
-  wkInterval=setInterval(()=>{
-    const e=Math.floor((Date.now()-activeWorkout.startedAt)/1000);
-    const t=`${Math.floor(e/60)}:${String(e%60).padStart(2,'0')}`;
-    document.getElementById('wk-timer').textContent=t;
-    const p=document.getElementById('wk-pill-timer');if(p)p.textContent=t;
-    if(e%30===0) persistWorkout();
-  },1000);
+  _startWkTimer();
 }
 
 function buildSets(nm, date, dt) {
@@ -3656,7 +3792,7 @@ function renderFocusExercise(ex,ei,total){
   const aSet=ex.sets[aSi];
   const prevSet=ps?.sets[aSi]||null;
   const bestLine=best
-    ?`<div class="fexb-best">★ <b>Best</b> ${best.label} — ${best.display}</div>`
+    ?`<div class="fexb-best">★ <b>Best</b> ${_esc(best.label)} — ${_esc(best.display)}</div>`
     :`<div class="fexb-best">No history yet</div>`;
 
   // Set chips
@@ -3679,7 +3815,7 @@ function renderFocusExercise(ex,ei,total){
       <div class="fstepper">
         <button class="fstep-btn minor" onclick="adjSet(${ei},${aSi},'r',-5)">−5</button>
         <button class="fstep-btn" onclick="adjSet(${ei},${aSi},'r',-1)">−1</button>
-        <div class="finput-wrap"><input class="finput" type="number" inputmode="numeric" placeholder="${prevSet?.r||30}" value="${cur||''}" oninput="updSet(${ei},${aSi},'r',+this.value)"><span class="finput-suffix">SEC</span></div>
+        <div class="finput-wrap"><input class="finput" type="number" inputmode="numeric" placeholder="${prevSet?.r||30}" value="${cur||''}" oninput="updSet(${ei},${aSi},'r',_num(this.value))"><span class="finput-suffix">SEC</span></div>
         <button class="fstep-btn" onclick="adjSet(${ei},${aSi},'r',1)">+1</button>
         <button class="fstep-btn minor" onclick="adjSet(${ei},${aSi},'r',5)">+5</button>
       </div>
@@ -3691,7 +3827,7 @@ function renderFocusExercise(ex,ei,total){
       <div class="fstepper">
         <button class="fstep-btn minor" onclick="adjSet(${ei},${aSi},'r',-5)">−5</button>
         <button class="fstep-btn" onclick="adjSet(${ei},${aSi},'r',-1)">−1</button>
-        <div class="finput-wrap"><input class="finput" type="number" inputmode="numeric" placeholder="${prevSet?.r||10}" value="${aSet.r||''}" oninput="updSet(${ei},${aSi},'r',+this.value)"></div>
+        <div class="finput-wrap"><input class="finput" type="number" inputmode="numeric" placeholder="${prevSet?.r||10}" value="${aSet.r||''}" oninput="updSet(${ei},${aSi},'r',_num(this.value))"></div>
         <button class="fstep-btn" onclick="adjSet(${ei},${aSi},'r',1)">+1</button>
         <button class="fstep-btn minor" onclick="adjSet(${ei},${aSi},'r',5)">+5</button>
       </div>
@@ -3699,7 +3835,7 @@ function renderFocusExercise(ex,ei,total){
       <div class="fstepper">
         <button class="fstep-btn minor" onclick="adjSet(${ei},${aSi},'w',-5)">−5</button>
         <button class="fstep-btn" onclick="adjSet(${ei},${aSi},'w',-2.5)">−2.5</button>
-        <div class="finput-wrap"><input class="finput" type="number" inputmode="decimal" step="0.5" placeholder="${prevSet?.w||0}" value="${aSet.w||''}" oninput="updSet(${ei},${aSi},'w',+this.value)"><span class="finput-suffix">KG</span></div>
+        <div class="finput-wrap"><input class="finput" type="text" inputmode="decimal" autocomplete="off" placeholder="${prevSet?.w||0}" value="${aSet.w||''}" oninput="updSet(${ei},${aSi},'w',_num(this.value))"><span class="finput-suffix">KG</span></div>
         <button class="fstep-btn" onclick="adjSet(${ei},${aSi},'w',2.5)">+2.5</button>
         <button class="fstep-btn minor" onclick="adjSet(${ei},${aSi},'w',5)">+5</button>
       </div>
@@ -3790,6 +3926,8 @@ function moveExWk(ei, dir) {
   const ni=dir==='up'?ei-1:ei+1;
   if(ni<0||ni>=exs.length)return;
   [exs[ei],exs[ni]]=[exs[ni],exs[ei]];
+  const as=activeWorkout._activeSet;
+  if(as){ const a=as[ei], b=as[ni]; if(b==null) delete as[ei]; else as[ei]=b; if(a==null) delete as[ni]; else as[ni]=a; }
   renderWkEx();
   persistWorkout();
 }
@@ -3825,7 +3963,7 @@ function setRowHTML(ei,si,set,prevSet,tb=false) {
     return `<div class="srow ${set.done?'done':''} ${set.wu?'warmup':''}" id="sr-${ei}-${si}">
       <div class="snum ${set.wu?'wu':''}" onclick="toggleWarmup(${ei},${si})" title="Tap to mark as warm-up">${set.wu?'W':si+1}</div>
       <div class="prev">${prevTxt}</div>
-      <input class="sinput" type="number" inputmode="numeric" placeholder="${prevSet?.r||'30'}" value="${set.r||''}" oninput="updSet(${ei},${si},'r',+this.value)" style="color:var(--purple)">
+      <input class="sinput" type="number" inputmode="numeric" placeholder="${prevSet?.r||'30'}" value="${set.r||''}" oninput="updSet(${ei},${si},'r',_num(this.value))" style="color:var(--purple)">
       <div style="display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--purple);font-weight:700;letter-spacing:.04em">sec</div>
       <button class="cbtn ${set.done?'done':''}" onclick="toggleSet(${ei},${si})">
         <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
@@ -3835,15 +3973,17 @@ function setRowHTML(ei,si,set,prevSet,tb=false) {
   return `<div class="srow ${set.done?'done':''} ${set.wu?'warmup':''}" id="sr-${ei}-${si}">
     <div class="snum ${set.wu?'wu':''}" onclick="toggleWarmup(${ei},${si})" title="Tap to mark as warm-up">${set.wu?'W':si+1}</div>
     <div class="prev">${prevTxt}</div>
-    <input class="sinput" type="number" inputmode="numeric" placeholder="${prevSet?.r||'12'}" value="${set.r||''}" oninput="updSet(${ei},${si},'r',+this.value)">
-    <input class="sinput" type="number" inputmode="decimal" step="0.5" placeholder="${prevSet?.w||'0'}" value="${set.w||''}" oninput="updSet(${ei},${si},'w',+this.value)">
+    <input class="sinput" type="number" inputmode="numeric" placeholder="${prevSet?.r||'12'}" value="${set.r||''}" oninput="updSet(${ei},${si},'r',_num(this.value))">
+    <input class="sinput" type="text" inputmode="decimal" autocomplete="off" placeholder="${prevSet?.w||'0'}" value="${set.w||''}" oninput="updSet(${ei},${si},'w',_num(this.value))">
     <button class="cbtn ${set.done?'done':''}" onclick="toggleSet(${ei},${si})">
       <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
     </button>
   </div>`;
 }
 
-function updSet(ei,si,f,v){if(activeWorkout){const st=activeWorkout.exercises[ei].sets[si];st[f]=v;st.t=1;clearTimeout(updSet._t);updSet._t=setTimeout(persistWorkout,600);}}
+// v97: reads "82,5" as 82.5; an empty box stays empty instead of becoming 0; nonsense is ignored
+function _num(v){ const t=String(v==null?'':v).trim().replace(',','.'); if(t==='') return ''; const n=parseFloat(t); return isFinite(n)&&n>=0?n:null; }
+function updSet(ei,si,f,v){if(v===null)return;if(activeWorkout){const st=activeWorkout.exercises[ei].sets[si];st[f]=v;st.t=1;clearTimeout(updSet._t);updSet._t=setTimeout(persistWorkout,600);}}
 
 function toggleSet(ei,si) {
   if(!activeWorkout)return;
@@ -3871,9 +4011,11 @@ function toggleSet(ei,si) {
     if(row)row.outerHTML=setRowHTML(ei,si,set,ps?.sets[si]||null,tb);
   }
   if(set.done){
-    persistWorkout();
     activeWorkout._last=Date.now();
-    if(activeWorkout.late){} else if(!set.wu&&ex.sets.some(x=>!x.done)) startRest(restFor(ex.name),ex.name); else if(!set.wu) skipRest();
+    persistWorkout();
+    // v97: rest also after the last set of an exercise (before the next one); not after the very last set of the workout
+    const moreToDo=activeWorkout.exercises.some(x=>(x.sets||[]).some(y=>!y.done));
+    if(activeWorkout.late){} else if(!set.wu&&moreToDo) startRest(restFor(ex.name),ex.name); else if(!set.wu) skipRest();
     if(!set.wu){
       const kind=exKind(ex.name), sc=setScore(kind,set);
       const prevBest=getBestSet(ex.name,activeWorkout.date);
@@ -3882,6 +4024,7 @@ function toggleSet(ei,si) {
       if(sc>0&&prevBest&&sc>prevBest.vol+1e-9&&sc>earlier+1e-9) showPrToast(ex.name,set,tb);
     }
   } else {
+    if(_restEnd&&_restEx===ex.name&&!set.wu) skipRest();
     persistWorkout();
   }
 }
@@ -3890,17 +4033,24 @@ function delSet(ei,si){
   if(!activeWorkout)return;
   const ex=activeWorkout.exercises[ei];
   if(ex.sets.length<=1)return; // keep at least one
+  const st=ex.sets[si];
+  if(st&&st.done&&!confirm(`Delete this completed set (${st.r||0}${isTimeBased(ex.name)?'s':' × '+(st.w||0)+' kg'})?`))return;
   ex.sets.splice(si,1);
   // adjust active pointer if needed
   if(activeWorkout._activeSet&&activeWorkout._activeSet[ei]!=null){
-    const a=activeWorkout._activeSet[ei];
-    if(a>=ex.sets.length)activeWorkout._activeSet[ei]=ex.sets.length-1;
+    let a=activeWorkout._activeSet[ei];
+    if(si<a) a--;
+    activeWorkout._activeSet[ei]=Math.max(0,Math.min(a,ex.sets.length-1));
   }
   renderWkEx();
   persistWorkout();
 }
 
 let _prToastTimer=null;
+function _toast(msg){
+  const t=document.getElementById('pr-toast'), m=document.getElementById('pr-toast-msg'); if(!t||!m) return;
+  m.textContent=msg; t.classList.add('show'); clearTimeout(_prToastTimer); _prToastTimer=setTimeout(()=>t.classList.remove('show'),3500);
+}
 function showPrToast(name, set, tb) {
   const t=document.getElementById('pr-toast');
   const m=document.getElementById('pr-toast-msg');
@@ -3962,6 +4112,7 @@ function _restShow(){
 function _restDone(){
   const late=Date.now()-_restEnd;
   skipRest();
+  if(late>=4000&&late<30*60000&&activeWorkout){ try{ _toast(`Rest finished ${late<90000?Math.round(late/1000)+' s':Math.round(late/60000)+' min'} ago`); if(navigator.vibrate) navigator.vibrate(150); }catch(e){} }
   if(late<4000){ // only signal when the rest ends now, not when reopening the app much later
     try{ if(navigator.vibrate) navigator.vibrate([220,120,220]); }catch(e){}
     try{
@@ -3984,12 +4135,20 @@ function adjustRest(delta){
 
 // Screen stays on while the workout screen is open
 let _wakeLock=null;
+let _wakeBusy=false;
 async function _wakeSync(){
-  const want=!!activeWorkout&&!activeWorkout.minimized&&document.visibilityState==='visible';
+  const wantNow=()=>!!activeWorkout&&!activeWorkout.minimized&&document.visibilityState==='visible';
+  if(_wakeBusy) return; _wakeBusy=true;
   try{
-    if(want&&!_wakeLock&&navigator.wakeLock){ _wakeLock=await navigator.wakeLock.request('screen'); _wakeLock.addEventListener('release',()=>{_wakeLock=null;}); }
-    else if(!want&&_wakeLock){ const w=_wakeLock; _wakeLock=null; await w.release(); }
+    if(wantNow()&&!_wakeLock&&navigator.wakeLock){
+      const l=await navigator.wakeLock.request('screen');
+      l.addEventListener('release',()=>{ if(_wakeLock===l) _wakeLock=null; });
+      _wakeLock=l;
+    }
+    // v97: the workout may have been minimised while waiting for the lock
+    if(!wantNow()&&_wakeLock){ const w=_wakeLock; _wakeLock=null; await w.release(); }
   }catch(e){ _wakeLock=null; }
+  finally{ _wakeBusy=false; }
 }
 document.addEventListener('visibilitychange',()=>{ _wakeSync(); if(document.visibilityState==='visible'&&_restEnd) _restShow(); });
 
@@ -4359,23 +4518,23 @@ function _renderAddDaySheet(){
     const colors={push:'rgba(96,165,250,1)',legs:'rgba(251,146,60,1)',pull:'rgba(74,222,128,1)','push-s':'rgba(167,139,250,1)','legs-h':'rgba(251,191,36,1)'};
     const col=colors[tcf]||'var(--text3)';
     const isSelected=dt===selType;
-    return `<button class="day-type-pill${isSelected?' sel':''}" onclick="_selectAddDayType('${dt.replace(/'/g,"\\'")}')" style="${isSelected?`color:${col};border-color:${col};background:${col}18`:''}">
+    return `<button class="day-type-pill${isSelected?' sel':''}" onclick="_selectAddDayType('${_jsq(dt)}')" style="${isSelected?`color:${col};border-color:${col};background:${col}18`:''}">
       ${dayAbbr(dt)}
     </button>`;
   }).join('');
 
   document.getElementById('add-day-inner').innerHTML=`
-    <div style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.12em;text-transform:uppercase;font-family:var(--fb);margin-bottom:4px">${info.label||ds}</div>
+    <div style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.12em;text-transform:uppercase;font-family:var(--fb);margin-bottom:4px">${_esc(info.label||ds)}</div>
     <div style="font-size:20px;font-weight:700;margin-bottom:16px">${_fmtLong(ds)}</div>
     ${ds<_today?`<div class="pg-banner" style="background:var(--bg3);border:1px solid var(--border);font-size:12px;margin-bottom:14px">Logging late. Enter what you did, tick the sets, then Finish. It is saved on this date and marked "late".</div>`:''}
     <div style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;font-family:var(--fb);margin-bottom:8px">Choose workout</div>
     <div class="day-type-pills">${typePills}</div>
     ${selType&&planEx.length?`
       <div style="background:var(--bg3);border-radius:10px;padding:10px 12px;margin-bottom:14px">
-        ${planEx.slice(0,6).map(e=>`<div style="font-size:13px;color:var(--text2);padding:2px 0">· ${e.replace(/\s*\([^)]+\)/,'')}</div>`).join('')}
+        ${planEx.slice(0,6).map(e=>`<div style="font-size:13px;color:var(--text2);padding:2px 0">· ${_esc(e.replace(/\s*\([^)]+\)/,''))}</div>`).join('')}
         ${planEx.length>6?`<div style="font-size:11px;color:var(--text3);margin-top:2px">+${planEx.length-6} more</div>`:''}
       </div>
-      <button onclick="closeAddDaySheet();startWorkout('${ds}','${selType.replace(/'/g,"\\'")}')" style="width:100%;padding:14px;background:var(--text);color:var(--bg);font-family:var(--fb);font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;border:none;border-radius:12px;cursor:pointer;margin-bottom:12px">▸ Start ${dayAbbr(selType)}</button>
+      <button onclick="closeAddDaySheet();startWorkout('${ds}','${_jsq(selType)}')" style="width:100%;padding:14px;background:var(--text);color:var(--bg);font-family:var(--fb);font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;border:none;border-radius:12px;cursor:pointer;margin-bottom:12px">▸ Start ${dayAbbr(selType)}</button>
     `:''}
     ${ds<_today?'':`<button onclick="closeAddDaySheet();setDayOverride('${ds}','REST')" style="width:100%;padding:13px;background:var(--bg3);color:var(--text2);font-family:var(--fb);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--border);border-radius:12px;cursor:pointer;margin-bottom:12px">😴 Mark as Rest Day</button>`}
     <div style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;font-family:var(--fb);margin-bottom:8px">Custom workout</div>
@@ -4447,9 +4606,9 @@ function renderMonthTab(){
   }
   el.innerHTML=`
     <div class="log-month-nav">
-      <button class="log-month-btn" onclick="logMonthDate.setMonth(logMonthDate.getMonth()-1);renderMonthTab()"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg></button>
+      <button class="log-month-btn" onclick="logMonthDate=new Date(logMonthDate.getFullYear(),logMonthDate.getMonth()-1,1);renderMonthTab()"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg></button>
       <div class="log-month-title">${monthName}</div>
-      <button class="log-month-btn" onclick="logMonthDate.setMonth(logMonthDate.getMonth()+1);renderMonthTab()"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></button>
+      <button class="log-month-btn" onclick="logMonthDate=new Date(logMonthDate.getFullYear(),logMonthDate.getMonth()+1,1);renderMonthTab()"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></button>
     </div>
     <div class="log-legend">${legend.map(l=>`<span class="log-legend-item"><span class="log-legend-dot" style="background:${l.color}"></span>${l.label}</span>`).join('')}</div>
     <div class="log-legend" style="margin-top:-4px"><span class="log-legend-item"><span class="lgk lgk-done">✓</span>Done</span><span class="log-legend-item"><span class="lgk lgk-plan"></span>Planned</span><span class="log-legend-item"><span class="lgk lgk-miss">×</span>Missed</span></div>
@@ -4470,7 +4629,7 @@ let _overrideTargetDate='';
 function openDayOverrideSheet(ds) {
   _overrideTargetDate=ds;
   document.getElementById('day-override-title').textContent='Plan for '+ds;
-  const cycle=activeCycle();
+  const cycle=cycleFor(ds);
   const hasOverride=DAY_OVERRIDES.hasOwnProperty(ds);
   const isAlreadyRest=getDayType(ds)==='REST';
   let html=`<div style="padding:8px 16px 4px"><button onclick="setDayOverride('${ds}','REST')" style="width:100%;padding:13px;background:${isAlreadyRest?'rgba(74,222,128,.1)':'var(--bg3)'};color:${isAlreadyRest?'var(--green)':'var(--text2)'};font-family:var(--fb);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;border:1px solid ${isAlreadyRest?'var(--green)':'var(--border)'};border-radius:12px;cursor:pointer">😴 Rest Day${isAlreadyRest?' ✓':''}</button></div>
@@ -4482,7 +4641,7 @@ function openDayOverrideSheet(ds) {
     const col=TYPE_COLOR[dayType]||'var(--text3)';
     const current=getDayType(ds);
     const isCur=current===dayType;
-    html+=`<div class="sitem" onclick="setDayOverride('${ds}','${dayType.replace(/'/g,"\\'")}')">
+    html+=`<div class="sitem" onclick="setDayOverride('${ds}','${_jsq(dayType)}')">
       <div><div class="sitem-name" style="${isCur?'color:var(--green);font-weight:700':''}">${label||DAY_FULL_NAMES[dayType]||dayType}</div></div>
       ${isCur?'<div class="schk"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>':'<div style="width:8px;height:8px;border-radius:50%;background:'+col+';flex-shrink:0;margin-right:4px"></div>'}
     </div>`;
@@ -4530,8 +4689,8 @@ function clearDayOverride(ds) {
   closeDayOverrideSheet();
   delete DAY_OVERRIDES[ds];
   saveDayOverrides();
-  renderCalendar();
-  showCalDay(ds);
+  refreshActiveView();
+  if(document.getElementById('view-calendar')?.classList.contains('active'))showCalDay(ds);
 }
 const CYCLE_ORDER = [
   {idx:'D2',dayType:'PUSH (Hypertrophy)',dayNum:'Day 2'},
@@ -4561,17 +4720,17 @@ function renderProgram() {
     const groups=plan[dayType]||[];
     const allEx=groups.flatMap(g=>g.ex);
     const isRest=dayType==='REST';
-    const dtSafe=dayType.replace(/'/g,"\\'");
+    const dtSafe=_jsq(dayType);
     const canUp=di>0, canDown=di<displayCycle.length-1;
     const abbr=isRest?'REST':dayAbbr(dayType);
     const pillColors={push:'rgba(96,165,250,',legs:'rgba(251,146,60,','push-s':'rgba(167,139,250,',pull:'rgba(74,222,128,','legs-h':'rgba(251,191,36,',rest:'rgba(100,100,100,'};
     const pc=pillColors[tcf]||'rgba(100,100,100,';
     return `<div class="cycle-day" style="border-left-color:${col}">
-      <div class="cycle-day-hdr" onclick="toggleProgDay('${dayType}')">
+      <div class="cycle-day-hdr" onclick="toggleProgDay('${dtSafe}')">
         <div class="cdh-left">
           <div class="cd-pill" style="background:${pc}.15);color:${pc}1)">${idx}</div>
           <div>
-            <div class="cd-title">${label||DAY_FULL_NAMES[dayType]||dayType}</div>
+            <div class="cd-title">${_esc(label||DAY_FULL_NAMES[dayType]||dayType)}</div>
             <div class="cd-sub">${isRest?'Rest day':`${allEx.length} exercise${allEx.length!==1?'s':''}`}</div>
           </div>
         </div>
@@ -4598,8 +4757,8 @@ function renderProgGroups(dayType) {
   const prog=_editProgId?PROGRAMS.find(p=>p.id===_editProgId):null;
   const planMeta=prog?.planMeta||{};
   return flat.map((nm,fi)=>{
-    const safe=nm.replace(/'/g,"\\'");
-    const dtSafe=dayType.replace(/'/g,"\\'");
+    const safe=_jsq(nm);
+    const dtSafe=_jsq(dayType);
     const meta=planMeta[dayType]?.[nm];
     const setsLbl=meta?(meta.sets+'×'+(meta.minReps===meta.maxReps?meta.maxReps:meta.minReps+'–'+meta.maxReps)):'3×?';
     return `<div class="cd-ex-row">
@@ -4609,9 +4768,9 @@ function renderProgGroups(dayType) {
           <button class="ex-mv" onclick="moveExInPlan('${dtSafe}','${safe}','down')" ${fi===flat.length-1?'style="opacity:.2;pointer-events:none"':''}>▼</button>
         </div>
         <div style="flex:1;min-width:0">
-          <div class="cd-ex-name">${nm}</div>${bmMuscles(nm).p.length?`<div class="bm-libtag">${bmMuscles(nm).p.map(k=>BM_M[k]).join(' · ')}</div>`:''}
+          <div class="cd-ex-name">${_esc(nm)}</div>${bmMuscles(nm).p.length?`<div class="bm-libtag">${bmMuscles(nm).p.map(k=>BM_M[k]).join(' · ')}</div>`:''}
         </div>
-        <button onclick="editExTarget('${dtSafe}','${safe}')" style="font-size:11px;font-weight:700;color:var(--accent);background:rgba(212,255,58,.1);border:1px solid rgba(212,255,58,.25);border-radius:8px;padding:3px 8px;cursor:pointer;flex-shrink:0;font-family:var(--fm)">${setsLbl}</button>
+        ${prog?`<button onclick="editExTarget('${dtSafe}','${safe}')" style="font-size:11px;font-weight:700;color:var(--accent);background:rgba(212,255,58,.1);border:1px solid rgba(212,255,58,.25);border-radius:8px;padding:3px 8px;cursor:pointer;flex-shrink:0;font-family:var(--fm)">${setsLbl}</button>`:''}
       </div>
       <button class="rmex-btn" onclick="openSwapProg('${dtSafe}','${safe}')" title="Swap for another exercise" style="font-size:15px">⇄</button>
       <button class="rmex-btn" onclick="removeExFromPlan('${dtSafe}','${safe}')">−</button>
@@ -4629,7 +4788,10 @@ function editExTarget(dayType, exName) {
   if(!val)return;
   const m=val.match(/(\d+)\s*[×x]\s*(\d+)\s*[-–]\s*(\d+)/)||val.match(/(\d+)\s*[×x]\s*(\d+)/);
   if(!m){alert('Format: 3×8-12');return;}
-  prog.planMeta[dayType][exName]={sets:parseInt(m[1]),minReps:parseInt(m[2]),maxReps:parseInt(m[3]||m[2])};
+  let sets=parseInt(m[1]), mn=parseInt(m[2]), mx=parseInt(m[3]||m[2]);
+  if(!(sets>=1&&sets<=10)||!(mn>=1)||!(mx>=1)){ alert('Use 1–10 sets and at least 1 rep, e.g. 3×8-12'); return; }
+  if(mn>mx) [mn,mx]=[mx,mn];
+  prog.planMeta[dayType][exName]={sets,minReps:mn,maxReps:mx};
   savePrograms();
   const key=dayType.replace(/[\s()]/g,'_');
   renderProgram();
@@ -4794,8 +4956,10 @@ function moveExInPlan(dayType, exName, dir) {
   if(i<0)return;
   const ni=dir==='up'?i-1:i+1;
   if(ni<0||ni>=flat.length)return;
-  [flat[i],flat[ni]]=[flat[ni],flat[i]];
-  plan[dayType]=[{g:'Exercises',ex:flat}];
+  // v97: swap the two names where they are, so the day's groups and their headings stay
+  const pos=[]; groups.forEach((g,gi)=>(g.ex||[]).forEach((n,xi)=>pos.push([gi,xi])));
+  const [ga,xa]=pos[i], [gb,xb]=pos[ni];
+  groups[ga].ex[xa]=flat[ni]; groups[gb].ex[xb]=flat[i];
   _saveEditPlan();reopenProgDay(dayType);
 }
 
@@ -4875,8 +5039,8 @@ function repeatSession(id) {
   const info=getCycleInfo(date);
   activeWorkout={
     date,label:info.label||s.label||'Custom',cycle:info.cycleLabel||'Custom',
-    dayType:s.dayType,startedAt:Date.now(),
-    exercises:s.exercises.map(ex=>({name:ex.name,sets:buildSets(ex.name,date,s.dayType)}))
+    dayType:s.dayType,startedAt:Date.now(),_toppedUp:true,minimized:false,
+    exercises:(s.exercises||[]).map(ex=>({name:ex.name,sets:buildSets(ex.name,date,s.dayType)}))
   };
   persistWorkout();
   document.getElementById('wk-title').textContent=DAY_FULL_NAMES[s.dayType]||s.dayType;
@@ -4884,14 +5048,7 @@ function repeatSession(id) {
   renderWkEx();
   document.getElementById('workout-view').classList.add('open');
   hidePill();_wakeSync();
-  clearInterval(wkInterval);
-  wkInterval=setInterval(()=>{
-    const e=Math.floor((Date.now()-activeWorkout.startedAt)/1000);
-    const t=`${Math.floor(e/60)}:${String(e%60).padStart(2,'0')}`;
-    document.getElementById('wk-timer').textContent=t;
-    const p=document.getElementById('wk-pill-timer');if(p)p.textContent=t;
-    if(e%30===0)persistWorkout();
-  },1000);
+  _startWkTimer();
 }
 
 // ── PROGRESS ───────────────────────────────────────────────────────────────
@@ -4902,7 +5059,8 @@ function _mondayOf(ds){const d=new Date(ds+'T00:00:00');d.setDate(d.getDate()-((
 function isoWeek(ds){const d=new Date(ds+'T00:00:00');const t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));const dn=t.getUTCDay()||7;t.setUTCDate(t.getUTCDate()+4-dn);const y=t.getUTCFullYear();return Math.ceil(((t-Date.UTC(y,0,1))/86400000+1)/7);}
 function _fmtShort(ds){const d=new Date(ds+'T00:00:00');return d.getDate()+' '+_MON[d.getMonth()];}
 function _esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-function _jsq(s){return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'");}
+// v97: also safe inside a double-quoted onclick="" (a name with " or & no longer breaks the button)
+function _jsq(s){return _esc(String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'"));}
 
 // ── PERFORMANCE ENGINE (one scoring rule for PRs everywhere) ─────────────────
 // load lifts: estimated 1RM (Epley) · bodyweight lifts: bodyweight + added kg, then 1RM · timed: seconds
@@ -4910,9 +5068,20 @@ function latestBodyweight(){ return (BW_LOG&&BW_LOG.length)?BW_LOG[BW_LOG.length
 function exKind(name){
   if(isTimeBased(name)) return 'time';
   if(/\(Bodyweight/.test(name)) return 'bw';
-  return 'load';
+  // v97: your own exercise logged only without weight (e.g. "Dips") is scored as bodyweight
+  return _noLoadEver(name)?'bw':'load';
 }
-function e1rm(w,r){ w=+w||0; r=+r||0; if(w<=0||r<=0) return 0; return w*(1+Math.min(r,20)/30); }
+let _nlCache={}, _nlSig='';
+function _noLoadEver(name){
+  const sig=H.length+'|'+US.length+'|'+(US.length?US[US.length-1].id:'')+'|'+_exVer+'|'+_hOvr.size;
+  if(sig!==_nlSig){ _nlCache={}; _nlSig=sig; }
+  if(name in _nlCache) return _nlCache[name];
+  let seen=false, load=false;
+  all().forEach(s=>(s.exercises||[]).forEach(e=>{ if(e.name!==name) return; (e.sets||[]).forEach(st=>{ if(st.wu) return; if((+st.r||0)>0) seen=true; if((+st.w||0)>0) load=true; }); }));
+  return (_nlCache[name]=seen&&!load);
+}
+// v97: reps above 20 still count a little (1% each), so 25 or 30 reps beats 20 reps at the same weight
+function e1rm(w,r){ w=+w||0; r=+r||0; if(w<=0||r<=0) return 0; return w*(1+Math.min(r,20)/30)+(r>20?w*(r-20)/100:0); }
 function _bwRef(){ return latestBodyweight()||75; }
 function setScore(kind,s){
   const r=+s.r||0, w=+s.w||0;
@@ -5271,7 +5440,7 @@ function bmKnownNorms(){
   try{ EX_LIBRARY.forEach(e=>s.add(bmNorm(e.name))); }catch(e){}
   try{ allExNames().forEach(n=>s.add(bmNorm(n))); }catch(e){}
   try{ [PLAN,DEFAULT_PLAN].forEach(pl=>Object.values(pl).forEach(gs=>gs.forEach(g=>(g.ex||[]).forEach(n=>s.add(bmNorm(n)))))); }catch(e){}
-  try{ PROGRAMS.forEach(p=>Object.values(p.plan||{}).forEach(gs=>gs.forEach(g=>(g.ex||[]).forEach(n=>s.add(bmNorm(n)))))); }catch(e){}
+  try{ PROGRAMS.filter(p=>!p.deleted).forEach(p=>Object.values(p.plan||{}).forEach(gs=>gs.forEach(g=>(g.ex||[]).forEach(n=>s.add(bmNorm(n)))))); }catch(e){}
   return s;
 }
 // Every exercise the user already has: library, history and all plans
@@ -5280,7 +5449,7 @@ function bmUserExNames(){
   try{ EX_LIBRARY.forEach(e=>{ if(!e.hidden) s.add(e.name); }); }catch(e){}
   try{ allExNames().forEach(n=>s.add(n)); }catch(e){}
   try{ [PLAN,DEFAULT_PLAN].forEach(pl=>Object.values(pl).forEach(gs=>gs.forEach(g=>(g.ex||[]).forEach(n=>s.add(n))))); }catch(e){}
-  try{ PROGRAMS.forEach(p=>Object.values(p.plan||{}).forEach(gs=>gs.forEach(g=>(g.ex||[]).forEach(n=>s.add(n))))); }catch(e){}
+  try{ PROGRAMS.filter(p=>!p.deleted).forEach(p=>Object.values(p.plan||{}).forEach(gs=>gs.forEach(g=>(g.ex||[]).forEach(n=>s.add(n))))); }catch(e){}
   try{ Object.values(CUSTOM_EX||{}).forEach(a=>(a||[]).forEach(n=>s.add(n))); }catch(e){}
   return [...new Set([...s].map(_renEx))];
 }
@@ -5461,7 +5630,7 @@ function _tool(n){ return n.match(/\(([^)]+)\)\s*$/)?.[1]||''; }
 
 // ── LOG v2: weekly timeline, newest first ───────────────────────────────────
 let _logFilter='all', _logWeeks=6;
-const APP_VERSION='v96';
+const APP_VERSION='v97';
 
 // Shared missed-day logic (Progress → Block and Log use the same list)
 // Past training days with nothing logged; a workout on a rest day makes up the oldest open miss.
@@ -5823,6 +5992,7 @@ function _renderOlderList(){
 
 function renderProgressFor(name){
   currentProgressEx=name;
+  try{ if(progressChart){ progressChart.destroy(); progressChart=null; } }catch(e){}
   const content=document.getElementById('progress-content'); if(!content) return;
   const h=exSessions(name), kind=exKind(name);
   const head=`<button class="pg-back" onclick="closeLift()">‹ All lifts</button>
@@ -5870,7 +6040,7 @@ function openBwLog() {
 function closeBwLog(){document.getElementById('bw-modal').classList.remove('open');}
 
 async function saveBwLog() {
-  const w=parseFloat(document.getElementById('bw-input').value);
+  const w=parseFloat(String(document.getElementById('bw-input').value).replace(',','.'));
   const date=document.getElementById('bw-date-input').value||todayStr();
   if(!w||w<30||w>300)return;
   BW_LOG=BW_LOG.filter(e=>e.date!==date);
@@ -6151,12 +6321,23 @@ async function switchCode(){
   const n=_unsentCount();
   if(!confirm(`Switch to this code?\n\n${code}\n\nThis phone will show the data stored under that code.`+(n?`\n\n⚠️ ${n} change${n!==1?'s':''} on this phone ${n!==1?'have':'has'} not been sent yet and will be lost.`:'')+`\n\nYour current code is kept in this screen so you can switch back.`)) return;
   const prev=_lsGet('tr-trainer-prev',[]).filter(c=>c!==old&&c!==code); prev.push(old); _lsSet('tr-trainer-prev',prev.slice(-5));
+  // v97: keep a copy of anything that never reached the old code's server, then start clean,
+  // so nothing from the old code (settings, workouts, merges) can leak into the new one
+  try{
+    const unsentIds=Object.keys(_sessDirty()), orph=_lsGet('tr-sess-orphans-v1',[]);
+    const keep=US.filter(x=>unsentIds.includes(x.id)).concat(orph);
+    if(keep.length) _lsSet('tr-switch-backup-v1',{code:old,at:new Date().toISOString(),sessions:keep});
+  }catch(e){}
+  _SWITCH_WIPE.forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} });
   localStorage.setItem(TK,code);
-  _setSessDirty({}); _setMetaDirty({}); localStorage.removeItem('tr-meta-v2');
-  US=[];_clearPrCache();closeSyncModal();setSyncUI('syncing','Loading…');
-  if(fbReady)startListeners(); else initFirebase();
-  refreshActiveView();
+  try{ if(unsubS)unsubS(); if(unsubM)unsubM(); }catch(e){}
+  closeSyncModal(); setSyncUI('syncing','Loading…');
+  location.reload();
 }
+const _SWITCH_WIPE=['tr-sess-v4','tr-sess-dirty-v1','tr-meta-dirty-v1','tr-meta-v2','tr-meta-base-v1','tr-sess-seen-v1','tr-sess-orphans-v1',
+  'tr-custom-v2','tr-plan-v1','tr-exlib-v1','tr-exnames-v1','tr-cycle-v1','tr-day-ov-v1','tr-profile-v1','tr-bw-v1','tr-programs-v1',
+  'tr-prog-sched-v1','tr-vacation-v1','tr-pr-prefs-v1','tr-h-ovr-v1','tr-seed-tomb-v1','tr-cycle-sum-v1','tr-merge-backup-v1',
+  'tr-seed-bwlib-v1','tr-ab-seed-v1','tr-kpi-view-v1'];
 
 // ── RECOVER WORKOUTS (v92) ──────────────────────────────────────────────────
 // Workouts that were on this phone but never reached the server are kept aside
@@ -6178,7 +6359,8 @@ function openRecover(){
 function recoverOrphans(){
   const o=_orphans(); if(!o.length){ closeAddDaySheet(); return; }
   o.forEach(x=>{ US.push(x); _markSess(x.id,'set'); });
-  localStorage.setItem('tr-sess-v4',JSON.stringify(US));
+  _orphanDrop(o.map(x=>x.id));
+  _saveUS();
   _clearPrCache();
   o.forEach(x=>_pushSess(x.id));
   _syncIdle(); closeAddDaySheet(); refreshActiveView();
@@ -6196,7 +6378,7 @@ function _download(name,text,mime){
 function doBackup(){
   const data={app:'8day-tracker',format:1,version:APP_VERSION,exported:new Date().toISOString(),syncCode:trainerId(),
     sessions:US,
-    meta:{custom:CUSTOM_EX,plan:PLAN,exLib:EX_LIBRARY,cycle:CUSTOM_CYCLE,dayOverrides:DAY_OVERRIDES,profile:PROFILE,bwLog:BW_LOG,programs:PROGRAMS,programSchedule:PROGRAM_SCHEDULE,vacation:VACATION},
+    meta:{custom:CUSTOM_EX,plan:PLAN,exLib:EX_LIBRARY,cycle:CUSTOM_CYCLE,dayOverrides:DAY_OVERRIDES,profile:PROFILE,bwLog:BW_LOG,programs:PROGRAMS,programSchedule:PROGRAM_SCHEDULE,vacation:VACATION,exNames:EX_NAMES},
     prPrefs:PR_PREFS,seedTombs:_seedTombs(),orphans:_lsGet('tr-sess-orphans-v1',[])};
   _download('8day-backup-'+todayStr()+'.json',JSON.stringify(data),'application/json');
   _lsSet('tr-last-backup',todayStr());
@@ -6211,10 +6393,12 @@ function onRestoreFile(input){
     if(!d||d.app!=='8day-tracker'||!Array.isArray(d.sessions)){ alert('This is not an 8Day backup file.'); return; }
     const valid=d.sessions.filter(x=>x&&typeof x.id==='string'&&typeof x.date==='string'&&Array.isArray(x.exercises));
     const newer=valid.filter(x=>!US.some(u=>u.id===x.id)).length;
+    const deletedIds=new Set(Object.keys(_sessDirty()).filter(id=>_sessDirty()[id].op==='del'));
     if(activeWorkout){ alert('Finish or discard your current workout before restoring.'); return; }
-    if(!confirm(`Restore backup from ${String(d.exported||'').slice(0,10)||'unknown date'}?\n\n• ${valid.length} workouts in the file (${newer} not on this phone)\n• Program, library, profile and bodyweight are replaced by the file\n• Workouts on this phone that are not in the file are kept\n\nThis also updates your synced data.`)) return;
-    valid.forEach(x=>{ const i=US.findIndex(u=>u.id===x.id); if(i>=0) US[i]=x; else US.push(x); _markSess(x.id,'set'); });
-    localStorage.setItem('tr-sess-v4',JSON.stringify(US));
+    if(!confirm(`Restore backup from ${String(d.exported||'').slice(0,10)||'unknown date'}?\n\n• ${valid.length} workouts in the file (${newer} not on this phone)\n• Missing workouts are added; workouts already on this phone are kept as they are now\n• Program, library and profile are replaced by the file; weigh-ins are combined\n\nThis also updates your synced data.`)) return;
+    valid.forEach(x=>{ if(US.some(u=>u.id===x.id)) return; US.push(x); _markSess(x.id,'set'); });
+    _orphanDrop(valid.map(x=>x.id));
+    _saveUS();
     const m=d.meta||{};
     if(m.custom){CUSTOM_EX=m.custom;localStorage.setItem('tr-custom-v2',JSON.stringify(CUSTOM_EX));}
     if(m.plan){PLAN=m.plan;localStorage.setItem('tr-plan-v1',JSON.stringify(PLAN));}
@@ -6222,12 +6406,16 @@ function onRestoreFile(input){
     if('cycle' in m){CUSTOM_CYCLE=m.cycle||null;localStorage.setItem('tr-cycle-v1',JSON.stringify(CUSTOM_CYCLE));}
     if(m.dayOverrides){DAY_OVERRIDES=m.dayOverrides;localStorage.setItem('tr-day-ov-v1',JSON.stringify(DAY_OVERRIDES));}
     if(m.profile){PROFILE=m.profile;localStorage.setItem('tr-profile-v1',JSON.stringify(PROFILE));}
-    if(Array.isArray(m.bwLog)){BW_LOG=m.bwLog;localStorage.setItem('tr-bw-v1',JSON.stringify(BW_LOG));}
+    if(Array.isArray(m.bwLog)){ const byD={}; m.bwLog.forEach(e=>{ if(e&&e.date) byD[e.date]=e; }); BW_LOG.forEach(e=>{ if(e&&e.date) byD[e.date]=e; });
+      BW_LOG=Object.values(byD).sort((a,b)=>a.date.localeCompare(b.date)); localStorage.setItem('tr-bw-v1',JSON.stringify(BW_LOG)); }
+    if(m.exNames){ EX_NAMES=_exNamesClean(m.exNames); localStorage.setItem('tr-exnames-v1',JSON.stringify(EX_NAMES)); _exVer++; }
     if(Array.isArray(m.programs)){PROGRAMS=m.programs;localStorage.setItem('tr-programs-v1',JSON.stringify(PROGRAMS));}
     if(Array.isArray(m.programSchedule)){PROGRAM_SCHEDULE=m.programSchedule;localStorage.setItem('tr-prog-sched-v1',JSON.stringify(PROGRAM_SCHEDULE));}
     if('vacation' in m){VACATION=m.vacation||null;localStorage.setItem('tr-vacation-v1',JSON.stringify(VACATION));}
     if(d.prPrefs){PR_PREFS=d.prPrefs;savePrPrefs();}
-    metaPush(Object.keys(META_GET));
+    // Only send the settings the file actually contains (an older backup never wipes your merges)
+    metaPush(Object.keys(META_GET).filter(k=>k==='bwLog'||k in m));
+    try{ migrateSessionNames(); migrateBuiltinNames(); migrateMetaNames(); }catch(e){ console.error('name migration',e); }
     _clearPrCache();
     Object.keys(_sessDirty()).forEach(_pushSess);
     _syncIdle(); refreshActiveView();
@@ -6239,7 +6427,7 @@ function onRestoreFile(input){
 // ── EXPORT ─────────────────────────────────────────────────────────────────
 function doExport(){
   const rows=[['Date','Label','Cycle','Day','Exercise','Set','Reps','Weight (kg)','Warm-up','Notes']];
-  all().forEach(s=>s.exercises.forEach(ex=>ex.sets.forEach((st,i)=>rows.push([s.date,s.label,s.cycle,DAY_FULL_NAMES[s.dayType]||s.dayType,ex.name,i+1,st.r||0,st.w||0,st.wu?'yes':'',i===0?(s.notes||''):'']))));
+  all().forEach(s=>(s.exercises||[]).forEach(ex=>(ex.sets||[]).forEach((st,i)=>rows.push([s.date,s.label||'',s.cycle||'',DAY_FULL_NAMES[s.dayType]||s.dayType,ex.name,i+1,st.r||0,st.w||0,st.wu?'yes':'',i===0?(s.notes||''):'']))));
   const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
   _download('training-'+todayStr()+'.csv','\uFEFF'+csv,'text/csv;charset=utf-8');
 }
@@ -6322,16 +6510,16 @@ function renderPrEditSheet() {
       <div class="pr-ex-row">
         <button class="pr-mv" onclick="movePrEx(${i},-1)" ${i === 0 ? 'disabled' : ''}>↑</button>
         <button class="pr-mv" onclick="movePrEx(${i},1)" ${i === selected.length - 1 ? 'disabled' : ''}>↓</button>
-        <div class="pr-ex-name">${nm}</div>
-        <button class="pr-rm" onclick="removePrEx('${nm.replace(/'/g, "\\'")}')">✕</button>
+        <div class="pr-ex-name">${_esc(nm)}</div>
+        <button class="pr-rm" onclick="removePrEx('${_jsq(nm)}')">✕</button>
       </div>`).join('');
   }
   if (unselected.length) {
     html += `<div class="pr-sec-lbl">Add exercise</div>`;
     html += unselected.map(nm => `
       <div class="pr-ex-row">
-        <div class="pr-ex-name" style="color:var(--text2)">${nm}</div>
-        <button class="pr-add" onclick="addPrEx('${nm.replace(/'/g, "\\'")}')">+</button>
+        <div class="pr-ex-name" style="color:var(--text2)">${_esc(nm)}</div>
+        <button class="pr-add" onclick="addPrEx('${_jsq(nm)}')">+</button>
       </div>`).join('');
   }
   document.getElementById('pr-edit-body').innerHTML = html;
@@ -6420,15 +6608,15 @@ function renderProgramsManager(){
     </div>
   </div>`;
 
-  // Custom programs
-  PROGRAMS.forEach(prog=>{
+  // Custom programs (deleted ones are kept only for old dates)
+  PROGRAMS.filter(p=>!p.deleted).forEach(prog=>{
     const isActive=activeId===prog.id;
     const hasPrev=PROGRAM_SCHEDULE.some(e=>e.programId===prog.id&&e.endDate);
     const col=prog.color||'var(--accent)';
     html+=`<div class="prog-card${isActive?' prog-active':''}" style="border-left-color:${col}">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div>
-          <div class="prog-card-name">${prog.emoji||'📋'} ${prog.name}</div>
+          <div class="prog-card-name">${_esc(prog.emoji||'📋')} ${_esc(prog.name)}</div>
           <div class="prog-card-sub">${prog.cyclePattern.length}-day cycle · ${prog.cyclePattern.filter(d=>d!=='REST').length} training days</div>
         </div>
         ${isActive
@@ -6452,7 +6640,7 @@ function renderProgramsManager(){
 function openActivateProgSheet(progId){
   _activatingProgId=progId;
   const prog=progId==='normal'?null:PROGRAMS.find(p=>p.id===progId);
-  const progName=prog?`${prog.emoji||''} ${prog.name}`:'🏋️ Normal Training';
+  const progName=prog?_esc(`${prog.emoji||''} ${prog.name}`):'🏋️ Normal Training';
   const hasPrev=progId==='normal'
     ?all().some(s=>!_getCycleInfoNormal(s.date).isPre)
     :PROGRAM_SCHEDULE.some(e=>e.programId===progId&&e.endDate);
@@ -6511,14 +6699,19 @@ function confirmActivate(progId,mode){
     PROGRAM_SCHEDULE.push({id:'sched_'+Date.now(),programId:progId,startDate:today,startCycleNum,endDate:null});
     saveProgramSchedule();
   }
-  savePrograms();saveProgramSchedule();
+  if(progId==='normal') saveProgramSchedule();
   renderProgramsManager();renderProfile();refreshActiveView();
 }
 
 function deleteCustomProg(progId){
   if(!confirm('Delete this program? This cannot be undone.'))return;
-  PROGRAMS=PROGRAMS.filter(p=>p.id!==progId);
-  PROGRAM_SCHEDULE=PROGRAM_SCHEDULE.filter(e=>e.programId!==progId);
+  // v97: if the program was used before today, it is hidden instead of removed, so past dates keep their labels
+  const today=todayStr();
+  const used=PROGRAM_SCHEDULE.some(e=>e.programId===progId&&e.startDate<today);
+  PROGRAM_SCHEDULE=PROGRAM_SCHEDULE.filter(e=>e.programId!==progId||e.startDate<today);
+  PROGRAM_SCHEDULE.forEach(e=>{ if(e.programId===progId&&(!e.endDate||e.endDate>today)) e.endDate=today; });
+  if(used){ const p=PROGRAMS.find(p=>p.id===progId); if(p) p.deleted=true; }
+  else PROGRAMS=PROGRAMS.filter(p=>p.id!==progId);
   savePrograms();saveProgramSchedule();renderProgramsManager();
 }
 
@@ -6574,11 +6767,11 @@ function _renderNewProgSheet(nameVal,emojiVal,isEdit){
   document.getElementById('new-prog-inner').innerHTML=`
     <div style="font-size:18px;font-weight:700;margin-bottom:16px">${isEdit?'Edit Program':'New Program'}</div>
     <div style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;font-family:var(--fb);margin-bottom:6px">Name</div>
-    <input id="new-prog-name" type="text" placeholder="e.g. Holiday, Summer…" value="${nameVal}" style="width:100%;padding:11px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:inherit;font-size:14px;outline:none;box-sizing:border-box;margin-bottom:14px">
+    <input id="new-prog-name" type="text" placeholder="e.g. Holiday, Summer…" value="${_esc(nameVal)}" style="width:100%;padding:11px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:inherit;font-size:14px;outline:none;box-sizing:border-box;margin-bottom:14px">
     <div style="display:flex;gap:10px;margin-bottom:14px">
       <div style="flex:1">
         <div style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;font-family:var(--fb);margin-bottom:6px">Emoji</div>
-        <input id="new-prog-emoji" type="text" value="${emojiVal}" maxlength="2" style="width:100%;padding:11px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:inherit;font-size:18px;outline:none;box-sizing:border-box;text-align:center">
+        <input id="new-prog-emoji" type="text" value="${_esc(emojiVal)}" maxlength="2" style="width:100%;padding:11px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:inherit;font-size:18px;outline:none;box-sizing:border-box;text-align:center">
       </div>
       <div style="flex:2">
         <div style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;font-family:var(--fb);margin-bottom:6px">Color</div>
@@ -6737,12 +6930,41 @@ function dismissInstallBanner(){
 // ── OFFLINE / ONLINE ───────────────────────────────────────────────────────
 window.addEventListener('offline',()=>{ _srvLive=false; _syncIdle(); });
 window.addEventListener('online',()=>{
-  if(fbReady&&db){setSyncUI('syncing','Reconnecting…');startListeners();}
+  // v97: re-listen at most once a minute (each re-listen downloads every workout again)
+  if(fbReady&&db){ if(_listenRetryT){ clearTimeout(_listenRetryT); _listenRetryT=null; } if(Date.now()-_lastListen>60000){ setSyncUI('syncing','Reconnecting…'); startListeners(); } else _syncIdle(); }
   else{setSyncUI('syncing','Connecting…');initFirebase();}
 });
 
+const AB_SPEC={
+  'WORKOUT A':[
+    ['Back Squat (BB)',3,6,8],['Romanian Deadlift (BB)',3,8,10],['Bench Press (BB)',3,6,8],['Pull-Ups (Bodyweight)',3,6,12],
+    ['Overhead Press (BB)',3,8,12],['Bent Over Row (BB)',3,8,12],['Bicep Curl (BB)',3,8,12],['Lateral Raises (DB)',3,12,20],
+    ['Single-Arm Overhead Triceps (DB)',3,12,15],['Hanging Knee Raise (Bodyweight)',3,10,15]],
+  'WORKOUT B':[
+    ['Bulgarian Split Squat (DB)',3,10,12],['Chin-Ups (Bodyweight)',3,6,12],['Incline Press (DB)',3,10,15],['Leg Curl (Bench Attachment)',3,10,15],
+    ['Dips (Bodyweight)',3,8,12],['Single-Arm Row (DB)',3,10,15],['Rear-Delt Raises (DB)',3,12,20],['Standing Calf Raises (DB)',3,12,15],
+    ['Hanging Knee Raise (Bodyweight)',3,10,15],['Ab Rollout (Ab Wheel)',2,8,15]]
+};
+// Apply the program sheet: order, sets and rep ranges. Extra exercises you added yourself are kept at the end.
+function _applyABSpec(prog){
+  if(!prog.plan) prog.plan={}; if(!prog.planMeta) prog.planMeta={};
+  Object.entries(AB_SPEC).forEach(([dt,list])=>{
+    const groups=prog.plan[dt]&&prog.plan[dt].length?prog.plan[dt]:[{g:DAY_FULL_NAMES[dt]||dt,ex:[]}];
+    const existing=[...new Set(groups.flatMap(g=>g.ex||[]))];
+    const specNames=list.map(x=>x[0]);
+    const extras=existing.filter(n=>!specNames.includes(n));
+    prog.plan[dt]=[{g:groups[0].g||DAY_FULL_NAMES[dt]||dt,ex:[...specNames,...extras]}];
+    if(!prog.planMeta[dt]) prog.planMeta[dt]={};
+    list.forEach(([n,sets,mn,mx])=>{ prog.planMeta[dt][n]={...(prog.planMeta[dt][n]||{}),sets,minReps:mn,maxReps:mx}; });
+  });
+  prog.repsV1=true;
+}
+
 // ── SEED A/B PROGRAM ──────────────────────────────────────────────────────
 (function seedABProgram(){
+  // v97: only on a brand-new phone that has never synced, and only once — a deleted program stays deleted
+  if(localStorage.getItem('tr-meta-v2')==='done'||localStorage.getItem('tr-ab-seed-v1'))return;
+  try{ localStorage.setItem('tr-ab-seed-v1','1'); }catch(e){}
   if(PROGRAMS.some(p=>p.id==='prog_ab_v1'||p.name==='A/B Training'||p.name===AB_PROG_NAME))return;
   const abId='prog_ab_v1';
   // 14-day cycle: Week 1 = A REST B REST A REST REST, Week 2 = B REST A REST B REST REST
@@ -6786,35 +7008,10 @@ window.addEventListener('online',()=>{
   });
   localStorage.setItem('tr-exlib-v1',JSON.stringify(EX_LIBRARY));
   PROGRAMS.push({id:abId,name:AB_PROG_NAME,emoji:'🏋️',color:'#3b82f6',cyclePattern,plan,planMeta,nextInOrder:true,endDate:'2026-12-20',phases:[{type:'deload',label:'Deload',start:'2026-11-23',end:'2026-11-29'},{type:'test',label:'Test week',start:'2026-12-14',end:'2026-12-20'}],blockMetaV1:true});
-  try{ const _p=PROGRAMS.find(p=>p.id===abId); if(_p&&typeof _applyABSpec==='function') _applyABSpec(_p); }catch(e){}
+  try{ const _p=PROGRAMS.find(p=>p.id===abId); if(_p){ _applyABSpec(_p); _p.blockMetaV1=true; } }catch(e){ console.error('A/B seed',e); }
   localStorage.setItem('tr-programs-v1',JSON.stringify(PROGRAMS));
 })();
 
-
-const AB_SPEC={
-  'WORKOUT A':[
-    ['Back Squat (BB)',3,6,8],['Romanian Deadlift (BB)',3,8,10],['Bench Press (BB)',3,6,8],['Pull-Ups (Bodyweight)',3,6,12],
-    ['Overhead Press (BB)',3,8,12],['Bent Over Row (BB)',3,8,12],['Bicep Curl (BB)',3,8,12],['Lateral Raises (DB)',3,12,20],
-    ['Single-Arm Overhead Triceps (DB)',3,12,15],['Hanging Knee Raise (Bodyweight)',3,10,15]],
-  'WORKOUT B':[
-    ['Bulgarian Split Squat (DB)',3,10,12],['Chin-Ups (Bodyweight)',3,6,12],['Incline Press (DB)',3,10,15],['Leg Curl (Bench Attachment)',3,10,15],
-    ['Dips (Bodyweight)',3,8,12],['Single-Arm Row (DB)',3,10,15],['Rear-Delt Raises (DB)',3,12,20],['Standing Calf Raises (DB)',3,12,15],
-    ['Hanging Knee Raise (Bodyweight)',3,10,15],['Ab Rollout (Ab Wheel)',2,8,15]]
-};
-// Apply the program sheet: order, sets and rep ranges. Extra exercises you added yourself are kept at the end.
-function _applyABSpec(prog){
-  if(!prog.plan) prog.plan={}; if(!prog.planMeta) prog.planMeta={};
-  Object.entries(AB_SPEC).forEach(([dt,list])=>{
-    const groups=prog.plan[dt]&&prog.plan[dt].length?prog.plan[dt]:[{g:DAY_FULL_NAMES[dt]||dt,ex:[]}];
-    const existing=[...new Set(groups.flatMap(g=>g.ex||[]))];
-    const specNames=list.map(x=>x[0]);
-    const extras=existing.filter(n=>!specNames.includes(n));
-    prog.plan[dt]=[{g:groups[0].g||DAY_FULL_NAMES[dt]||dt,ex:[...specNames,...extras]}];
-    if(!prog.planMeta[dt]) prog.planMeta[dt]={};
-    list.forEach(([n,sets,mn,mx])=>{ prog.planMeta[dt][n]={...(prog.planMeta[dt][n]||{}),sets,minReps:mn,maxReps:mx}; });
-  });
-  prog.repsV1=true;
-}
 
 // ── ONE-TIME NAME MIGRATION (idempotent; safe to run on every load/snapshot) ──
 const EX_RENAME = {"Back squat (BB)": "Back Squat (BB)","Romanian deadlift (BB)": "Romanian Deadlift (BB)","Bench press (BB)": "Bench Press (BB)","Pull-ups": "Pull-Ups (Bodyweight)","Overhead press (BB)": "Overhead Press (BB)","Bent-over row (BB)": "Bent Over Row (BB)","Barbell curl": "Bicep Curl (BB)","Lateral raises (DB)": "Lateral Raises (DB)","Single-arm overhead triceps (DB)": "Single-Arm Overhead Triceps (DB)","Bulgarian split squat (DB)": "Bulgarian Split Squat (DB)","Chin-ups": "Chin-Ups (Bodyweight)","Incline press (DB)": "Incline Press (DB)","Leg curl (bench attachment)": "Leg Curl (Bench Attachment)","Weighted dips": "Dips (Bodyweight)","Single-arm row (DB)": "Single-Arm Row (DB)","Rear-delt raises (DB)": "Rear-Delt Raises (DB)","Standing calf raises (DB)": "Standing Calf Raises (DB)","Hanging knee raise": "Hanging Knee Raise (Bodyweight)","Ab wheel": "Ab Rollout (Ab Wheel)","Weighted Pull-Ups (Bodyweight/Plate)": "Pull-Ups (Bodyweight)","Weighted Dips (Bodyweight/Plate)": "Dips (Bodyweight)","Dip (Bodyweight)": "Dips (Bodyweight)","Goblet Squat": "Goblet Squat (DB)","Incline Hammer Strength Press": "Incline Press (Machine)","Machine Chest Press": "Chest Press (Machine)","Cable Fly - High to Low (Cable)": "High-to-Low Fly (Cable)","Bodyweight Squat (Bodyweight)": "Air Squat (Bodyweight)"};
@@ -6855,7 +7052,7 @@ function migrateSessionNames(){
   // Workouts that an older version saved as "Rest" were hidden from the Log: show them as custom sessions
   US.forEach((s,i)=>{ if(s.dayType==='REST'&&(s.exercises||[]).length){ US[i]={...US[i],dayType:'Custom'}; if(!changed.includes(US[i])) changed.push(US[i]); } });
   if(!changed.length) return;
-  localStorage.setItem('tr-sess-v4',JSON.stringify(US));
+  _saveUS();
   if(typeof _clearPrCache==='function') _clearPrCache();
   changed.forEach(s=>{ _markSess(s.id,'set'); _pushSess(s.id); });
 }
