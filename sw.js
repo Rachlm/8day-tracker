@@ -1,4 +1,4 @@
-const CACHE = '8day-tracker-v99';
+const CACHE = '8day-tracker-v100';
 const ASSETS = ['./index.html','./manifest.json','./icon-192.png','./icon-512.png'];
 // Sync library: cached when possible so the app can reconnect after an offline start.
 // Optional — a failure here never blocks the install.

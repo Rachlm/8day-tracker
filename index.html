@@ -2506,6 +2506,17 @@ function closeLibrary() {
 // ── v96 LIBRARY: body map, search, body-part groups, detail card, duplicates ──
 let _lib={q:'',m:null,showCat:false};
 const LIB_REGIONS=['Chest','Back','Shoulders','Arms','Legs','Core','Other'];
+// v100: equipment groups, from the "(…)" part of the name
+const LIB_EQUIP=['Barbell','Dumbbells','Machine','Cable','Bodyweight','Other'];
+function libEquip(n){
+  const t=_tool(n).toLowerCase();
+  if(/^(bb|barbell|ez|ez.?bar|trap.?bar)$/.test(t)) return 'Barbell';
+  if(/^(db|dumbbells?|kb|kettlebell)$/.test(t)) return 'Dumbbells';
+  if(/machine|smith|attachment|hammer/.test(t)) return 'Machine';
+  if(/cable|rope/.test(t)) return 'Cable';
+  if(/bodyweight|bw|ab wheel|band/.test(t)) return 'Bodyweight';
+  return 'Other';
+}
 function libVisible(){ return EX_LIBRARY.filter(e=>!e.hidden); }
 function renderLibrary() {
   const el=document.getElementById('lib-inner');
@@ -2532,7 +2543,7 @@ function _libRow(n, inLib){
 function renderLibBody(){
   const el=document.getElementById('lib-body'); if(!el) return;
   let by='region'; try{ by=localStorage.getItem('tr-lib-by')||'region'; }catch(e){}
-  if(by!=='muscle') by='region';
+  if(by!=='equip') by='region';
   const vis=libVisible().map(e=>e.name);
   const q=_lib.q, m=_lib.m;
   // Figure: brighter = more of your exercises train this muscle
@@ -2547,17 +2558,16 @@ function renderLibBody(){
   if(dups.length&&!q&&!m) html+=`<div class="lib-dup" onclick="openDupList()"><div><b>${dups.length} possible duplicate${dups.length>1?'s':''}</b><div style="font-size:11px;color:var(--text2);margin-top:2px">${_esc(dups.slice(0,2).map(g=>g.map(_shortName).join(' / ')).join(' · '))}${dups.length>2?' …':''}</div></div><div style="font-weight:700">Review ›</div></div>`;
   html+=`<div style="margin:0 -16px">${bmPickerHead(fill,m,'libPickMuscle','Brighter = more of your exercises train it',chips)}</div>`;
   const list=bmFilter(vis,q,m);
-  html+=`<div class="bm-seg" style="margin:4px 0 14px"><button class="${by==='region'?'on':''}" onclick="setLibBy('region')">Body part</button><button class="${by==='muscle'?'on':''}" onclick="setLibBy('muscle')">Main muscle</button></div>`;
+  html+=`<div class="bm-seg" style="margin:4px 0 14px"><button class="${by==='region'?'on':''}" onclick="setLibBy('region')">Body part</button><button class="${by==='equip'?'on':''}" onclick="setLibBy('equip')">Equipment</button></div>`;
   if(!vis.length) html+=`<div style="text-align:center;padding:24px;color:var(--text3);font-size:13px">Your library is empty. Tap <b style="color:var(--green)">+ Add</b> or pick a starter exercise below.</div>`;
   else if(!list.length) html+=`<div style="text-align:center;padding:16px;color:var(--text3);font-size:13px">None of your exercises match.</div>`;
   else {
     const grps={};
-    if(by==='muscle'){ BM_KEYS.forEach(k=>grps[BM_M[k]]=[]); grps['Muscles not set']=[];
-      list.forEach(n=>{ const p=(m&&bmMuscles(n).p.includes(m))?m:bmMuscles(n).p[0]; grps[p?BM_M[p]:'Muscles not set'].push(n); }); }
+    if(by==='equip'){ LIB_EQUIP.forEach(q=>grps[q]=[]); list.forEach(n=>grps[libEquip(n)].push(n)); }
     else { LIB_REGIONS.forEach(r=>grps[r]=[]); list.forEach(n=>{ const r=bmRegion(n); grps[LIB_REGIONS.includes(r)?r:'Other'].push(n); }); }
     const keepOrder=!!m; // muscle filter: keep "main first" order
     Object.entries(grps).forEach(([g,exs])=>{ if(!exs.length) return;
-      if(!keepOrder) exs.sort((a,b)=>a.localeCompare(b));
+      if(!keepOrder) exs.sort(by==='equip'?((a,b)=>(LIB_REGIONS.indexOf(bmRegion(a))-LIB_REGIONS.indexOf(bmRegion(b)))||a.localeCompare(b)):((a,b)=>a.localeCompare(b)));
       html+=`<div style="margin-bottom:18px"><div class="lib-gh">${_esc(g)} <span>${exs.length}</span></div>${exs.map(n=>_libRow(n,true)).join('')}</div>`; });
   }
   // Starter exercises the user does not have yet
@@ -5809,7 +5819,7 @@ function _tool(n){ return n.match(/\(([^)]+)\)\s*$/)?.[1]||''; }
 
 // ── LOG v2: weekly timeline, newest first ───────────────────────────────────
 let _logFilter='all', _logWeeks=6;
-const APP_VERSION='v99';
+const APP_VERSION='v100';
 
 // Shared missed-day logic (Progress → Block and Log use the same list)
 // Past training days with nothing logged; a workout on a rest day makes up the oldest open miss.
